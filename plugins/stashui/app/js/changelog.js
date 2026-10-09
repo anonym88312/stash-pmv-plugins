@@ -4,6 +4,13 @@
 
 export const CHANGES = [
   {
+    v: "3.83.0",
+    date: "2026-10-09",
+    items: [
+      ["ui", "Player info bar: performer cards. Hover (or focus) a performer and a card appears with the photo, gender and country, how many scenes they are in, their age on the scene's date, their age now (or at death) and their birth date. The performer's pill itself shows the age in this scene as a small chip. If a scene has no date or the performer no birth date, the card says so instead of guessing.", "播放器信息栏：演员卡片。悬停（或聚焦）某位演员时会出现一张卡片，显示照片、性别和国家、其参演的场景数、场景日期时的年龄、现在的年龄（或去世时的年龄）以及出生日期。演员标签上还会以小徽章显示本场景中的年龄。如果场景没有日期或演员没有出生日期，卡片会如实说明，而不是猜测。"],
+    ],
+  },
+  {
     v: "3.82.1",
     date: "2026-10-09",
     items: [
