@@ -5,6 +5,9 @@ Started by backend.py (mode share_status / share_stop). Two small web servers ru
 * the PUBLIC port (the one you make reachable, e.g. with a Tailscale Funnel) answers only the paths that belong to a
   sharing link – /s/<token> (a simple page), /api/hello, /api/send and /api/msg. Every request needs a valid, switched-on,
   not expired link token. Nothing else of your PC or your Stash is reachable through it.
+* the same public port also serves WATCH links: /w/<token> (a plain page with a video player – works in any browser, no Stash UI
+  needed) and /w/<token>/video.<ext> (the one video file that link was made for, with range requests). A watch link can
+  expire, be limited to a number of viewers, be switched off or deleted. Only that one file is reachable through it.
 * the ADMIN port is for your own Stash UI (every request needs the random admin token that was made at start).
   Put only the public port on the internet, never the admin port.
 
@@ -29,7 +32,7 @@ import threading
 import time
 import urllib.parse
 
-VERSION = 1
+VERSION = 2
 PUBLIC_PORT = int(sys.argv[1])
 ADMIN_PORT = int(sys.argv[2])
 ADMIN_TOKEN = sys.argv[3]
@@ -96,6 +99,10 @@ def load_config():
 cfg = load_config()
 inbox = [x for x in read_json("inbox.json", []) if isinstance(x, dict) and os.path.exists(os.path.join(INBOX, str(x.get("file", ""))))]
 messages = read_json("messages.json", [])
+watches = [w for w in read_json("watch.json", []) if isinstance(w, dict) and w.get("token") and w.get("path")]
+viewers = {}  # (watch id, ip) → when it last asked: the same viewer counts once per half hour
+streams = {"n": 0}  # videos being sent right now
+MAX_STREAMS = 6
 sentlog = collections.deque()  # (time, who) of every accepted file – for the daily limit per sender
 
 
@@ -109,6 +116,10 @@ def save_inbox():
 
 def save_messages():
     write_json("messages.json", messages[-1000:])
+
+
+def save_watches():
+    write_json("watch.json", watches)
 
 
 # ---------- cleaning ----------
@@ -171,6 +182,142 @@ def unique_path(folder, name):
         p = os.path.join(folder, f"{stem} ({n}){ext}")
         n += 1
     return p
+
+
+# ---------- watch links ----------
+
+def find_watch(token):
+    token = str(token or "")
+    for w in watches:
+        if hmac.compare_digest(str(w["token"]).encode(), token.encode()):
+            return w
+    return None
+
+
+def watch_state(w):
+    if not w.get("enabled", True):
+        return "paused"
+    if w.get("expires") and w["expires"] < time.time():
+        return "expired"
+    if not os.path.isfile(w["path"]):
+        return "missing"
+    return "ok"
+
+
+def pub_watch(w):
+    st = watch_state(w)
+    if st == "ok" and w.get("maxViews") and w.get("views", 0) >= w["maxViews"]:
+        st = "full"
+    return {"id": w["id"], "token": w["token"], "title": w.get("title", ""), "ext": w.get("ext", ""), "size": w.get("size", 0), "scene": w.get("scene", ""),
+            "created": w.get("created"), "expires": w.get("expires"), "enabled": w.get("enabled", True), "maxViews": w.get("maxViews", 0),
+            "views": w.get("views", 0), "last": w.get("last"), "state": st}
+
+
+def viewer_ok(w, ip):
+    """Does this viewer get in? The first request of a viewer in half an hour counts as one view; a limit stops new viewers only."""
+    now = time.time()
+    with lock:
+        key = (w["id"], ip)
+        seen = viewers.get(key)
+        if seen and now - seen < 1800:
+            viewers[key] = now
+            return True
+        if w.get("maxViews") and w.get("views", 0) >= w["maxViews"]:
+            return False
+        w["views"] = w.get("views", 0) + 1
+        w["last"] = now
+        viewers[key] = now
+        save_watches()
+        return True
+
+
+def html_escape(x):
+    return str(x).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+WATCH_NOTE = {
+    "paused": "This link is switched off.", "expired": "This link has expired.", "missing": "This video isn't available any more.",
+    "full": "This link has reached its number of viewers.", "invalid": "This link isn't valid.", "busy": "Too many people are watching right now – try again in a minute.",
+}
+
+
+def note_page(kind):
+    return ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=robots content=noindex>"
+            "<title>Video</title><body style='margin:0;background:#0b0710;color:#e9e1ec;font:16px system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;text-align:center;padding:20px'>"
+            "<p>" + html_escape(WATCH_NOTE.get(kind, WATCH_NOTE["invalid"])) + "</p>")
+
+
+WATCH_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>__TITLE__</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%}
+body{background:radial-gradient(1200px 700px at 20% -10%,#3a1236 0%,#150a18 55%,#0b0710 100%) fixed;color:#f1e8f3;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;align-items:center;padding:20px 14px 28px}
+main{width:100%;max-width:1100px}
+h1{font-size:18px;font-weight:650;margin:2px 4px 12px;overflow-wrap:anywhere}
+.box{background:#000;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.08)}
+video{display:block;width:100%;max-height:82vh;background:#000}
+.miss{display:none;padding:22px;text-align:center;color:#d8cadb}
+.miss a{color:#ff7ab3}
+p.f{margin:12px 4px 0;color:#9d8fa3;font-size:13px}
+</style></head><body><main>
+<h1>__TITLE__</h1>
+<div class="box"><video id="v" controls playsinline preload="metadata"></video>
+<div class="miss" id="m">Your browser can't play this video file. <a id="d" href="#" download>Download it</a> and open it with a video player.</div></div>
+<p class="f">__NOTE__</p></main>
+<script>
+(function(){var p=location.pathname;while(p.length>1&&p.charAt(p.length-1)==="/")p=p.slice(0,-1);var base=p+"/video__EXT__",v=document.getElementById("v");
+v.src=base;v.addEventListener("error",function(){document.getElementById("d").href=base;document.getElementById("m").style.display="block";v.style.display="none"});})();
+</script></body></html>"""
+
+
+def stream_file(h, path, mime, cors=True):
+    """Send a file (or a part of it: Range) – the same for the admin and the watch links."""
+    size = os.path.getsize(path)
+    start, end, status = 0, size - 1, 200
+    m = re.fullmatch(r"bytes=(\d*)-(\d*)", h.headers.get("Range", "") or "")
+    if m and (m.group(1) or m.group(2)):
+        if m.group(1):
+            start = int(m.group(1))
+            end = int(m.group(2)) if m.group(2) else size - 1
+        else:
+            start = max(0, size - int(m.group(2)))
+        end = min(end, size - 1)
+        if start > end:
+            h.send_response(416)
+            h.send_header("Content-Range", f"bytes */{size}")
+            h.send_header("Content-Length", "0")
+            h.end_headers()
+            return
+        status = 206
+    h.send_response(status)
+    h.send_header("Content-Type", mime)
+    h.send_header("Content-Length", str(end - start + 1))
+    h.send_header("Accept-Ranges", "bytes")
+    if status == 206:
+        h.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+    h.send_header("X-Content-Type-Options", "nosniff")
+    h.send_header("X-Robots-Tag", "noindex, nofollow")
+    h.send_header("Cache-Control", "private, no-store")
+    h.send_header("Content-Disposition", "inline")
+    if cors:
+        h.send_header("Access-Control-Allow-Origin", "*")
+        h.send_header("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges")
+    h.end_headers()
+    if h.command == "HEAD":
+        return
+    try:
+        with open(path, "rb") as f:
+            f.seek(start)
+            left = end - start + 1
+            while left > 0:
+                chunk = f.read(min(1 << 20, left))
+                if not chunk:
+                    break
+                h.wfile.write(chunk)
+                left -= len(chunk)
+    except (OSError, ConnectionError):
+        h.close_connection = True
 
 
 # ---------- rules ----------
@@ -377,9 +524,44 @@ class Public(http.server.BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(204)
         self.cors()
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Range")
         self.send_header("Content-Length", "0")
         self.end_headers()
+
+    def do_HEAD(self):
+        self.do_GET()
+
+    def watch(self, token, video, ip):
+        """/w/<token> (the page) and /w/<token>/video.<ext> (the file)."""
+        if over("wreq:" + ip, 900, 60):
+            return self.send_html(429, note_page("busy"))
+        hit("wreq:" + ip)
+        if over("bad:" + ip, 30, 60):
+            return self.send_html(429, note_page("invalid"))
+        w = find_watch(token)
+        if not w:
+            hit("bad:" + ip)
+            return self.send_html(404, note_page("invalid"))
+        st = watch_state(w)
+        if st != "ok":
+            return self.send_html(410 if st in ("expired", "missing") else 423, note_page(st))
+        if not viewer_ok(w, ip):
+            return self.send_html(410, note_page("full"))
+        ext = w.get("ext") or ".mp4"
+        if not video:
+            body = WATCH_PAGE.replace("__TITLE__", html_escape(w.get("title") or "Video")).replace("__EXT__", ext).replace(
+                "__NOTE__", "Shared with a link" + (" that stops working after a while." if w.get("expires") else "."))
+            return self.send_html(200, body)
+        with lock:
+            if streams["n"] >= MAX_STREAMS:
+                return self.send_html(503, note_page("busy"))
+            streams["n"] += 1
+        try:
+            stream_file(self, w["path"], MIME.get(ext, "application/octet-stream"))
+        finally:
+            with lock:
+                streams["n"] -= 1
 
     def do_GET(self):
         u = urllib.parse.urlsplit(self.path)
@@ -387,6 +569,9 @@ class Public(http.server.BaseHTTPRequestHandler):
         ip = client_ip(self)
         if u.path == "/":
             return self.send_html(200, "<!doctype html><meta charset=utf-8><p style='font:16px system-ui;padding:20px'>Stash UI sharing</p>")
+        w = re.fullmatch(r"/w/([A-Za-z0-9_-]{8,64})(?:/(video)(\.[A-Za-z0-9]{1,5})?)?/?", u.path)
+        if w:
+            return self.watch(w.group(1), bool(w.group(2)), ip)
         m = re.fullmatch(r"/s/([A-Za-z0-9_-]{8,64})", u.path)
         if m:
             link = find_link(m.group(1))
@@ -578,6 +763,7 @@ def admin_state():
             "v": VERSION, "config": cfg, "publicPort": PUBLIC_PORT,
             "inbox": [{k: v for k, v in x.items() if k not in ("file", "ip")} for x in inbox], "used": inbox_bytes(),
             "messages": messages[-400:],
+            "watches": [pub_watch(w) for w in watches],
             "unread": sum(1 for m in messages if not m.get("read")),
         }
 
@@ -704,6 +890,8 @@ class Admin(http.server.BaseHTTPRequestHandler):
             return self.set_config(d)
         if path == "/admin/link":
             return self.links(d)
+        if path == "/admin/watch":
+            return self.watch_action(d)
         if path == "/admin/inbox":
             return self.inbox_action(d)
         if path == "/admin/block":
@@ -756,6 +944,42 @@ class Admin(http.server.BaseHTTPRequestHandler):
                     raise ValueError("unknown action")
             save_cfg()
         return {"ok": True, "links": cfg["links"]}
+
+    def watch_action(self, d):
+        act = d.get("action")
+        with lock:
+            if act == "new":
+                path = os.path.realpath(str(d.get("path") or ""))
+                ext = os.path.splitext(path)[1].lower()
+                if not os.path.isfile(path) or ext not in VID:
+                    raise ValueError("that isn't a video file")
+                if len(watches) >= 300:
+                    raise ValueError("too many watch links – delete some")
+                hours = d.get("hours")
+                w = {"id": secrets.token_hex(4), "token": secrets.token_urlsafe(18), "title": txt(d.get("title"), 80) or "Video", "path": path, "ext": ext,
+                     "size": os.path.getsize(path), "scene": txt(d.get("scene"), 20), "created": time.time(),
+                     "expires": time.time() + float(hours) * 3600 if hours else None, "enabled": True,
+                     "maxViews": max(0, min(100000, int(float(d.get("maxViews") or 0)))), "views": 0, "last": None}
+                watches.append(w)
+            else:
+                w = next((x for x in watches if x["id"] == d.get("id")), None)
+                if not w:
+                    raise ValueError("no such link")
+                if act == "set":
+                    w["enabled"] = bool(d.get("enabled"))
+                elif act == "rename":
+                    w["title"] = txt(d.get("title"), 80) or "Video"
+                elif act == "extend":
+                    hours = d.get("hours")
+                    w["expires"] = time.time() + float(hours) * 3600 if hours else None
+                    if d.get("maxViews") is not None:
+                        w["maxViews"] = max(0, min(100000, int(float(d.get("maxViews") or 0))))
+                elif act == "del":
+                    watches.remove(w)
+                else:
+                    raise ValueError("unknown action")
+            save_watches()
+        return {"ok": True, "watches": [pub_watch(x) for x in watches], "link": pub_watch(w) if act == "new" else None}
 
     def inbox_action(self, d):
         ids = [str(i) for i in d.get("ids", [])]
@@ -830,6 +1054,8 @@ def housekeeping():
         time.sleep(300)
         for k in [k for k, d in list(hits.items()) if not d or d[-1] < time.time() - 3600]:
             hits.pop(k, None)
+        for k in [k for k, t0 in list(viewers.items()) if t0 < time.time() - 1800]:
+            viewers.pop(k, None)
         for f in os.listdir(INBOX) if os.path.isdir(INBOX) else []:  # leftovers of interrupted uploads
             p = os.path.join(INBOX, f)
             try:

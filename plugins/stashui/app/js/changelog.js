@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.127.0",
+    date: "2026-10-28",
+    items: [
+      ["ui", "Watch links: in a scene's info bar, “Watch link” makes a public link to this one video – anybody can open it in a normal web browser (no Stash UI needed). Set how long it works (1 hour to 30 days or until you switch it off) and for how many people; all links are under Sharing → Watch links, where you can switch them off, extend or delete them. Needs the sharing receiver on your PC to be reachable from the internet (Sharing → My link); after the update use “Reload plugins” in Stash.", "观看链接：在场景的信息栏里，“观看链接”会为这一个视频生成公开链接——任何人都能在普通浏览器中打开（不需要 Stash UI）。可设置有效期（1 小时到 30 天，或直到你关闭）和可观看人数；所有链接都在 分享 → 观看链接 中，可随时关闭、延长或删除。需要你电脑上的分享接收器可从互联网访问（分享 → 我的链接）；更新后请在 Stash 中使用“重新加载插件”。", "scene/@scene::[data-wlink]"],
+    ],
+  },
+  {
     v: "3.126.0",
     date: "2026-10-28",
     items: [

@@ -734,7 +734,7 @@ def phone_stop(stash, args):
 #   share_accept: {"mode": "share_accept", "ids": [...], "root": "<library folder>", "name": "Shared"} → the receiver moves the
 #                 files into <root>/<name>/<sender> (checked to lie inside a library folder) → {"moved", "failed", "dirs", "folder"}
 SHARE_STATE = os.environ.get("STASHUI_SHARE_STATE") or os.path.join(tempfile.gettempdir(), "stashui-share.json")  # (the variable is for tests: a separate receiver)
-SHARE_V = 1
+SHARE_V = 2
 
 
 def share_dir(conn):
@@ -880,6 +880,29 @@ def share_accept(stash, args, conn):
     os.makedirs(folder, exist_ok=True)
     ids = [str(i) for i in (args.get("ids") or [])]
     return share_call(st, "/admin/inbox", {"action": "move", "ids": ids, "folder": folder}, timeout=600)
+
+
+# Watch links: a public link to ONE video – anybody can watch it in a normal browser (no Stash UI needed), as long as the link is
+# valid. The receiver (sharing.py) serves the page and the file; this mode only checks which file it is.
+#   watch_new: {"mode": "watch_new", "scene": "<id>", "hours": 24 | null, "maxViews": 0, "title": "…"} → {"link": {…}, "watches": [...]}
+#              (the file has to lie inside a library folder of Stash; the receiver is started if it isn't running)
+def watch_new(stash, args, conn):
+    sid = str(args.get("scene") or "")
+    if not sid.isdigit():
+        raise ValueError("no scene")
+    f = stash.gql("query($id: ID!) { findScene(id: $id) { files { path basename } title } }", {"id": sid})["findScene"]
+    if not f or not f.get("files"):
+        raise ValueError("the scene has no file")
+    path = f["files"][0]["path"]
+    roots, _ = libraries(stash)
+    if not inside(path, roots):
+        raise ValueError("only videos inside a library folder of Stash can be shared")
+    if not os.path.isfile(path):
+        raise ValueError("this file can't be found on the computer Stash runs on")
+    share_status(stash, {"ensure": True}, conn)
+    st = share_load()
+    title = str(args.get("title") or "").strip() or f.get("title") or os.path.splitext(f["files"][0].get("basename") or "Video")[0]
+    return share_call(st, "/admin/watch", {"action": "new", "path": path, "scene": sid, "title": title, "hours": args.get("hours") or None, "maxViews": args.get("maxViews") or 0})
 
 
 # Internet access for the receiver (Sharing → Public address → "Make reachable from the internet"): runs a program that is
@@ -2095,6 +2118,8 @@ def main():
             out = phone_stop(Stash(data.get("server_connection")), args)
         elif mode == "share_status":
             out = share_status(Stash(data.get("server_connection")), args, data.get("server_connection"))
+        elif mode == "watch_new":
+            out = watch_new(Stash(data.get("server_connection")), args, data.get("server_connection"))
         elif mode == "share_net":
             out = share_net(Stash(data.get("server_connection")), args, data.get("server_connection"))
         elif mode == "share_stop":

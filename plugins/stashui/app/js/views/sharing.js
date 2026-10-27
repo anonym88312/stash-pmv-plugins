@@ -13,9 +13,10 @@ import { tagsCache } from "./tagpicker.js";
 import { mountSend } from "./sharesend.js";
 import { mountChat } from "./sharechat.js";
 import { mountGuide } from "./shareguide.js";
+import { mountWatch } from "./sharewatch.js";
 
-const TABS = ["inbox", "link", "send", "chat", "guide"];
-const LABEL = { inbox: "Inbox", link: "My link", send: "Send", chat: "Chat", guide: "Guide" };
+const TABS = ["inbox", "link", "watch", "send", "chat", "guide"];
+const LABEL = { inbox: "Inbox", link: "My link", watch: "Watch links", send: "Send", chat: "Chat", guide: "Guide" };
 const timeText = (sec) => new Date(sec * 1000).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export const avatarHtml = (a, name, cls = "") =>
@@ -77,7 +78,7 @@ export async function render(main, params) {
     main.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("is-on", b.dataset.tab === k));
     if (pane && pane.destroy) pane.destroy();
     paneEl.innerHTML = "";
-    const mk = { inbox: mountInbox, link: mountLink, send: mountSend, chat: mountChat, guide: mountGuide }[k];
+    const mk = { inbox: mountInbox, link: mountLink, watch: mountWatch, send: mountSend, chat: mountChat, guide: mountGuide }[k];
     pane = mk(paneEl, ctx);
     pane.update && pane.update();
   }
