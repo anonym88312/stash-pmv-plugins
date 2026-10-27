@@ -271,6 +271,7 @@ span.kb-tree-caret { display: inline-block; }
 }
 .kb-btn.is-ghost { background: transparent; border-color: transparent; color: var(--text-2); }
 .kb-btn.is-ghost:hover { color: var(--text); background: var(--bg-2); }
+.kb-btn.is-ghost[data-auto].is-on { color: var(--pink); }
 .kb-btn.is-on { color: var(--ink); background: var(--pink); border-color: var(--pink); }
 .kb-btn.is-icon { width: 36px; padding: 0; justify-content: center; }
 
@@ -395,6 +396,7 @@ a.kb-chip:hover, button.kb-chip:hover { background: rgba(180, 140, 255, .28); }
 .kb-scard-studio.at-br { top: auto; bottom: 36px; }
 .kb-scard-studio img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .85)); }
 .kb-scard-studio.is-name { height: auto; padding: 3px 7px; overflow: hidden; border-radius: 4px; color: #fff; font: 700 11.5px/1.2 var(--f-label); white-space: nowrap; text-overflow: ellipsis; background: rgba(0, 0, 0, .6); }
+.kb-scard-heat { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; height: 5px; background-size: 100% 100%; background-repeat: no-repeat; opacity: .92; pointer-events: none; }
 .kb-scard-rating { position: absolute; bottom: 8px; left: 8px; z-index: 2; pointer-events: none; transition: opacity .15s; }
 .kb-scard-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 10px 12px 10px; }
 .kb-scard-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--text); font: 700 15px/1.25 var(--f-text); }

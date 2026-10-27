@@ -2544,4 +2544,7 @@ export default {
   "Current time": "Bieżący czas",
   "Length:": "Długość:",
   "Start from:": "Zacznij od:",
+  "All previews in view play by themselves, like the wall of classic Stash": "Wszystkie widoczne podglądy odtwarzają się same, jak ściana w klasycznym Stashu",
+  "Autoplay": "Autoodtwarzanie",
+  "Always, and all in view play by themselves": "Zawsze, a wszystko widoczne odtwarza się samo",
 };

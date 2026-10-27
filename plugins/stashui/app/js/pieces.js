@@ -158,6 +158,7 @@ function cardOverlays(p) {
     `<div class="kb-scard-over">` +
     (x.studio ? `<a class="kb-scard-studio at-${["tl", "tr", "bl", "br"].includes(store.get("studioPos", null)) ? store.get("studioPos", null) : "tr"}${logo ? "" : " is-name"}" href="#/studio/${x.studio.id}" title="${esc(x.studio.name)}">${logo ? `<img alt="${esc(x.studio.name)}" loading="lazy" src="${esc(x.studio.image_path)}">` : esc(x.studio.name)}</a>` : "") +
     (x.rating100 && badgePos("badgeRating") === "auto" ? ratingBadge(x.rating100, " kb-scard-rating") : "") +
+    (x.interactive && x.paths && x.paths.interactive_heatmap ? `<div class="kb-scard-heat" style="background-image:url('${esc(x.paths.interactive_heatmap)}')"></div>` : "") +
     `</div>`
   );
 }
@@ -269,6 +270,8 @@ export class Hang {
     this.cleanups = []; // (of the extensions' cards: key → function)
     this.cleanupBy = new Map();
     this.nodes = new Map();
+    this.autoSeen = new Set(); // ("play by themselves": the thumbnails in view / the ones that have a running preview)
+    this.autoVids = new Set();
     this.cardNodes = new Map(); // (card view: the wrapper with the details under a picture)
     this.page = 0;
     this.count = null;
@@ -303,6 +306,7 @@ export class Hang {
     this.io.disconnect();
     this.ro.disconnect();
     this.stopPreview();
+    this.autoStop();
     this.cleanupBy.forEach((f) => {
       try {
         f();
@@ -447,6 +451,7 @@ export class Hang {
         grid.appendChild(c);
       }
       this.rowsEl.replaceChildren(grid);
+      this.autoWatch();
       return;
     }
     for (const p of seq) {
@@ -473,6 +478,7 @@ export class Hang {
       frag.appendChild(div);
     }
     this.rowsEl.replaceChildren(frag);
+    this.autoWatch();
   }
 
   // Update one piece (e.g. after favorite/edit) without reloading everything
@@ -618,6 +624,7 @@ export class Hang {
       if (!n || n === this.hoverNode) return;
       this.hoverNode = n;
       this.stopPreview();
+      if (n._auto) return this.autoSound(n, true); // (it runs already: only the sound comes on)
       const p = n._piece;
       if (!p || !p.preview || !previewsOn()) return;
       this.previewTimer = setTimeout(() => this.startPreview(n, p), 280);
@@ -665,7 +672,92 @@ export class Hang {
     this.previewEl = v;
     this.previewNode = n;
   }
+  // "Play by themselves" (Settings → Hover previews, or the Autoplay button over the list): the previews of the thumbnails in view run
+  // muted and in a loop, like the wall of classic Stash – at most a dozen at once, the ones nearest the middle of the screen.
+  autoOn() {
+    return store.get("previewMode", "on") === "auto";
+  }
+  autoWatch() {
+    if (!this.autoOn()) return this.autoStop();
+    if (!this.autoIO) {
+      this.autoIO = new IntersectionObserver(
+        (es) => {
+          for (const e of es) e.intersectionRatio >= 0.4 ? this.autoSeen.add(e.target) : this.autoSeen.delete(e.target);
+          this.autoSoon();
+        },
+        { threshold: [0, 0.4] }
+      );
+    }
+    for (const n of this.nodes.values()) {
+      const p = n._piece;
+      if (p && p.preview && !p.previewImg && !p.foreign) this.autoIO.observe(n);
+    }
+    this.autoSoon();
+  }
+  autoSoon() {
+    clearTimeout(this.autoT);
+    this.autoT = setTimeout(() => this.autoPlay(), 150);
+  }
+  autoPlay() {
+    if (!this.autoOn() || document.hidden) return;
+    const mid = innerHeight / 2;
+    const most = matchMedia("(pointer: coarse)").matches ? 6 : 12;
+    const near = [...this.autoSeen]
+      .filter((n) => n.isConnected)
+      .map((n) => {
+        const r = n.getBoundingClientRect();
+        return [Math.abs(r.top + r.height / 2 - mid), n];
+      })
+      .sort((a, b) => a[0] - b[0])
+      .slice(0, most)
+      .map((x) => x[1]);
+    const keep = new Set(near);
+    [...this.autoVids].forEach((n) => keep.has(n) || this.autoDrop(n));
+    for (const n of keep) {
+      if (!n._auto) this.autoAdd(n);
+      else if (n._auto.paused) n._auto.play().catch(() => {}); // (moving a thumbnail in the page stops its video)
+    }
+  }
+  autoAdd(n) {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.loop = true;
+    v.playsInline = true;
+    v.preload = "auto";
+    v.src = n._piece.preview;
+    v.addEventListener("playing", () => n.classList.add("is-previewing"), { once: true });
+    n.appendChild(v);
+    v.play().catch(() => {});
+    n._auto = v;
+    this.autoVids.add(n);
+  }
+  autoDrop(n) {
+    const v = n._auto;
+    if (v) {
+      v.pause();
+      v.removeAttribute("src");
+      v.load();
+      v.remove();
+    }
+    n._auto = null;
+    this.autoVids.delete(n);
+    if (this.previewNode !== n) n.classList.remove("is-previewing");
+  }
+  autoSound(n, on) {
+    if (n._auto) n._auto.muted = !on || !store.get("previewSound", true) || store.get("player", {}).muted === true;
+  }
+  autoStop() {
+    clearTimeout(this.autoT);
+    [...this.autoVids].forEach((n) => this.autoDrop(n));
+    this.autoSeen.clear();
+    if (this.autoIO) {
+      this.autoIO.disconnect();
+      this.autoIO = null;
+    }
+  }
+
   stopPreview() {
+    this.autoVids.forEach((n) => this.autoSound(n, false));
     clearTimeout(this.previewTimer);
     if (this.previewEl) {
       if (this.previewEl.pause) {

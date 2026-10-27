@@ -2603,4 +2603,7 @@ export default {
   "Current time": "当前时间",
   "Length:": "长度：",
   "Start from:": "从此开始：",
+  "All previews in view play by themselves, like the wall of classic Stash": "视野内的所有预览自动播放，就像经典 Stash 的墙视图",
+  "Autoplay": "自动播放",
+  "Always, and all in view play by themselves": "始终，且视野内的全部自动播放",
 };

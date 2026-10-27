@@ -2539,4 +2539,7 @@ export default {
   "Current time": "Thời điểm hiện tại",
   "Length:": "Độ dài:",
   "Start from:": "Bắt đầu từ:",
+  "All previews in view play by themselves, like the wall of classic Stash": "Mọi bản xem trước đang hiển thị tự phát, giống bức tường của Stash cổ điển",
+  "Autoplay": "Tự phát",
+  "Always, and all in view play by themselves": "Luôn luôn, và mọi thứ đang hiển thị tự phát",
 };

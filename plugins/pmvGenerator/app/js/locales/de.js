@@ -2500,4 +2500,7 @@ export default {
   "Current time": "Aktuelle Zeit",
   "Length:": "Länge:",
   "Start from:": "Anfangen bei:",
+  "All previews in view play by themselves, like the wall of classic Stash": "Alle sichtbaren Vorschauen laufen von selbst – wie die Wand im klassischen Stash",
+  "Autoplay": "Autoplay",
+  "Always, and all in view play by themselves": "Immer, und alles Sichtbare läuft von selbst",
 };

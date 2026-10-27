@@ -2546,4 +2546,7 @@ export default {
   "Current time": "現在の時刻",
   "Length:": "長さ：",
   "Start from:": "開始位置：",
+  "All previews in view play by themselves, like the wall of classic Stash": "表示中のプレビューがすべて自動で再生されます（従来の Stash のウォールのように）",
+  "Autoplay": "自動再生",
+  "Always, and all in view play by themselves": "常に再生、表示中のものはすべて自動再生",
 };

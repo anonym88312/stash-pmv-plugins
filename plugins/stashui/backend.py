@@ -78,6 +78,9 @@ Called through Stash's `runPluginOperation` (interface: raw):
   resource search and download hand-over, set up under Discover → Settings.
       args:   {"mode": "box_gql", "endpoint": "<stash-box>", "query": "...", "variables": {}, "timeout": 15}
       output: {"data"} | {"errors"} | {"kind": "timeout|network|auth|blocked|parse", "message"}
+  "box_rest" asks the REST list of ThePornDB (api.theporndb.net, only when that box is set up in Stash) the same way – its stash-box
+  list questions are broken, the new Discover version reads the lists from there.
+      args:   {"mode": "box_rest", "endpoint": "<stash-box>", "path": "/scenes?...", "timeout": 15}      output: like box_gql
 
 * mode "box_images": up to 16 cover pictures of a stash-box in one call (fetched side by side): {"endpoint", "urls": [...]} →
   {"data": {url: data address}} – "box_image" is the same for one picture.
@@ -1839,6 +1842,35 @@ def box_gql(stash, args):
     return {"data": d.get("data")}
 
 
+def box_rest(stash, args):
+    """GET on the REST API of ThePornDB, with the key Stash has for that box. Only https://api.theporndb.net, only when the box is
+    set up in Stash with a theporndb.net address; the page gives the path (no host)."""
+    box = box_of(stash, args.get("endpoint"))
+    if not re.search(r"(^|//|\.)theporndb\.net(/|$)", str(box.get("endpoint") or ""), re.I):
+        raise ValueError("this is not a ThePornDB box")
+    path = str(args.get("path") or "")
+    if not re.match(r"^/[A-Za-z0-9_\-./?=&%,\[\]+:]*$", path) or path.startswith("//"):
+        raise ValueError("bad path")
+    headers = {"Accept": "application/json", "User-Agent": "Stash-UI-plugin"}
+    if box.get("api_key"):
+        headers["Authorization"] = "Bearer " + str(box["api_key"])
+    timeout = max(5, min(60, int(args.get("timeout") or 15)))
+    req = urllib.request.Request("https://api.theporndb.net" + path, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            raw = res.read()
+    except urllib.error.HTTPError as e:
+        return {"kind": "auth" if e.code in (401, 403) else "blocked", "message": f"HTTP {e.code}"}
+    except (socket.timeout, TimeoutError):
+        return {"kind": "timeout", "message": "timeout"}
+    except urllib.error.URLError as e:
+        return {"kind": "timeout" if isinstance(e.reason, (socket.timeout, TimeoutError)) else "network", "message": str(e.reason)}
+    try:
+        return {"data": json.loads(raw.decode("utf-8", "replace"))}
+    except ValueError:
+        return {"kind": "parse", "message": "non-JSON response"}
+
+
 def ssd_settings(stash):
     plugins = stash.gql("query { configuration { plugins } }")["configuration"].get("plugins") or {}
     raw = (plugins.get("stashui") or {}).get("ssd")
@@ -1857,9 +1889,9 @@ def ssd_http(url, method="GET", data=None, headers=None, timeout=30):
     req = urllib.request.Request(url, data=body, headers=h, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status, resp.read().decode("utf-8", errors="replace"), dict(resp.headers)
+            return resp.status, resp.read().decode("utf-8", errors="replace"), resp.headers
     except urllib.error.HTTPError as e:
-        return e.code, (e.read().decode("utf-8", errors="replace") if e.fp else ""), dict(e.headers or {})
+        return e.code, (e.read().decode("utf-8", errors="replace") if e.fp else ""), (e.headers or {})
     except Exception as e:  # noqa: BLE001
         return 0, str(e), {}
 
@@ -1942,11 +1974,33 @@ def ssd_search(stash, args):
     if not url.endswith("/torznab"):
         url = url + "/torznab" if "/api/v2." in url else url + "/api/v2.0/indexers/all/results/torznab"
     full = f"{url}{'&' if '?' in url else '?'}apikey={urllib.parse.quote(key)}&q={urllib.parse.quote(query)}"
-    status, body, _ = ssd_http(full, timeout=30)
+    try:  # a search over many indexers can take a while: 120 s unless set otherwise (10 to 600)
+        wait = max(10, min(600, int(str(cfg.get("jackettTimeout") or "120").strip())))
+    except ValueError:
+        wait = 120
+    status, body, _ = ssd_http(full, timeout=wait)
     if status != 200:
         raise RuntimeError(f"Jackett request failed (HTTP {status}): {body[:200]}")
     results = ssd_torznab(body)
-    return {"mode": "search", "query": query, "count": len(results), "results": results[:50]}
+    shown = results[:50]
+    # count is everything Jackett found, "shown" what is sent on – the page says so when the list is cut
+    return {"mode": "search", "query": query, "count": len(results), "shown": len(shown), "truncated": len(results) > 50, "results": shown}
+
+
+def ssd_session_cookie(headers):
+    """qBittorrent up to 5.1 sends SID=..., 5.2 and later QBT_SID_<port>=... (maybe in several Set-Cookie lines)."""
+    lines = []
+    try:
+        lines = headers.get_all("Set-Cookie") or []
+    except AttributeError:
+        lines = [v for k, v in (headers or {}).items() if k.lower() == "set-cookie"]
+    pairs = []
+    for line in lines:
+        for part in re.split(r",\s*(?=[^=;,\s]+=)", line or ""):
+            m = re.match(r"\s*([^=;,\s]+)=([^;,]*)", part)
+            if m and "SID" in m.group(1).upper():
+                pairs.append(f"{m.group(1)}={m.group(2)}")
+    return "; ".join(pairs)
 
 
 def ssd_push(stash, args):
@@ -1961,15 +2015,9 @@ def ssd_push(stash, args):
     if not re.match(r"^https?://", base, re.I):
         raise ValueError("The downloader URL has to start with http:// or https://")
     status, body, headers = ssd_http(base + "/api/v2/auth/login", "POST", {"username": str(cfg.get("downloaderUsername") or ""), "password": str(cfg.get("downloaderPassword") or "")}, timeout=15)
-    if status != 200 or body.strip() != "Ok.":
+    if not (status == 204 or (status == 200 and body.strip() == "Ok.")):  # 5.3 answers 204 without a body
         raise RuntimeError(f"qBittorrent login failed (HTTP {status}): {body[:100]}")
-    cookie = ""
-    for k, v in headers.items():
-        if k.lower() == "set-cookie":
-            m = re.search(r"(SID=[^;]+)", v)
-            if m:
-                cookie = m.group(1)
-                break
+    cookie = ssd_session_cookie(headers)
     if not cookie:
         raise RuntimeError("qBittorrent login did not return a session cookie.")
     status, body, _ = ssd_http(base + "/api/v2/torrents/add", "POST", {"urls": magnet}, {"Cookie": cookie}, timeout=15)
@@ -2033,6 +2081,8 @@ def main():
             out = edit_render(Stash(data.get("server_connection")), args)
         elif mode == "box_gql":
             out = box_gql(Stash(data.get("server_connection")), args)
+        elif mode == "box_rest":
+            out = box_rest(Stash(data.get("server_connection")), args)
         elif mode == "ssd_search":
             out = ssd_search(Stash(data.get("server_connection")), args)
         elif mode == "ssd_push":

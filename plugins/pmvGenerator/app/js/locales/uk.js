@@ -2579,4 +2579,7 @@ export default {
   "Current time": "Поточний час",
   "Length:": "Тривалість:",
   "Start from:": "Почати з:",
+  "All previews in view play by themselves, like the wall of classic Stash": "Усі видимі превʼю відтворюються самі, як стіна в класичному Stash",
+  "Autoplay": "Автовідтворення",
+  "Always, and all in view play by themselves": "Завжди, і все видиме відтворюється саме",
 };

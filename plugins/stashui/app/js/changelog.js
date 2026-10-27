@@ -7,6 +7,16 @@
 
 export const CHANGES = [
   {
+    v: "3.125.0",
+    date: "2026-10-28",
+    items: [
+      ["ui", "Scene cards show the funscript heatmap as a thin strip at the bottom of the picture (interactive scenes only), like classic Stash.", "场景卡片在图片底部以细条显示 funscript 热力图（仅限互动场景），与经典 Stash 一致。", "scenes::[data-viewseg]"],
+      ["ui", "Scenes can be sorted by frame rate (the sort list in the toolbar).", "场景现在可按帧率排序（工具栏中的排序列表）。", "scenes::[data-sort]"],
+      ["ui", "Autoplay: a button next to “Sound” in the Scenes toolbar (and a choice under Settings → This interface → Hover previews) lets all previews in view play by themselves – muted, in a loop, at most a dozen at once, the ones near the middle first. Pointing at one brings its sound on.", "自动播放：场景工具栏中“声音”旁的按钮（以及设置 → 此界面 → 悬停预览中的选项）可让视野内的所有预览自动播放——静音、循环，最多同时十二个，优先中间的。鼠标指向某一个时会开启其声音。", "scenes::[data-auto]"],
+      ["ui", "Discover → Overview now has the code of stashDiscover 2.4.7 (ufousox007): ThePornDB lists through its REST interface (the key stays in Stash UI's backend), a Jackett timeout setting (Discover → Settings, default 120 s), a note when the Jackett list is cut, qBittorrent 5.2 / 5.3 logins, news about the studio and performer views.", "“发现 → 概览”现在采用 stashDiscover 2.4.7（ufousox007）的代码：ThePornDB 列表改用其 REST 接口（密钥仍保存在 Stash UI 后端）、Jackett 超时设置（发现 → 设置，默认 120 秒）、Jackett 列表被截断时的提示、支持 qBittorrent 5.2 / 5.3 登录，以及工作室和演员视图的改进。"],
+    ],
+  },
+  {
     v: "3.124.1",
     date: "2026-10-26",
     items: [

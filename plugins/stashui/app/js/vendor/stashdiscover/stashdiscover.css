@@ -649,11 +649,12 @@
 }
 .ssd-modal {
   position: relative;
+  display: flex !important;
+  flex-direction: column;
   max-width: 820px !important;
   width: 100% !important;
   max-height: calc(100vh - 60px) !important;
-  overflow-y: auto !important;
-  scrollbar-gutter: stable !important;
+  overflow: hidden !important;
   margin: auto 0 !important;
   background: var(--ssd-modal-bg) !important;
   border-radius: 8px !important;
@@ -661,17 +662,26 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
 }
+/* 内容内层滚动：关闭按钮悬浮在弹窗右上角，不随内容滚出视野
+   （与 .ssd-dp-modal-body 同构 — 用户 2026-10-27） */
+.ssd-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  border-radius: inherit;
+}
 .ssd-modal-close {
   position: absolute;
   top: 10px;
   right: 12px;
   z-index: 10;
-  width: 32px;
-  height: 32px;
-  border: none;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 4px;
-  background: #555;
-  color: #ddd;
+  background: rgba(20, 20, 20, 0.7);
+  color: #fff;
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
@@ -724,16 +734,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, border-color 0.15s;
+  opacity: 0.42; /* 左右翻页弱化，避免与悬浮关闭按钮抢视线（用户 2026-10-27） */
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
   z-index: 5;
   line-height: 1;
 }
 .ssd-carousel-nav:hover:not(:disabled) {
+  /* 激活/悬停态也保持半透明，不抢关闭按钮视线（用户 2026-10-27） */
+  opacity: 0.7;
   background: rgba(0, 0, 0, 0.85);
   border-color: rgba(255, 255, 255, 0.5);
 }
+.ssd-carousel-nav:active:not(:disabled) { opacity: 0.55; }
 .ssd-carousel-nav:disabled {
-  opacity: 0.3;
+  opacity: 0.2;
   cursor: default;
 }
 .ssd-carousel-prev { left: 14px; }
@@ -894,6 +908,13 @@
   font-weight: 600;
   color: var(--ssd-modal-text);
   margin-bottom: 10px;
+}
+/* 结果被截断时的说明行（总数 vs 实际下发条数） */
+.ssd-search-truncated {
+  font-size: 12px;
+  color: var(--ssd-modal-muted);
+  margin: -6px 0 10px;
+  line-height: 1.4;
 }
 .ssd-search-loading {
   font-size: 13px;
@@ -1154,8 +1175,14 @@
 
 .ssd-dp-chip b { color: var(--sx-tx); font-weight: 600; }
 
-.ssd-dp-head .ssd-dp-refresh {
+/* 状态文字吸在刷新按钮左侧：文字变长只向左生长，按钮位置不动
+   （用户 2026-10-27：要在最右且不能被文字挤走） */
+.ssd-dp-updated {
+  font-size: 12px;
+  color: var(--sx-tx3);
+  white-space: nowrap;
   margin-left: auto;
+  text-align: right;
 }
 
 .ssd-dp-refresh {
@@ -1179,14 +1206,22 @@
 .ssd-dp-refresh:hover { color: var(--sx-hi); border-top-color: var(--sx-edge); }
 .ssd-dp-refresh:disabled { opacity: 0.5; cursor: default; }
 
+/* 按钮内的刷新图标：svg 无 width/height 属性时在 flex 里会被压成 0 宽
+   而不显示（用户 2026-10-27 反馈「刷新前没有转圈符号」） */
+.ssd-dp-refresh svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+  flex: none;
+  /* 文字「刷新」跟随主题，图标单独带色（用户 2026-10-27）——
+     与文字色 mixed 一次，明暗主题下都不糊 */
+  color: color-mix(in srgb, #38bdf8 80%, var(--sx-tx1b));
+  transition: filter 0.15s;
+}
+.ssd-dp-refresh:hover svg { filter: brightness(1.15) saturate(1.08); }
+
 .ssd-dp-refresh svg.spinning { animation: ssd-dp-spin 0.9s linear infinite; }
 @keyframes ssd-dp-spin { to { transform: rotate(360deg); } }
-
-.ssd-dp-updated {
-  font-size: 12px;
-  color: var(--sx-tx3);
-  white-space: nowrap;
-}
 
 /* ─── 滑动开关组（§3.1.2，InsightsI18n .ins-tabs 胶囊风格）───────────────── */
 
@@ -1221,6 +1256,20 @@
 }
 
 .ssd-dp-tab svg { width: 1em; height: 1em; flex: none; }
+
+/* ─── 主 tab 图标配色（用户 2026-10-27）─────────────────────────────────
+   文字仍跟随主题（--sx-tx1b / --sx-hi），只有图标各带色相，便于扫读定位。
+   每个色值都与当前文字色 mixed 一次：深色主题下文字色偏亮 → 图标自动提亮，
+   浅色主题下偏暗 → 图标自动压深。同一套色值在两种主题下都不会糊。
+   设置是工具入口而非内容分类，保持中性色，不参与配色。 */
+.ssd-dp-tab[data-view="overview"] svg   { color: color-mix(in srgb, #60a5fa 78%, var(--sx-tx1b)); }
+.ssd-dp-tab[data-view="follow"] svg     { color: color-mix(in srgb, #f472b6 78%, var(--sx-tx1b)); }
+.ssd-dp-tab[data-view="latest"] svg     { color: color-mix(in srgb, #34d399 78%, var(--sx-tx1b)); }
+.ssd-dp-tab[data-view="trending"] svg   { color: color-mix(in srgb, #fb923c 78%, var(--sx-tx1b)); }
+.ssd-dp-tab[data-view="performers"] svg { color: color-mix(in srgb, #a78bfa 78%, var(--sx-tx1b)); }
+.ssd-dp-tab[data-view="studios"] svg    { color: color-mix(in srgb, #22d3ee 78%, var(--sx-tx1b)); }
+/* 悬停/选中只提亮，不改色相 */
+.ssd-dp-tab:hover svg, .ssd-dp-tab.on svg { filter: brightness(1.12) saturate(1.06); }
 
 .ssd-dp-tab:hover { color: var(--sx-hi); }
 
@@ -1348,12 +1397,25 @@
   font-weight: 650;
   color: var(--sx-hi);
   display: inline-flex;
-  align-items: center;
+  /* 基线对齐而不是居中：标题右侧还有「0 位演员 · 回看 30 天」这类小字，
+     只有按文字基线对齐才看着是一行（用户 2026-10-27 反馈错位）。 */
+  align-items: baseline;
   gap: 0.45rem;
   margin: 0;
 }
 
-.ssd-dp-sec-title svg { width: 1em; height: 1em; color: var(--sx-acc); }
+.ssd-dp-sec-title svg { width: 1em; height: 1em; color: var(--sx-acc); align-self: center; }
+
+/* ─── 总览模块标题图标配色（用户 2026-10-27）─────────────────────────────
+   与主 tab 图标同一套色相，扫读时「关注/最新/热门」在页面上下能对应起来。
+   同样与 --sx-tx1b mixed 一次，深浅主题自动适配，不写死亮度。
+   「即将发布」无对应 tab，取唯一剩余的蓝（未来感），与热门橙拉开距离。 */
+.ssd-dp-sec[data-mod="actors"] .ssd-dp-sec-title svg     { color: color-mix(in srgb, #f472b6 78%, var(--sx-tx1b)); }
+.ssd-dp-sec[data-mod="latest"] .ssd-dp-sec-title svg     { color: color-mix(in srgb, #34d399 78%, var(--sx-tx1b)); }
+.ssd-dp-sec[data-mod="trending"] .ssd-dp-sec-title svg   { color: color-mix(in srgb, #fb923c 78%, var(--sx-tx1b)); }
+.ssd-dp-sec[data-mod="preview"] .ssd-dp-sec-title svg    { color: color-mix(in srgb, #60a5fa 78%, var(--sx-tx1b)); }
+.ssd-dp-sec[data-mod="studios"] .ssd-dp-sec-title svg    { color: color-mix(in srgb, #22d3ee 78%, var(--sx-tx1b)); }
+.ssd-dp-sec[data-mod="performers"] .ssd-dp-sec-title svg { color: color-mix(in srgb, #a78bfa 78%, var(--sx-tx1b)); }
 
 .ssd-dp-sec-count { font-size: 12px; color: var(--sx-tx2); }
 
@@ -1436,8 +1498,11 @@
 
 .ssd-nav-item .ssd-nav-badge {
   position: absolute;
+  /* 左上角（用户 2026-10-27）：右上角与「发现」文字重叠 10px，左上角是空位，
+     压到 logo 一点无妨。 */
   top: 2px;
-  right: 2px;
+  left: 2px;
+  z-index: 2;
   min-width: 15px;
   height: 15px;
   padding: 0 4px;
@@ -1528,18 +1593,20 @@
 .ssd-dp-tab .ssd-dp-tab-dot { margin-left: 2px; }
 .ssd-dp-tab.set { margin-left: 6px; }
 
-/* 刷新按钮旋转 */
-.ssd-dp-refresh svg.spinning { animation: ssd-dp-spin 0.9s linear infinite; }
-@keyframes ssd-dp-spin { to { transform: rotate(360deg); } }
+/* 刷新按钮旋转动画见上方 .ssd-dp-refresh svg.spinning */
 
 /* 模块内场景网格（复用主 JS .ssd-card-grid 的卡片类；容器改为 CSS grid）。
    原容器的 flex-wrap + 卡片 margin:0 auto 有两个问题：a) 在 .ssd-dp-sec 的
    flex column 里塌缩到内容宽（卡少时缩成单列）；b) 图片加载前卡的
    aspect-ratio 链未定，卡片被瞬时拉到整行宽（trimRows 行数测量失真）。
    grid 列结构（minmax 230px = zoom-0 标准卡宽）不依赖图片加载，布局即刻稳定 */
+/* 场景网格列宽：minmax 从 230 降到 210 —— 230 在临界宽度会"差几像素掉一列"，
+   平板竖屏尤其明显（768 档内容宽 695，3 列需 710 差 15px；1024 的 duo 半宽 468，
+   2 列需 470 差 2px 直接掉成 1 列）。210 让 695 能排 3 列，卡片仍有 225px
+   （用户 2026-10-27 iPad 实测） */
 .ssd-dp-page .ssd-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 10px;
 }
 .ssd-dp-page .ssd-card-grid .scene-card { margin: 0; }
@@ -1560,22 +1627,44 @@
   padding: 10px;
   border: 1px solid var(--sx-ui3);
   border-radius: 10px;
-  background: var(--sx-ui);
+  /* 卡片底色走变量：爱心的背景圈要跟卡片同一色才会「隐身」，
+     已关注卡改了底色时不必再维护第二处色值（用户 2026-10-27） */
+  --ssd-mini-bg: var(--sx-ui);
+  background: var(--ssd-mini-bg);
   cursor: pointer;
   overflow: visible; /* badge 凸出到卡外右上角，不能裁剪 — 用户 2026-10-25 */
-  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
 }
 .ssd-dp-mini:hover {
   transform: translateY(-2px);
   border-color: var(--sx-edge);
   box-shadow: var(--sx-sh);
 }
-.ssd-dp-mini img {
+/* 已关注：底色按主题主色轻染（10%），描边同色加深。
+   全部用 color-mix 在现有 token 上算，切主题/明暗自动跟随，不写死任何色值。
+   只在「混排列表」（有新发布的演员、演员筛选视图）里出现——
+   关注页用的是行式卡片（.ssd-dp-fgrp），不在这一套里。 */
+.ssd-dp-mini.is-followed {
+  --ssd-mini-bg: color-mix(in srgb, var(--sx-acc) 10%, var(--sx-ui));
+  border-color: color-mix(in srgb, var(--sx-acc) 35%, var(--sx-ui3));
+}
+/* hover 要压过上面的描边（同特异性后写生效），所以单独给已关注卡一档 */
+.ssd-dp-mini.is-followed:hover {
+  border-color: color-mix(in srgb, var(--sx-acc) 62%, var(--sx-ui3));
+}
+/* 头像框：爱心要骑在圆形边框左下角，需要这个定位基准 */
+.ssd-dp-mini-ava {
+  position: relative;
+  flex: none;
   width: 44px;
   height: 44px;
+}
+.ssd-dp-mini-ava img {
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   object-fit: cover;
-  flex: none;
   background: var(--sx-ui2);
 }
 .ssd-dp-mini-name {
@@ -1588,13 +1677,18 @@
 }
 .ssd-dp-mini-sub {
   font-size: 11.5px;
-  color: var(--sx-tx3);
+  /* tx3 在深色主题下只有约 2:1 对比度，日期几乎糊进卡片底色（用户 2026-10-27）。
+     tx2 是站内统一的「次级文字」档，实测 4.0:1，仍低于标题但能看清。 */
+  color: var(--sx-tx2);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ssd-dp-mini-sub.has-unread { color: var(--sx-re-tx); font-weight: 600; }
+/* 不可断行的片段（日期等）：折行只允许发生在外层空格处，
+   否则浏览器会在连字符后断开，出现「2026-10-」/「08」这种半截日期 */
+.ssd-dp-nw { white-space: nowrap; }
 .ssd-dp-mini-badge {
   position: absolute;
   /* 骑在卡片右上角外沿（不再叠在名字行上）— 用户 2026-10-25 */
@@ -1612,14 +1706,47 @@
 }
 .ssd-dp-mini-badge.co { background: color-mix(in srgb, var(--sx-bl) 18%, transparent); color: var(--sx-bl-tx); }
 .ssd-dp-mini-badge.hot { background: color-mix(in srgb, var(--sx-or) 18%, transparent); color: var(--sx-or-tx); }
+/* 已关注爱心：骑在圆形头像边框左下角（原来是卡片右下角，离头像太远）
+   背景圈和描边取卡片底色变量（--ssd-mini-bg），卡片换成染色底时爱心依然"隐身"。
+   偏移 -6px：圆心落到头像边框外侧，背景圈不再吃掉一大块人脸
+   （用户 2026-10-27：侵入面积再少一点） */
 .ssd-mini-heart {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
+  left: -6px;
+  bottom: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ssd-mini-bg, var(--sx-ui));
+  box-shadow: 0 0 0 2px var(--ssd-mini-bg, var(--sx-ui));
   color: var(--sx-ma);
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
-.ssd-mini-heart svg { width: 13px; height: 13px; }
+.ssd-mini-heart svg {
+  width: 13px;
+  height: 13px;
+  transform-origin: center;
+}
+/* 悬停小卡：心形跳一次（进入时播放一次，移出即复位，再次进入再跳）。
+   缩放只作用在内部 svg 上——背景圈与描边是容器的 box-shadow，不参与动画，
+   否则整颗"徽章"会跟着一起鼓起来（用户 2026-10-27）。
+   iteration-count 固定 1，动画跑完停在末帧的 scale(1)，不会持续抽动 */
+.ssd-dp-mini:hover .ssd-mini-heart svg {
+  animation: ssd-mini-beat 0.62s cubic-bezier(0.3, 0.7, 0.4, 1) 1;
+}
+@keyframes ssd-mini-beat {
+  0% { transform: scale(1); }
+  28% { transform: scale(1.34); }
+  52% { transform: scale(0.94); }
+  74% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ssd-dp-mini:hover .ssd-mini-heart svg { animation: none; }
+}
 
 /* 场景卡徽标（§3.2/§5）——top/left 与原生 .studio-overlay（0.7rem）同基线 */
 .ssd-overlay-days {
@@ -1708,14 +1835,65 @@
   border-color: var(--sx-acc);
   color: var(--sx-acc-tx);
 }
-.ssd-dp-btn.primary:hover { background: var(--sx-acc-d); border-color: var(--sx-acc-d); color: var(--sx-acc-tx); }
+.ssd-dp-btn.primary:hover {
+  /* --sx-acc-d 由 derive() 生成；兜底到本色，避免任何主题下 hover 变透明发白 */
+  background: var(--sx-acc-d, var(--sx-acc));
+  border-color: var(--sx-acc-d, var(--sx-acc));
+  color: var(--sx-acc-tx);
+}
 .ssd-dp-btn.ghost { background: transparent; }
 .ssd-dp-btn.ghost.danger { color: var(--sx-re-tx); }
 .ssd-dp-btn.ghost.danger:hover { border-color: var(--sx-re); background: color-mix(in srgb, var(--sx-re) 10%, transparent); }
+/* tonal（半实心）：关注行「详情 / 取关」用。比 ghost 明显，又不像 primary 那样
+   一屏十几行会连成色带（用户 2026-10-27：三个按钮原来看不出主次） */
+.ssd-dp-btn.tonal {
+  background: color-mix(in srgb, var(--sx-acc) 13%, transparent);
+  border-color: color-mix(in srgb, var(--sx-acc) 40%, transparent);
+  color: var(--sx-acc);
+}
+.ssd-dp-btn.tonal:hover {
+  background: color-mix(in srgb, var(--sx-acc) 22%, transparent);
+  border-color: var(--sx-acc);
+  color: var(--sx-acc);
+}
+.ssd-dp-btn.tonal.danger {
+  background: color-mix(in srgb, var(--sx-re) 11%, transparent);
+  border-color: color-mix(in srgb, var(--sx-re) 38%, transparent);
+  color: var(--sx-re-tx);
+}
+.ssd-dp-btn.tonal.danger:hover {
+  background: color-mix(in srgb, var(--sx-re) 20%, transparent);
+  border-color: var(--sx-re);
+  color: var(--sx-re-tx);
+}
 .ssd-dp-btn.loved { border-color: var(--sx-ma); color: var(--sx-ma-tx); }
+/* 纯图标按钮（关注行「取关」）：只放一个 SVG，宽度不随中英文文案变化 */
+.ssd-dp-btn.icon-only { padding: 7px 9px; gap: 0; }
+.ssd-dp-btn.icon-only svg { width: 14px; height: 14px; }
+/* 关注行：图标按钮收窄是为省宽度（见上），但垂直 padding 跟着压到 5px 后，
+   内容从文字行盒 18.75px 变成图标 14px → 比「详情」矮 4.75px（用户 2026-10-27）。
+   align-self:stretch 让它自动等高，字号/英文换行变化都不用再手调。 */
+.ssd-dp-fgrp-acts .ssd-dp-btn.icon-only {
+  padding: 5px 7px;
+  align-self: stretch;
+}
 /* 已加入/加入失败：实底白字保证可读（用户 2026-10-25 第五轮：浅字在按钮底色上难读）*/
 .ssd-dp-btn.ok { background: var(--sx-gr); border-color: var(--sx-gr); color: #fff; pointer-events: none; }
 .ssd-dp-btn.err { background: var(--sx-re); border-color: var(--sx-re); color: #fff; }
+/* 点击反馈（用户 2026-10-27）：按压 + 忙碌态转圈 + 结果态轻微弹一下 */
+.ssd-dp-btn:active { transform: scale(0.97); }
+.ssd-dp-btn.busy { color: var(--sx-tx2); border-color: var(--sx-edge); }
+.ssd-dp-btn.busy svg { animation: ssd-dp-spin 0.9s linear infinite; }
+.ssd-dp-btn.ok, .ssd-dp-btn.err { animation: ssd-dp-pop 0.32s ease-out; }
+@keyframes ssd-dp-pop {
+  0% { transform: scale(0.94); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ssd-dp-btn:active { transform: none; }
+  .ssd-dp-btn.busy svg, .ssd-dp-btn.ok, .ssd-dp-btn.err { animation: none; }
+}
 
 /* 演员/工作室过滤视图详情区（§8.1/§8.2）*/
 .ssd-dp-pfhead {
@@ -1740,17 +1918,47 @@
   flex: none;
   background: var(--sx-ui2);
 }
-/* 工作室详情图（左图右文）：随容器宽度自适应并尽量铺满，按原始比例完整显示（不裁切）
-   — 用户 2026-10-25 第七轮 */
-.ssd-dp-pfavatar--studio {
-  width: clamp(240px, 32%, 460px);
-  max-width: 100%;
-  height: auto;
-  max-height: 260px;
+/* 工作室详情图：固定 1:1 方框，边长约为原来自适应大图的一半（用户 2026-10-27）。
+   图片 contain → 完整显示不裁切；工作室 logo 多是超横版（实测 3.7~5.2:1），
+   方形框里上下必然留白，留白处铺同一张图放大模糊后的副本，观感上框是满的、
+   主体不被裁掉。想退回纯色留白，删掉下面 ::before 那段即可。 */
+.ssd-dp-studiopic {
+  position: relative;
+  width: 136px;
+  height: 136px;
+  flex: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--sx-ui2);
+}
+/* 铺底单独一层：直接给容器设 background-image 会露出一份未模糊的原图
+   （图片 contain 区域之外透明），所以图只挂在伪元素上。
+   图片地址由 JS 写成 --ssd-studio-bg。 */
+.ssd-dp-studiopic::before {
+  content: "";
+  position: absolute;
+  inset: -14%;
+  background-image: var(--ssd-studio-bg, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(18px) saturate(1.2) brightness(0.62);
+}
+/* 选择器带父级提高特异性：窄屏媒体查询里有 `.ssd-dp-pfavatar{width:72px;
+   height:108px}`（竖版演员头像用），同特异性且写在后面会把这里的 100% 盖掉，
+   结果是移动端图只有 72×108、撑不满 104×104 的方框（用户 2026-10-27 反馈）。 */
+.ssd-dp-studiopic .ssd-dp-pfavatar--studio {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: none;
   object-fit: contain;
   object-position: center;
 }
 .ssd-dp-pfinfo { min-width: 0; flex: 1 1 240px; }
+/* 弹窗头部（外部演员/工作室）信息列基准宽收小：iPhone SE 级窄屏名字仍在
+   头像右侧，不会折到头像下方；与箭头是否出现无关（用户 2026-10-27） */
+.ssd-dp-modal-head .ssd-dp-pfinfo { flex-basis: 120px; }
 .ssd-dp-pfname {
   font-size: 20px;
   font-weight: 700;
@@ -1773,11 +1981,13 @@
   border-radius: 8px;
   color: var(--sx-tx2);
   background: var(--sx-ui2);
-  text-decoration: none;
   transition: color 0.15s, border-color 0.15s;
 }
 .ssd-dp-extbtn:hover { color: var(--sx-acc); border-color: var(--sx-acc); }
 .ssd-dp-extbtn svg { width: 14px; height: 14px; }
+/* 详情区右上角的返回按钮（演员 / 工作室共用）——button 需补 a 的默认外观复位 */
+button.ssd-dp-extbtn { padding: 0; cursor: pointer; font-family: inherit; }
+.ssd-dp-pfhead.has-back { padding-right: 52px; }
 .ssd-dp-pfactions {
   display: flex;
   flex-wrap: wrap;
@@ -1786,6 +1996,74 @@
 }
 /* 头像容器 + 国旗徽标（叠加头像左下角 — 用户 2026-10-25）*/
 .ssd-dp-pfav { position: relative; flex: none; }
+/* 头像图 + 国旗徽标的定位容器（头像翻页箭头以它为基准左右外挂） */
+.ssd-dp-pfpic { position: relative; line-height: 0; }
+/* 头像翻页（外部演员弹窗）：箭头在头像左右外侧。绝对定位 + 负偏移，
+   不占布局宽度 —— 箭头加载后头像不位移、名称列宽度也不变（用户 2026-10-27）。
+   12px：桌面分别落在头部 16px 内边距 / 16px 列间距里，窄屏正好各占 12px。 */
+.ssd-dp-avnav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.7;
+  z-index: 2;
+}
+.ssd-dp-avnav.prev { left: -12px; }
+.ssd-dp-avnav.next { right: -12px; }
+.ssd-dp-avnav:hover:not(:disabled) { opacity: 1; background: rgba(0, 0, 0, 0.8); }
+.ssd-dp-avnav:disabled { opacity: 0.25; cursor: default; }
+/* 头像张数徽标：右下角，沿用场景演员浮窗年龄徽标的样式（无底色 + 描边阴影）；
+   底边与国旗同为 6px，两者 16px 高 → 中心线在同一水平线上（用户 2026-10-27） */
+.ssd-dp-avcount { right: 4px; bottom: 6px; }
+/* 翻页加载：裁剪容器贴合头像 12px 圆角，轨道/滑动条只出现在圆角内侧的底边 */
+.ssd-dp-avload {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  display: none;
+  pointer-events: none;
+  z-index: 1;
+}
+.ssd-dp-avload::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.28);
+}
+.ssd-dp-avload.on { display: block; }
+.ssd-dp-avload > i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 40%;
+  height: 2px;
+  background: var(--ssd-primary);
+  animation: ssd-avload 0.9s ease-in-out infinite;
+}
+@keyframes ssd-avload {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
 /* 国旗：与场景二级弹窗演员 popup 完全同款（用户 2026-10-25 第六轮：
    无底色、text-shadow 描边、img 柔影，弃粗黑底边）*/
 .ssd-dp-pfflag {
@@ -1830,10 +2108,19 @@
 .ssd-dp-followbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* 左：统计；右：按钮组靠 margin-left:auto 顶到最右。
+     原 space-between 在 3 个子元素时会把中间按钮推到页面正中（用户 2026-10-27） */
+  justify-content: flex-start;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 14px;
+}
+.ssd-dp-followbar-acts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
 }
 .ssd-dp-fgrp {
   border: 1px solid var(--sx-ui3);
@@ -1842,12 +2129,14 @@
   margin-bottom: 12px;
   overflow: hidden;
 }
+/* 关注行：窄屏也不换行——名字/统计单行省略，按钮组收紧不折行
+   （用户 2026-10-27：宽度够，换行反而乱） */
 .ssd-dp-fgrp-head {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .ssd-dp-fgrp-head img {
   width: 52px;
@@ -1857,11 +2146,43 @@
   flex: none;
   background: var(--sx-ui2);
 }
-.ssd-dp-fgrp-info { min-width: 0; flex: 1 1 200px; }
+.ssd-dp-fgrp-info { min-width: 0; flex: 1 1 auto; }
 /* 整行可点展开/收起（详情、取消关注按钮除外）— 用户 2026-10-25 第七轮 */
 .ssd-dp-fgrp-head.is-toggle { cursor: pointer; }
 .ssd-dp-fgrp-head.is-toggle:hover { background: var(--sx-ui2); }
-.ssd-dp-fgrp-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.ssd-dp-fgrp-acts { display: flex; gap: 6px; flex: none; flex-wrap: nowrap; align-items: center; }
+.ssd-dp-fgrp-acts .ssd-dp-btn { padding: 5px 9px; }
+/* 展开箭头：只在字形上做文章（无边框无底色），hover 才浮出浅底 —
+   与旁边两个带色底的按钮形成"工具 / 操作"的层级差（用户 2026-10-27） */
+.ssd-dp-fgrp-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 26px;
+  padding: 0;
+  margin-right: 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--sx-tx2);
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ssd-dp-fgrp-caret svg {
+  width: 14px;
+  height: 14px;
+  transform: rotate(-90deg); /* 收起：朝右 */
+  transition: transform 0.18s ease;
+}
+.ssd-dp-fgrp-caret.open svg { transform: rotate(0deg); } /* 展开：朝下 */
+.ssd-dp-fgrp-caret:hover { background: var(--sx-ui2); color: var(--sx-hi); }
+.ssd-dp-fgrp-caret:active { transform: scale(0.94); }
+@media (prefers-reduced-motion: reduce) {
+  .ssd-dp-fgrp-caret svg { transition: none; }
+  .ssd-dp-fgrp-caret:active { transform: none; }
+}
 .ssd-dp-fgrp-body { padding: 4px 14px 14px; }
 
 /* 演员详情弹层（§3.5）*/
@@ -1898,18 +2219,21 @@
   position: absolute;
   top: 10px;
   right: 12px;
-  z-index: 2;
+  /* 必须高于卡片封面角标（.studio-overlay z-index:8），否则关闭按钮被工作室
+     名字压住（用户 2026-10-27 反馈） */
+  z-index: 20;
   width: 30px;
   height: 30px;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
-  background: var(--sx-ui);
-  color: var(--sx-tx2);
+  /* 深色半透明（≈70%），压在头像/封面上也能看清（用户 2026-10-27） */
+  background: rgba(20, 20, 20, 0.7);
+  color: #fff;
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
 }
-.ssd-dp-modal-close:hover { color: var(--sx-tx); background: var(--sx-ui2); }
+.ssd-dp-modal-close:hover { background: rgba(60, 60, 60, 0.85); color: #fff; }
 .ssd-dp-modal-head { margin-bottom: 12px; padding-right: 36px; }
 .ssd-dp-modal-head .ssd-dp-extbtn { position: static; }
 .ssd-dp-modal-scenes .ssd-dp-state { padding: 18px 0; }
@@ -1919,17 +2243,73 @@
   .ssd-dp-toolbar .grow { flex: 1 1 100%; max-width: none; }
   .ssd-dp-toolbar { gap: 8px; }
   .ssd-dp-pfhead { padding: 12px; gap: 12px; }
-  .ssd-dp-pfavatar { width: 64px; height: 96px; }
-  .ssd-dp-pfavatar--studio { width: clamp(132px, 42%, 240px); height: auto; max-height: 180px; }
+  .ssd-dp-pfhead.has-back { padding-right: 50px; }
+  /* 演员头像稍放大（原 64×96 太小 — 用户 2026-10-27） */
+  .ssd-dp-pfavatar { width: 72px; height: 108px; }
+  /* 窄屏头像翻页箭头收窄：12px 正好落在头部 12px 内边距 / 12px 列间距 */
+  .ssd-dp-avnav { width: 12px; height: 26px; font-size: 9px; }
+  .ssd-dp-studiopic { width: 104px; height: 104px; }
+  /* 窄屏信息列基准宽收小：240px 基准下 104(图)+12(间距)+240 > 可用宽，
+     工作室头会折行成「图片独占一行、右边全空」；收到 140 后与演员头一致，
+     都是图在左、名字在右（用户 2026-10-27 反馈移动端观感）。
+     必须排除弹窗头：弹窗头同样带 .ssd-dp-pfhead，它有自己的 120px 基准
+     （让名字在 iPhone SE 级窄屏仍留在头像右侧），不能被这条盖掉。 */
+  .ssd-dp-pfhead:not(.ssd-dp-modal-head) .ssd-dp-pfinfo { flex-basis: 140px; }
   .ssd-dp-pfflag { left: 4px; bottom: 4px; padding: 0 2px; }
   .ssd-dp-pfflag img { width: 16px; height: 11px; }
+  /* 窄屏国旗贴 4px，张数徽标同步贴 4px，中心线仍对齐 */
+  .ssd-dp-avcount { bottom: 4px; }
   .ssd-dp-pfname { font-size: 17px; }
   .ssd-dp-grid.mini { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-  .ssd-dp-fgrp-head { padding: 10px; }
+  .ssd-dp-fgrp-head { padding: 10px; gap: 10px; }
   .ssd-dp-fgrp-head img { width: 44px; height: 44px; }
+  .ssd-dp-fgrp-acts { gap: 5px; }
+  .ssd-dp-fgrp-acts .ssd-dp-btn { padding: 4px 8px; font-size: 12px; }
   .ssd-dp-fgrp-body { padding: 2px 10px 10px; }
   .ssd-dp-modal-overlay { padding: 10px; }
   .ssd-dp-modal-body { padding: 14px; }
+
+  /* tab 长词（英文本地有更新/共同出演/热门演员榜等）：允许换行、收紧内边距，
+     不再溢出按钮压到相邻项上（用户 2026-10-27）；keep-all 保证中文不逐字断开
+     （「发现演员」不会被拆成 3+1 — 用户 2026-10-27 反馈） */
+  .ssd-dp-tab {
+    white-space: normal;
+    word-break: keep-all;
+    min-width: 0;
+    padding: 5px 8px;
+    line-height: 1.25;
+    text-align: center;
+    overflow-wrap: break-word;
+  }
+  /* 子 tab 按项数均分（2 项=已发布/预告，3 项=演员源），不留空格子 */
+  .ssd-dp-tabs.ssd-dp-subtabs { display: flex; }
+  .ssd-dp-subtabs .ssd-dp-tab { flex: 1 1 0; }
+}
+
+/* 极窄屏（≤480）再收一档字号/内边距，让英文长词在 4 列里也放得下；
+   320 级宽度改 3 列，不给主题字体差异留拆字风险。
+   主 tab 共 7 项，4 列时「图标 + 发现演员」放不下 → 极窄屏隐藏 tab 图标只留文字，
+   保证不换行（用户 2026-10-27 反馈：发现演员被拆成 3+1） */
+@media (max-width: 480px) {
+  .ssd-dp-tab { padding: 5px 7px; font-size: 12px; }
+  .ssd-dp-tabs:not(.ssd-dp-subtabs) .ssd-dp-tab > svg { display: none; }
+  /* 极窄屏：迷你演员卡收紧一档（头像 44→38、内边距/间距 10→8），文字列多出 12px，
+     360px 下「最新 2026-10-08」能单行放下，不再被截成「最新 2026-1…」（用户 2026-10-27） */
+  .ssd-dp-mini { padding: 8px; gap: 8px; }
+  .ssd-dp-mini-ava { width: 38px; height: 38px; }
+  /* 爱心跟着头像等比收一档（默认 20px 是给 44px 头像的比例） */
+  .ssd-mini-heart { width: 18px; height: 18px; left: -5px; bottom: -5px; }
+  .ssd-mini-heart svg { width: 12px; height: 12px; }
+  /* 再窄就折行，而不是省略。日期整体不可断（.ssd-dp-nw），只会断在「最新」之后 */
+  .ssd-dp-mini-sub {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.35;
+  }
+}
+@media (max-width: 339px) {
+  .ssd-dp-tabs:not(.ssd-dp-subtabs) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* ─── 设置视图（§3.7：通用 / 总览模块开关·行数·排序）──────────────────────── */
@@ -1938,7 +2318,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  width: 100%;
   max-width: 860px;
+  margin-inline: auto; /* 设置内容居中（用户 2026-10-26） */
 }
 .ssd-dp-set-h {
   margin: 4px 0 0;
@@ -1964,6 +2346,23 @@
 }
 .ssd-dp-setrow + .ssd-dp-setrow { border-top: 1px solid var(--sx-line); }
 .ssd-dp-setname { font-size: 13px; color: var(--sx-tx); }
+.ssd-dp-sethint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sx-tx2);
+  padding: 0 0 9px;
+}
+/* 设置写入失败（localStorage 配额满）的就地提示 */
+.ssd-dp-setwarn {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sx-err, #d9534f);
+  background: color-mix(in srgb, var(--sx-err, #d9534f) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sx-err, #d9534f) 35%, transparent);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
 .ssd-dp-settoggle {
   display: inline-flex;
   align-items: center;
@@ -1980,6 +2379,56 @@
   flex-shrink: 0;
   accent-color: var(--sx-bl);
   cursor: pointer;
+}
+/* 右侧滑块开关（用户 2026-10-26：勾选框不好看） */
+.ssd-dp-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  cursor: pointer;
+  user-select: none;
+}
+.ssd-dp-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ssd-dp-switch-track {
+  display: block;
+  box-sizing: border-box;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--sx-ui3);
+  background: var(--sx-ui3);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.ssd-dp-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--sx-tx2);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.ssd-dp-switch input:checked + .ssd-dp-switch-track {
+  background: var(--sx-acc);
+  border-color: var(--sx-acc);
+}
+.ssd-dp-switch input:checked + .ssd-dp-switch-track::after {
+  transform: translateX(18px);
+  background: var(--sx-paper);
+}
+.ssd-dp-switch input:focus-visible + .ssd-dp-switch-track {
+  outline: 2px solid var(--sx-bl);
+  outline-offset: 2px;
 }
 .ssd-dp-setctl {
   display: inline-flex;
@@ -1998,11 +2447,163 @@
   cursor: pointer;
 }
 .ssd-dp-setsel:focus { border-color: var(--sx-acc); }
+.ssd-dp-setsel.num { width: 88px; }
 .ssd-dp-btn.sm { padding: 4px 9px; font-size: 12px; }
+.ssd-dp-btn.ssd-dp-reset { align-self: flex-end; }
 .ssd-dp-btn:disabled { opacity: 0.38; cursor: default; }
 .ssd-dp-btn.loading { opacity: 0.6; pointer-events: none; }
 
 @media (max-width: 720px) {
   .ssd-dp-setrow { align-items: flex-start; flex-direction: column; gap: 8px; }
   .ssd-dp-setctl { align-self: flex-end; }
+  .ssd-dp-switch { align-self: flex-end; }
+}
+
+/* ─── 卡片文字行数 ─────────────────────────────────────────────────────────
+   原先由 buildSceneCard 写 inline style，媒体查询无法覆盖（只能靠
+   !important）；迁到样式表后窄屏可无冲突地压缩（用户 2026-10-27）。
+   默认 2/3 行 = 演员详情 tab 的原生观感。 */
+.ssd-card-grid .card-section-title .TruncatedText { -webkit-line-clamp: 2; }
+.ssd-card-grid .scene-card__description { -webkit-line-clamp: 3; }
+
+/* 窄屏刷新反馈：标题图标旋转（刷新按钮在 ≤480 隐藏） */
+.ssd-dp-title svg.spinning { animation: ssd-dp-spin 0.9s linear infinite; }
+
+/* ─── 窄屏发现页（≤480）：两列 + 卡片压缩 + 页头点击刷新 ──────────────────
+   发现页是自有设计，不追求 1:1 还原原生卡片；仅覆盖字号/行数/间距，
+   不改类名与颜色，主题映射照常生效（用户 2026-10-27）。 */
+
+@media (min-width: 481px) and (max-width: 576px) {
+  /* 这一段原先 minmax(230px) 会塌成单列，固定两列（用户 2026-10-27） */
+  .ssd-dp-page .ssd-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 481px) and (max-width: 720px) {
+  .ssd-dp-page { padding-left: 10px; padding-right: 10px; }
+}
+
+@media (max-width: 480px) {
+  .ssd-dp-page {
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+  }
+
+  /* 发现页 + 演员弹窗内的场景网格：两列、列间距收紧 */
+  .ssd-dp-page .ssd-card-grid,
+  .ssd-dp-modal-scenes .ssd-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 6px;
+    row-gap: 10px;
+  }
+  .ssd-dp-modal-scenes .ssd-card-grid .scene-card { margin: 0; }
+
+  /* 卡片压缩：标题 1 行 / 简介 2 行 · 11px / 日期 11px */
+  .ssd-dp-page .ssd-card-grid .card-section-title,
+  .ssd-dp-modal-scenes .ssd-card-grid .card-section-title {
+    font-size: 12px;
+    line-height: 1.3;
+    margin-bottom: 2px;
+  }
+  .ssd-dp-page .ssd-card-grid .card-section-title .TruncatedText,
+  .ssd-dp-modal-scenes .ssd-card-grid .card-section-title .TruncatedText {
+    -webkit-line-clamp: 1;
+  }
+  .ssd-dp-page .ssd-card-grid .scene-card__description,
+  .ssd-dp-modal-scenes .ssd-card-grid .scene-card__description {
+    -webkit-line-clamp: 2;
+    font-size: 11px;
+    line-height: 1.35;
+    margin-top: 2px;
+  }
+  .ssd-dp-page .ssd-card-grid .scene-card__date,
+  .ssd-dp-modal-scenes .ssd-card-grid .scene-card__date { font-size: 11px; }
+  .ssd-dp-page .ssd-card-grid .card-section .card-popovers,
+  .ssd-dp-modal-scenes .ssd-card-grid .card-section .card-popovers { font-size: 10px; }
+  .ssd-dp-page .ssd-card-grid .card-section hr,
+  .ssd-dp-modal-scenes .ssd-card-grid .card-section hr { margin: 4px 0; }
+
+  /* 卡片内边距/角标再收一档，避免窄卡被文字撑高（用户 2026-10-27） */
+  .ssd-dp-page .ssd-card-grid .card-section,
+  .ssd-dp-modal-scenes .ssd-card-grid .card-section { padding: 6px 6px 0; }
+  .ssd-dp-page .ssd-card-grid .scene-card__details,
+  .ssd-dp-modal-scenes .ssd-card-grid .scene-card__details { margin-bottom: 4px; }
+  .ssd-dp-page .ssd-card-grid .card-popovers,
+  .ssd-dp-modal-scenes .ssd-card-grid .card-popovers { gap: 4px; }
+  .ssd-dp-page .ssd-card-grid .card-popovers .btn,
+  .ssd-dp-modal-scenes .ssd-card-grid .card-popovers .btn {
+    padding: 1px 5px;
+    min-height: 0;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  /* 页头：刷新按钮隐藏，「logo+发现+状态文字」贴上、整块可点刷新；
+     右侧空白不绑定点击，保留 ← 的指向意义（用户 2026-10-27） */
+  .ssd-dp-head { gap: 6px; }
+  .ssd-dp-head .ssd-dp-refresh { display: none; }
+  .ssd-dp-title,
+  .ssd-dp-updated {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    cursor: pointer;
+  }
+  .ssd-dp-title:active,
+  .ssd-dp-updated:active { color: var(--sx-hi); }
+  .ssd-dp-title:focus-visible {
+    outline: 2px solid var(--sx-acc);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  /* 窄屏按钮已隐藏：状态文字回到标题右侧贴着，不需要吸右 */
+  .ssd-dp-updated {
+    order: 1;
+    font-size: 11.5px;
+    margin-left: 0;
+    text-align: left;
+  }
+  .ssd-dp-updated::before { content: "← "; color: var(--sx-tx3); }
+  .ssd-dp-chips { order: 2; flex-basis: 100%; }
+  .ssd-dp-chips:empty { display: none; }
+
+  /* 封面角标贴边 + 缩小：原生 0.7rem/1rem 的四角留白收到 3–4px，
+     字号统一 10.5px；工作室行距压到 1.15（用户 2026-10-27）。
+     .ssd-overlay-box 挂在 .scene-card-preview（比 .thumbnail-section 矮 5px），
+     故 bottom:0 才与原生 specs 行同一视觉基线。 */
+  .ssd-dp-page .ssd-card-grid .studio-overlay,
+  .ssd-dp-modal-scenes .ssd-card-grid .studio-overlay {
+    top: 3px;
+    right: 4px;
+    font-size: 10.5px;
+    line-height: 1.15;
+    text-align: right;
+  }
+  .ssd-dp-page .ssd-card-grid .scene-specs-overlay,
+  .ssd-dp-modal-scenes .ssd-card-grid .scene-specs-overlay {
+    bottom: 4px;
+    right: 4px;
+    font-size: 10.5px;
+    line-height: 1.2;
+  }
+  .ssd-dp-page .ssd-card-grid .scene-specs-overlay .overlay-duration,
+  .ssd-dp-modal-scenes .ssd-card-grid .scene-specs-overlay .overlay-duration {
+    font-size: 10.5px;
+  }
+  .ssd-dp-page .ssd-overlay-preview,
+  .ssd-dp-modal-scenes .ssd-overlay-preview,
+  .ssd-dp-page .ssd-overlay-days,
+  .ssd-dp-modal-scenes .ssd-overlay-days,
+  .ssd-dp-page .ssd-overlay-inlib,
+  .ssd-dp-modal-scenes .ssd-overlay-inlib {
+    top: 3px;
+    left: 4px;
+    padding: 1px 5px;
+  }
+  .ssd-dp-page .ssd-overlay-box,
+  .ssd-dp-modal-scenes .ssd-overlay-box {
+    bottom: 0;
+    left: 4px;
+    padding: 1px 5px;
+  }
 }

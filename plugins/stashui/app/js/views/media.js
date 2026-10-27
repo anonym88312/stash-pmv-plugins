@@ -25,7 +25,7 @@ export const KIND_NAME = { scene: ["Scene", "Scenes"], image: ["Image", "Images"
 export const KIND_UNIT = { scene: ["scene", "scenes"], image: ["image", "images"], gallery: ["gallery", "galleries"] };
 
 const SORTS = {
-  scene: [["created_at", "Recently added"], ["date", "Date"], ["last_played_at", "Last watched"], ["play_count", "Most watched"], ["rating", "Rating"], ["duration", "Duration"], ["title", "Title"], ["filesize", "File size"], ["path", "Path"], ["random", "Random"]],
+  scene: [["created_at", "Recently added"], ["date", "Date"], ["last_played_at", "Last watched"], ["play_count", "Most watched"], ["rating", "Rating"], ["duration", "Duration"], ["framerate", "Frame rate"], ["title", "Title"], ["filesize", "File size"], ["path", "Path"], ["random", "Random"]],
   image: [["created_at", "Recently added"], ["date", "Date"], ["rating", "Rating"], ["o_counter", "O counter"], ["title", "Title"], ["filesize", "File size"], ["path", "Path"], ["random", "Random"]],
   gallery: [["created_at", "Recently added"], ["date", "Date"], ["rating", "Rating"], ["images_count", "Image count"], ["title", "Title"], ["path", "Path"], ["random", "Random"]],
 };
@@ -95,6 +95,7 @@ export function mediaBrowser(host, opts) {
         <span class="kb-xtool" data-xtool></span>
         <span class="kb-spacer"></span>
         ${kinds.includes("scene") ? `<span class="kb-seg" data-viewseg hidden title="${esc(t("How scenes are shown"))}"><button type="button" data-view="tiles">${t("Tiles")}</button><button type="button" data-view="cards">${t("Cards")}</button></span>` : ""}
+        ${kinds.includes("scene") ? `<button type="button" class="kb-btn is-ghost" data-auto title="${t("All previews in view play by themselves, like the wall of classic Stash")}"></button>` : ""}
         ${kinds.includes("scene") ? `<button type="button" class="kb-btn is-ghost" data-mute title="${t("Sound in hover previews")}"></button>` : ""}
         <label class="kb-range" title="${t("Thumbnail size")}">${icon("image")}<input type="range" min="130" max="480" step="10" data-rowh value="${rowH()}" aria-label="${t("Size")}"></label>
         ${opts.playlist ? `<select class="kb-field kb-plpick" data-plpick hidden title="${t("Your saved filters – the playlists made from this list")}" aria-label="${t("Saved filters")}"></select>` : ""}
@@ -159,6 +160,16 @@ export function mediaBrowser(host, opts) {
     b.hidden = kind !== "scene";
   };
 
+  const paintAuto = () => {
+    const b = $("[data-auto]");
+    if (!b) return;
+    const on = store.get("previewMode", "on") === "auto";
+    b.innerHTML = `${icon("play")}<span>${t("Autoplay")}</span>`;
+    b.setAttribute("aria-pressed", on);
+    b.classList.toggle("is-on", on);
+    b.hidden = kind !== "scene";
+  };
+
   function renderTools() {
     host.querySelectorAll("[data-kind]").forEach((b) => {
       b.classList.toggle("is-on", b.dataset.kind === kind);
@@ -188,6 +199,7 @@ export function mediaBrowser(host, opts) {
     $("[data-filter]").classList.toggle("is-on", filterOpen);
     $("[data-play]").hidden = kind === "gallery";
     paintMute();
+    paintAuto();
     paintView();
     if ($("[data-plsave]")) $("[data-plsave]").hidden = kind === "gallery";
     renderFilters();
@@ -590,6 +602,11 @@ export function mediaBrowser(host, opts) {
       store.set("sceneCards", vw.dataset.view === "cards");
       paintView();
       return hang && hang.layout();
+    }
+    if (e.target.closest("[data-auto]")) {
+      store.set("previewMode", store.get("previewMode", "on") === "auto" ? "on" : "auto");
+      paintAuto();
+      return hang && hang.autoWatch();
     }
     if (e.target.closest("[data-mute]")) {
       store.set("previewSound", !store.get("previewSound", true));

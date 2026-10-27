@@ -1,4 +1,4 @@
-/* stashDiscover – shared core ("SSD"), taken from the plugin stashDiscover 2.2.1 by ufousox007
+/* stashDiscover – shared core ("SSD"), taken from the plugin stashDiscover 2.4.7 by ufousox007
  * https://github.com/k6cc/stash-jav-tools/tree/main/stashDiscover  (used in Stash UI with the author's permission)
  *
  * Changes for Stash UI (everything else is the original code):
@@ -7,6 +7,7 @@
  *    the key never reaches the page
  *  - plugin settings (Jackett, downloader, windows …) live in the stashui plugin config (key "ssd")
  *  - Jackett search / downloader push (runPluginTask) call the backend modes ssd_search / ssd_push
+ *  - the REST list of ThePornDB (tpdbGet) is asked through the backend (mode box_rest) instead of the page
  *  - the Discover tab of the performer / studio page is mounted into a panel of Stash UI's page (mountEntityTab) instead of being
  *    injected into Stash's tabs; the nav entry and the route shell of the original are not part of this file
  */
@@ -17,7 +18,7 @@
   window.__ssdLoaded = true;
 
   var PLUGIN_ID = "stashDiscover";
-  var PLUGIN_VERSION = "2.2.1";
+  var PLUGIN_VERSION = "2.4.7";
   var TASK_SEARCH = "Search Resources";
   var TASK_PUSH = "Push to Downloader";
   var RESULT_MARKER = "[SSD_RESULT]";
@@ -31,6 +32,7 @@
     "javstash.org": "JAVStash",
     "stashdb.org": "StashDB",
     "theporndb.net": "TPDB",
+    "pmvstash.org": "PMVStash",
   };
 
   // ─── i18n (Stash UI sets window.__ssdLocale; the original read it from Stash's Intl) ───
@@ -71,12 +73,24 @@
     return e;
   }
 
+  // ─── Base URL (sub-path deployments) ─────────────────────────────────────
+  // Stash served behind a reverse proxy with X-Forwarded-Prefix runs under a
+  // sub-path (e.g. https://host/stash/) and rewrites <base href> to that
+  // prefix. Root-absolute internal URLs ("/graphql", "/settings", "/plugins/…")
+  // ignore <base href> and would hit the domain root, so every internal URL
+  // goes through this helper. Absolute and data/blob URLs pass through.
+  // Stash UI change: the page lives at /plugin/stashui/assets/, so a base-URL lookup would point "/graphql" into the plugin folder.
+  // Stash UI itself talks to Stash at the root of its address, so root-absolute paths are used as they are.
+  function appUrl(path) {
+    return String(path == null ? "" : path);
+  }
+
   // ─── GraphQL helpers ─────────────────────────────────────────────────────
 
   function callGQL(query, variables) {
     var payload = { query: query };
     if (variables) payload.variables = variables;
-    return fetch("/graphql", {
+    return fetch(appUrl("/graphql"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -108,6 +122,262 @@
         throw ssdError("unknown", (e && e.message) || String(e));
       });
   }
+
+  // ─── ThePornDB REST adapter ──────────────────────────────────────────────
+  // TPDB 的 stash-box 列表接口（queryScenes / queryStudios）服务端故障：
+  // HTTP 200 但 scenes 恒为 null（论坛反馈的 "TPDB API error"）。单条查询
+  // findScene / findPerformer / findStudio 正常。场景列表因此改走它公开的
+  // REST API；返回里的 site.uuid 与 stash-box 的 studio id 一致。
+  var TPDB_RE = /theporndb\.net/i;
+  // 按演员/站点逐个取场景时的翻页上限（每页最多 100 条 → 200 部/人）。
+  // 无限回看窗口也不会全量回溯，UI 需要把这个截断说明白（用户 2026-10-26）。
+  var TPDB_MAX_PAGES_PER_ID = 2;
+  var _tpdbLastPage = {};
+
+  function isTPDBBox(box) {
+    return !!box && TPDB_RE.test(String(box.endpoint || ""));
+  }
+
+  // The discover page builds its own source object with camelCase apiKey,
+  // while configuration.general.stashBoxes exposes api_key — accept both.
+  function boxKey(box) {
+    if (!box) return "";
+    return box.api_key != null ? box.api_key : (box.apiKey || "");
+  }
+
+  // Stash UI change: the REST question goes through the backend (mode box_rest), which has the API key
+  function tpdbGet(box, path, timeoutMs) {
+    return ssdBackend({ mode: "box_rest", endpoint: box.endpoint, path: path, timeout: Math.round((timeoutMs || BOX_TIMEOUT_MS) / 1000) })
+      .then(function (r) {
+        if (!r) throw ssdError("unknown", "no answer");
+        if (r.kind) throw ssdError(r.kind, r.message || r.kind);
+        return r.data;
+      }).catch(function (e) {
+        if (e && e.ssdKind) throw e;
+        throw ssdError("unknown", (e && e.message) || String(e));
+      });
+  }
+
+  // TPDB 的 background / background_back 是对象 {full,large,medium,small}，
+  // 直接塞进 images 会得到 [object Object]（2026-10-26 修正）
+  function tpdbImgUrl(v) {
+    if (!v) return "";
+    if (typeof v === "string") return v;
+    return v.full || v.large || v.medium || v.small || "";
+  }
+
+  // TPDB 偶尔会给出非数组字段（错误包体、字段改名），直接 .map 会抛
+  // TypeError → 前端只能显示 "Unknown error"（论坛反馈发现页报未知错误）
+  function asArr(v) {
+    return Array.isArray(v) ? v : [];
+  }
+
+  function tpdbScene(raw) {
+    if (!raw) return null;
+    var site = raw.site || null;
+    var imgs = [];
+    // 顺序即封面回退顺序：外站直链（可能是 gif/动图）→ 横版背景 → 竖版 poster
+    // 横版（back_image / background / background_back）优先于竖版，符合弹层观感
+    [raw.image, raw.back_image, tpdbImgUrl(raw.background), tpdbImgUrl(raw.background_back),
+      raw.poster, raw.poster_image].forEach(function (u) {
+      if (u && !imgs.some(function (x) { return x.url === u; })) imgs.push({ url: u });
+    });
+    var urls = [];
+    if (raw.url) urls.push({ url: raw.url, site: { name: (site && site.name) || "" } });
+    asArr(raw.links).forEach(function (l) {
+      var u = typeof l === "string" ? l : (l && l.url);
+      if (u && !urls.some(function (x) { return x.url === u; })) {
+        urls.push({ url: u, site: { name: (site && site.name) || "" } });
+      }
+    });
+    return {
+      id: raw.id,
+      title: raw.title || "",
+      code: raw.sku || raw.external_id || "",
+      details: raw.description || "",
+      release_date: raw.date || "",
+      duration: raw.duration || 0,
+      urls: urls,
+      studio: site ? {
+        id: site.uuid || (site.id != null ? String(site.id) : ""),
+        name: site.name || "",
+      } : null,
+      performers: asArr(raw.performers).map(function (p) {
+        // 场景内演员是站点级记录；stash-box 的演员 id 是站点无关的 parent id
+        var par = p.parent || null;
+        var img = p.image || p.thumbnail || p.face ||
+          (par && (par.image || par.thumbnail || par.face)) || "";
+        return {
+          as: p.name || (par && par.name) || "",
+          performer: {
+            id: (par && par.id) || p.id || "",
+            name: p.name || (par && par.name) || "",
+            images: img ? [{ url: img }] : [],
+          },
+        };
+      }),
+      tags: asArr(raw.tags).map(function (t) {
+        return { id: t.uuid || (t.id != null ? String(t.id) : ""), name: t.name || "" };
+      }),
+      images: imgs,
+    };
+  }
+
+  function tpdbResult(j, reverse) {
+    var scenes = asArr(j && j.data).map(tpdbScene).filter(Boolean);
+    if (reverse) scenes.reverse();
+    var meta = (j && j.meta) || {};
+    return {
+      count: meta.total || scenes.length,
+      scenes: scenes,
+      hasMore: (meta.current_page || 1) < (meta.last_page || 1),
+    };
+  }
+
+  function tpdbIdPage(box, kind, id, pageNum, perPage, dir, timeoutMs) {
+    var path = (kind === "studio" ? "/sites/" : "/performers/") +
+      encodeURIComponent(id) + "/scenes?per_page=" + perPage;
+    var key = box.endpoint + "|" + kind + "|" + id;
+    function get(p) {
+      return tpdbGet(box, path + "&page=" + p, timeoutMs);
+    }
+    if (String(dir).toUpperCase() !== "ASC") {
+      // 这两个端点固定按日期倒序
+      return get(pageNum).then(function (j) {
+        _tpdbLastPage[key] = (j && j.meta && j.meta.last_page) || 1;
+        return tpdbResult(j, false);
+      });
+    }
+    // ASC：REST 排序参数被忽略 → 页号镜像 + 页内倒序
+    var cached = _tpdbLastPage[key];
+    var ready = cached ? Promise.resolve(cached) : get(1).then(function (j) {
+      _tpdbLastPage[key] = (j && j.meta && j.meta.last_page) || 1;
+      return _tpdbLastPage[key];
+    });
+    return ready.then(function (last) {
+      var target = Math.max(1, last - pageNum + 1);
+      return get(target).then(function (j) { return tpdbResult(j, true); });
+    });
+  }
+
+  function tpdbSinceScenes(box, kind, ids, since, perPage, timeoutMs) {
+    var out = [], seen = {}, idx = 0, truncated = false;
+    function fetchOne(id) {
+      // 这两个端点按日期倒序；碰到早于 since 的场景即可停止翻页
+      var path = (kind === "studio" ? "/sites/" : "/performers/") +
+        encodeURIComponent(id) + "/scenes?per_page=" + perPage;
+      function step(p) {
+        return tpdbGet(box, path + "&page=" + p, timeoutMs).then(function (j) {
+          var rows = asArr(j && j.data);
+          var reachedOld = false;
+          rows.forEach(function (raw) {
+            var s = tpdbScene(raw);
+            if (!s) return;
+            if (since && !(s.release_date && s.release_date > since)) { reachedOld = true; return; }
+            if (seen[s.id]) return;
+            seen[s.id] = true;
+            out.push(s);
+          });
+          var last = (j && j.meta && j.meta.last_page) || 1;
+          if (!reachedOld && rows.length && p < last) {
+            // 到页数上限但源还有更早场景 → 记录截断，UI 只在真截断时提示（用户 2026-10-26）
+            if (p >= TPDB_MAX_PAGES_PER_ID) { truncated = true; return; }
+            return step(p + 1);
+          }
+        });
+      }
+      return step(1);
+    }
+    function wave() {
+      if (idx >= ids.length) return out;
+      var chunk = ids.slice(idx, idx + 3);
+      idx += 3;
+      return Promise.all(chunk.map(fetchOne)).then(wave);
+    }
+    return Promise.resolve().then(wave).then(function () {
+      out.sort(function (a, b) {
+        return String(b.release_date || "").localeCompare(String(a.release_date || ""));
+      });
+      return { count: out.length, scenes: out, hasMore: false, truncated: truncated };
+    });
+  }
+
+  function tpdbGlobalPage(box, pageNum, perPage, timeoutMs) {
+    // TPDB 官方 REST 用 orderBy（小写枚举）；无热度榜，统一按最新入库
+    var q = "/scenes?per_page=" + perPage + "&page=" + pageNum + "&orderBy=recently_created";
+    return tpdbGet(box, q, timeoutMs).then(function (j) { return tpdbResult(j, false); });
+  }
+
+  function filterIds(filter) {
+    if (!filter) return [];
+    var v = filter.value;
+    if (Array.isArray(v)) return v.filter(Boolean).map(String);
+    if (typeof v === "string" && v) return [v];
+    return [];
+  }
+
+  // stash-box SceneQueryInput 同构入参；TPDB 走 REST，其余源走 GraphQL
+  function callBoxSceneList(box, input, timeoutMs) {
+    if (!isTPDBBox(box)) {
+      return callBoxGQL(
+        box.endpoint, boxKey(box),
+        "query($input:SceneQueryInput!){queryScenes(input:$input){count scenes{" + BOX_SCENE_FIELDS + "}}}",
+        { input: input }, timeoutMs
+      ).then(function (d) { return (d && d.queryScenes) || null; });
+    }
+    var inp = input || {};
+    var pageNum = inp.page || 1;
+    var perPage = Math.min(100, inp.per_page || 100);
+    var dir = String(inp.direction || "DESC").toUpperCase();
+    var since = inp.date && inp.date.value ? String(inp.date.value) : "";
+    var perf = filterIds(inp.performers);
+    var stud = filterIds(inp.studios);
+    if (since && (perf.length || stud.length)) {
+      return tpdbSinceScenes(box, perf.length ? "performer" : "studio",
+        perf.length ? perf : stud, since, perPage, timeoutMs);
+    }
+    if (perf.length === 1) return tpdbIdPage(box, "performer", perf[0], pageNum, perPage, dir, timeoutMs);
+    if (stud.length === 1) return tpdbIdPage(box, "studio", stud[0], pageNum, perPage, dir, timeoutMs);
+    if (!since && (perf.length || stud.length)) {
+      // 窗口不限（0 天）：按 id 逐个取，避免退化成全站页 + 客户端过滤
+      return tpdbSinceScenes(box, perf.length ? "performer" : "studio",
+        perf.length ? perf : stud, "", perPage, timeoutMs);
+    }
+    return tpdbGlobalPage(box, pageNum, perPage, timeoutMs);
+  }
+
+  // TPDB 演员列表（queryPerformers 返回的 gender/images 全空，改走 REST）
+  function callBoxPerformerList(box, input, timeoutMs) {
+    if (!isTPDBBox(box)) {
+      return callBoxGQL(
+        box.endpoint, boxKey(box),
+        "query($input:PerformerQueryInput!){queryPerformers(input:$input){count performers{id name gender birth_date images{url} scene_count}}}",
+        { input: input }, timeoutMs
+      ).then(function (d) { return (d && d.queryPerformers) || null; });
+    }
+    var inp = input || {};
+    var perPage = Math.min(100, inp.per_page || 24);
+    var q = "/performers?per_page=" + perPage + "&page=" + (inp.page || 1);
+    if (inp.q) q += "&q=" + encodeURIComponent(inp.q);
+    return tpdbGet(box, q, timeoutMs).then(function (j) {
+      var rows = ((j && j.data) || []).map(function (p) {
+        var ex = p.extras || p.extra || {};
+        var g = String(ex.gender || "").toUpperCase();
+        var img = p.image || p.thumbnail || p.face || "";
+        return {
+          id: p.id,
+          name: p.name || "",
+          gender: g === "FEMALE" ? "FEMALE" : (g === "MALE" ? "MALE" : null),
+          birth_date: ex.birthday || null,
+          images: img ? [{ url: img }] : [],
+          scene_count: 0,
+        };
+      });
+      return { count: (j && j.meta && j.meta.total) || rows.length, performers: rows };
+    });
+  }
+
+
 
   // ─── Config ───────────────────────────────────────────────────────────────
 
@@ -208,6 +478,7 @@
     boxFailed: {},             // endpoint -> failed this round (retried on the next load)
     boxStatus: {},             // endpoint -> { ok:bool, kind:string }
     boxFetched: {},            // endpoint -> scenes fetched this round (loading panel rows)
+    boxTruncated: {},          // endpoint -> true when TPDB hit its per-id page cap
     droppedByWindow: 0,        // scenes dropped by the recent/preview window this round
     windowRelaxed: false,      // "unlimited time range (this session)"
     preferredFallback: false,  // preferred box had no ID → queried the others instead
@@ -352,27 +623,22 @@
   // toward the max when it is low or the remaining need increases.
   function fetchBoxPage(box, stashId, pageNum) {
     var boxPerPage = _state.boxPageSize;
+    var input = Object.assign(
+      // P7：工作室 tab 按 studios INCLUDES 查（stash-box 层级匹配含母厂牌）
+      _state.entityType === "studio"
+        ? { studios: { value: [stashId], modifier: "INCLUDES" } }
+        : { performers: { value: [stashId], modifier: "INCLUDES" } },
+      {
+        sort: "DATE",
+        direction: _state.sortDir,
+        page: pageNum,
+        per_page: boxPerPage,
+      }
+    );
     return _boxRateLimiter.submit(function () {
-      return callBoxGQL(
-        box.endpoint, box.api_key,
-        "query($input:SceneQueryInput!){queryScenes(input:$input){count scenes{" + BOX_SCENE_FIELDS + "}}}",
-        {
-          input: Object.assign(
-            // P7：工作室 tab 按 studios INCLUDES 查（stash-box 层级匹配含母厂牌）
-            _state.entityType === "studio"
-              ? { studios: { value: [stashId], modifier: "INCLUDES" } }
-              : { performers: { value: [stashId], modifier: "INCLUDES" } },
-            {
-              sort: "DATE",
-              direction: _state.sortDir,
-              page: pageNum,
-              per_page: boxPerPage,
-            }
-          )
-        }
-      );
-    }).then(function (data) {
-      var result = data && data.queryScenes;
+      // TPDB 的 queryScenes 恒返回空（服务端故障），内部自动改走 REST
+      return callBoxSceneList(box, input);
+    }).then(function (result) {
       if (!result || !result.scenes) return { scenes: [], count: 0, hasMore: false };
       var items = result.scenes.map(function (sc) {
         return {
@@ -386,7 +652,8 @@
       return {
         scenes: items,
         count: result.count || 0,
-        hasMore: result.scenes.length >= boxPerPage,
+        hasMore: result.hasMore != null ? result.hasMore : result.scenes.length >= boxPerPage,
+        truncated: !!result.truncated,
       };
     });
   }
@@ -460,6 +727,7 @@
         delete _state.boxFailed[b.endpoint];
         _state.boxStatus[b.endpoint] = { ok: true };
         _state.boxFetched[b.endpoint] = (_state.boxFetched[b.endpoint] || 0) + result.scenes.length;
+        if (result.truncated) _state.boxTruncated[b.endpoint] = true;
         if (!result.hasMore) _state.boxExhausted[b.endpoint] = true;
         // Window early-stop: the page's boundary date crossed the window,
         // every later page is outside it as well
@@ -559,7 +827,7 @@
   function fetchBoxSceneDetail(box, sceneId) {
     return _boxRateLimiter.submit(function () {
       return callBoxGQL(
-        box.endpoint, box.api_key,
+        box.endpoint, boxKey(box),
         "query($id:ID!){findScene(id:$id){" + BOX_SCENE_DETAIL_FIELDS + "}}",
         { id: sceneId }
       );
@@ -601,6 +869,7 @@
     _state.boxFailed = {};
     _state.boxStatus = {};
     _state.boxFetched = {};
+    _state.boxTruncated = {};
     _state.boxPageSize = 100;
     _state.boxFetchedTotal = 0;
     _state.boxTotalCount = 0;
@@ -807,6 +1076,7 @@
     _state.boxFailed = {};
     _state.boxStatus = {};
     _state.boxFetched = {};
+    _state.boxTruncated = {};
     _state.boxPageSize = 100;
     _state.boxFetchedTotal = 0;
     _state.boxTotalCount = 0;
@@ -1147,7 +1417,7 @@
       retryBtn.onclick = retryLoad;
       actions.appendChild(retryBtn);
       var setBtn = makePanelBtn(tc("打开设置", "Open settings"), "secondary");
-      setBtn.onclick = function () { window.open("/settings", "_blank", "noopener,noreferrer"); };
+      setBtn.onclick = function () { window.open(appUrl("/settings"), "_blank", "noopener,noreferrer"); };
       actions.appendChild(setBtn);
 
     } else if (vs === "no-box") {
@@ -1158,7 +1428,7 @@
       retryBtn2.onclick = retryLoad;
       actions.appendChild(retryBtn2);
       var setBtn2 = makePanelBtn(tc("打开设置", "Open settings"), "secondary");
-      setBtn2.onclick = function () { window.open("/settings", "_blank", "noopener,noreferrer"); };
+      setBtn2.onclick = function () { window.open(appUrl("/settings"), "_blank", "noopener,noreferrer"); };
       actions.appendChild(setBtn2);
 
     } else if (vs === "no-ids") {
@@ -2425,6 +2695,21 @@
     }
     pane.appendChild(countInfo);
 
+    // TPDB 按演员/站点逐个取片，每人最多 TPDB_MAX_PAGES_PER_ID 页：
+    // 只有源确实还有更早场景、被页数上限截断时才提示（用户 2026-10-26）
+    var truncatedBox = _state.queryBoxes.filter(function (b) { return _state.boxTruncated[b.endpoint]; })[0];
+    if (truncatedBox) {
+      var capInfo = document.createElement("div");
+      capInfo.className = "ssd-count-info ssd-count-line text-muted";
+      var capCount = TPDB_MAX_PAGES_PER_ID * 100;
+      capInfo.textContent = _state.entityType === "studio"
+        ? tc("当前源每个工作室最多回溯 " + capCount + " 部，已达上限。",
+          "This source is limited to " + capCount + " scenes per studio; this list reached that limit.")
+        : tc("当前源每位演员最多回溯 " + capCount + " 部，已达上限。",
+          "This source is limited to " + capCount + " scenes per performer; this list reached that limit.");
+      pane.appendChild(capInfo);
+    }
+
     if (_state.displayMode === "list") {
       pane.appendChild(buildSceneTable(pageItems));
     } else {
@@ -2520,12 +2805,28 @@
   // including from the window resize handler — relayouts them all.
   function layoutCardGrid() {
     document.querySelectorAll(".ssd-card-grid").forEach(function (grid) {
+      var cards = grid.querySelectorAll(".scene-card");
+      // CSS grid 容器（发现页模块、窄屏演员弹窗）由网格轨道决定列宽：
+      // 清掉可能残留的 inline width 后跳过（用户 2026-10-27）
+      if (getComputedStyle(grid).display === "grid") {
+        for (var k = 0; k < cards.length; k++) cards[k].style.width = "";
+        return;
+      }
+      // 窄屏原生 Stash 卡片是单列全宽（实测 ≤576：容器宽 − 10px），旧公式
+      // 多减了 30px。只对演员/工作室详情 tab 生效；发现页网格是 CSS grid
+      // 已在上面跳过，演员弹窗 481–576 仍走公式（用户 2026-10-27）
+      var narrowNative = window.innerWidth <= 576 &&
+        !grid.closest(".ssd-dp-page") && !grid.closest(".ssd-dp-modal-scenes");
       var zoom = parseInt(grid.getAttribute("data-zoom"), 10);
       if (isNaN(zoom)) zoom = _state.zoom;
-      var maxUsable = Math.max(120, grid.clientWidth - 30);
-      var cols = Math.max(1, Math.ceil(maxUsable / ZOOM_WIDTHS[zoom]));
-      var cardW = maxUsable / cols - 10;
-      var cards = grid.querySelectorAll(".scene-card");
+      var cardW;
+      if (narrowNative) {
+        cardW = Math.max(120, grid.clientWidth - 10);
+      } else {
+        var maxUsable = Math.max(120, grid.clientWidth - 30);
+        var cols = Math.max(1, Math.ceil(maxUsable / ZOOM_WIDTHS[zoom]));
+        cardW = maxUsable / cols - 10;
+      }
       for (var i = 0; i < cards.length; i++) {
         cards[i].style.width = cardW + "px";
       }
@@ -2578,6 +2879,117 @@
     return wrap;
   }
 
+  // 封面候选依次回退：TPDB 的外站直链常因防盗链 403，失败后换下一张
+  //（images 里随后是 TPDB 自托管的 poster / background）
+
+  // 动图候选（外站 gif / webp）：直接塞进 src 时，网络失败要等浏览器
+  // 超时才触发 onerror，期间封面是空的（先黑屏再恢复静态图）。
+  // 方案 A+B（用户 2026-10-26）：静态图先行 + 首图后台探测；失败写入
+  // sessionStorage 负缓存，切页重建卡片时不再重复等待。
+  // 2026-10-26 补：TPDB 首图多为外站普通 jpg（manyvids / phncdn /
+  // iwantclips），不是动图但同样会失败空白 → 判定从「动图」扩到
+  // 「与后备图不同域」；next() 也跳过负缓存命中的候选，不再每次重试。
+  var IMG_FAIL_KEY = "SSD:imgfail.v1";
+  var IMG_FAIL_TTL = 12 * 3600 * 1000;
+  // 失败 10 分钟后允许后台重探一次：网络抖动 / 并发过高造成的「假失败」
+  // 不会把外站封面钉死 12 小时（用户 2026-10-26 实测 30 张里 24 张误判）
+  var IMG_FAIL_RETRY = 10 * 60 * 1000;
+
+  function animUrl(u) {
+    return /\.gif(?:$|[?#])/i.test(u) || /\.webp(?:$|[?#])/i.test(u);
+  }
+  function hostOf(u) {
+    try { return new URL(u, location.href).host; } catch (_) { return ""; }
+  }
+  // 首图需要「先显示静态后备」：动图，或与后备图不同域（外站直链）
+  function riskyFirst(list) {
+    if (!list || list.length < 2) return false;
+    var h = hostOf(list[0]);
+    return animUrl(list[0]) || (h && h !== hostOf(list[1]));
+  }
+  function imgFailMap() {
+    try {
+      var o = JSON.parse(sessionStorage.getItem(IMG_FAIL_KEY) || "{}");
+      return (o && typeof o === "object") ? o : {};
+    } catch (_) { return {}; }
+  }
+  function imgFailed(u) {
+    var o = imgFailMap(), ts = o[u];
+    if (!ts) return false;
+    if (Date.now() - ts > IMG_FAIL_TTL) {
+      delete o[u];
+      try { sessionStorage.setItem(IMG_FAIL_KEY, JSON.stringify(o)); } catch (_) {}
+      return false;
+    }
+    return true;
+  }
+  function markImgFailed(u) {
+    if (!u) return;
+    var o = imgFailMap();
+    o[u] = Date.now();
+    try { sessionStorage.setItem(IMG_FAIL_KEY, JSON.stringify(o)); } catch (_) {}
+  }
+  // 负缓存里仍有效的失败时间戳（0 = 没有 / 已过期）
+  function imgFailTs(u) {
+    var ts = imgFailMap()[u];
+    return ts && Date.now() - ts <= IMG_FAIL_TTL ? ts : 0;
+  }
+  function clearImgFail(u) {
+    var o = imgFailMap();
+    if (!u || !(u in o)) return;
+    delete o[u];
+    try { sessionStorage.setItem(IMG_FAIL_KEY, JSON.stringify(o)); } catch (_) {}
+  }
+
+  function setCoverImage(img, images) {
+    var list = (images || []).map(function (i) { return i && i.url; })
+      .filter(function (u) { return typeof u === "string" && u; });
+
+    // 需要「静态先行」的首图：动图，或与后备图不同域（外站直链）。
+    // TPDB 的 images[0] 常是 manyvids / phncdn 等外站 jpg，防盗链失败
+    // 前同样会空一段；不同域即视为需要探测（StashDB 首图与后备同域）。
+    var risky = riskyFirst(list) ? list[0] : "";
+    var rest = list.slice(risky ? 1 : 0);
+    // 10 分钟内确认失败 → 直接静态图；更早的失败仍先静态，但后台重探一次
+    var riskTs = risky ? imgFailTs(risky) : 0;
+    if (riskTs && Date.now() - riskTs < IMG_FAIL_RETRY) risky = "";
+
+    var idx = 0, curSrc = "", fallbackSrc = "";
+    function next() {
+      // 已判定失败的候选直接跳过：切页重建卡片时不再重演「先空白再静态」
+      while (idx < rest.length && imgFailed(rest[idx])) idx++;
+      if (idx >= rest.length) { img.style.visibility = "hidden"; return; }
+      curSrc = rest[idx++];
+      fallbackSrc = curSrc;
+      img.style.visibility = "visible";
+      img.src = curSrc;
+    }
+    img.onerror = function () {
+      markImgFailed(curSrc);
+      next();
+    };
+    next();
+
+    if (!risky) return;
+    // 超时（慢图）不算失败：保留静态图，不写负缓存（用户 2026-10-26）
+    probeUrl(risky, 15000).then(function (st) {
+      if (st === "error") { markImgFailed(risky); return; }
+      if (st !== "ok") return;
+      clearImgFail(risky); // 重探成功，解除负缓存
+      img.onerror = function () {
+        markImgFailed(risky);
+        if (fallbackSrc) {
+          img.onerror = function () { img.style.visibility = "hidden"; };
+          img.src = fallbackSrc;
+        } else {
+          img.style.visibility = "hidden";
+        }
+      };
+      img.style.visibility = "visible";
+      img.src = risky;
+    });
+  }
+
   function buildSceneRow(item) {
     var sc = item.scene;
     var tr = document.createElement("tr");
@@ -2593,8 +3005,7 @@
       img.loading = "lazy";
       img.className = "image-thumbnail";
       img.alt = sc.title || sc.code || "";
-      img.src = item.images[0].url;
-      img.onerror = function () { this.style.visibility = "hidden"; };
+      setCoverImage(img, item.images);
       coverLink.appendChild(img);
     }
     coverTd.appendChild(coverLink);
@@ -2701,9 +3112,8 @@
       var img = document.createElement("img");
       img.className = "scene-card-preview-image";
       img.loading = "lazy";
-      img.src = item.images[0].url;
       img.alt = sc.title || sc.code || "";
-      img.onerror = function () { this.style.visibility = "hidden"; };
+      setCoverImage(img, item.images);
       preview.appendChild(img);
     }
 
@@ -2758,7 +3168,8 @@
     title.className = "card-section-title flex-aligned";
     var titleText = document.createElement("div");
     titleText.className = "TruncatedText";
-    titleText.style.setProperty("-webkit-line-clamp", "2");
+    // 行数由插件 CSS 控制（默认 2 行，发现页窄屏 1 行）——inline style 无法被
+    // 媒体查询覆盖，只能靠 !important，故迁到样式表（用户 2026-10-27）
     titleText.textContent = sc.title || sc.code || tc("无标题", "Untitled");
     title.appendChild(titleText);
     cardSection.appendChild(title);
@@ -2776,7 +3187,6 @@
     if (sc.details) {
       var desc = document.createElement("div");
       desc.className = "TruncatedText scene-card__description";
-      desc.style.setProperty("-webkit-line-clamp", "3");
       desc.textContent = sc.details;
       details.appendChild(desc);
     }
@@ -2931,7 +3341,7 @@
       var img = document.createElement("img");
       img.className = "image-thumbnail";
       img.alt = p.name || "";
-      img.src = "/performer/" + lp.id + "/image";
+      img.src = appUrl("/performer/" + lp.id + "/image");
       imgWrap.appendChild(img);
       row.appendChild(imgWrap);
       var name = document.createElement("span");
@@ -2970,6 +3380,9 @@
   var _carouselIdx = 0;
   var _modalImages = []; // current open modal's image URL list (cover + DMM shots)
   var _modalGalleryDone = false;
+  var _modalListProbed = null;  // Promise<list 中实际可加载的 URL>
+  var _modalKeep = [];          // 探测通过的列表图（动图优先）
+  var _modalExtra = [];         // 详情图 + DMM 截图
   var _searchPage = 1;
   var _searchPerPage = 20;
   var _searchResults = [];
@@ -2980,11 +3393,47 @@
     _state.modalLoading = true;
     hidePerformerCard();
     _carouselIdx = 0;
-    _modalImages = (item.images || []).map(function (i) { return i.url; });
+    var list = (item.images || []).map(function (i) { return i && i.url; })
+      .filter(function (u) { return typeof u === "string" && u; });
     _modalGalleryDone = false;
+    _modalKeep = [];
+    _modalExtra = [];
     _searchPage = 1;
     _searchResults = [];
+
+    // 外站直链可能被防盗链拒绝或只是很慢：弹层先显示静态后备图，
+    // 再逐张后台探测、加载成功才补进轮播（用户 2026-10-26：打开不能先空白）
+    var initial = list[0] || "";
+    if (riskyFirst(list)) initial = list[1];
+    _modalImages = initial ? [initial] : [];
+    _modalKeep = _modalImages.slice();
     buildModal(item);
+
+    var addKeep = function (u) {
+      if (_modalKeep.indexOf(u) >= 0) return;
+      _modalKeep = list.filter(function (x) { return x === u || _modalKeep.indexOf(x) >= 0; });
+      recomputeModalImages();
+    };
+    var probes = list.map(function (u) {
+      if (u === initial) return Promise.resolve();
+      // 10 分钟内确认失败的直接跳过；更早的失败仍重探（可能只是当时抖动）
+      var ts = imgFailTs(u);
+      if (ts && Date.now() - ts < IMG_FAIL_RETRY) return Promise.resolve();
+      return probeUrl(u, 15000).then(function (st) {
+        if (st === "ok") {
+          clearImgFail(u);
+          if (_state.modal === item) addKeep(u);
+        } else if (st === "error") {
+          markImgFailed(u);
+        }
+        // timeout：只是慢，不写负缓存，下次打开再试
+      });
+    });
+    // 4 秒后放行详情图合并（慢图探测继续在后台跑，成功后再补进轮播）
+    _modalListProbed = Promise.race([
+      Promise.all(probes),
+      new Promise(function (r) { setTimeout(r, 4000); }),
+    ]);
 
     // Fetch full detail in background
     fetchBoxSceneDetail(item.box, item.scene.id).then(function (detail) {
@@ -3028,12 +3477,18 @@
     closeBtn.onclick = closeModal;
     modal.appendChild(closeBtn);
 
+    // 内容装进内层滚动容器：关闭按钮悬浮在弹窗右上角，不随内容滚动
+    // （与演员弹窗 .ssd-dp-modal-body 同构 — 用户 2026-10-27）
+    var body = document.createElement("div");
+    body.className = "ssd-modal-body";
+    modal.appendChild(body);
+
     // Section 1: Carousel (cover + screenshots)
     var carouselSection = document.createElement("div");
     carouselSection.className = "ssd-modal-section";
     carouselSection.style.padding = "0";
     carouselSection.appendChild(buildCarousel(_modalImages, item.scene));
-    modal.appendChild(carouselSection);
+    body.appendChild(carouselSection);
 
     // Section 2: Action buttons
     var actionSection = document.createElement("div");
@@ -3065,20 +3520,20 @@
     btnRow.appendChild(searchBtn);
 
     actionSection.appendChild(btnRow);
-    modal.appendChild(actionSection);
+    body.appendChild(actionSection);
 
     // Section 3: Details (placeholder — filled by updateModalDetail)
     var details = document.createElement("div");
     details.className = "ssd-modal-section";
     details.setAttribute("data-ssd-details", "");
     renderDetailsInto(details, item.scene, item);
-    modal.appendChild(details);
+    body.appendChild(details);
 
     // Section 4: Search results
     var searchSection = document.createElement("div");
     searchSection.className = "ssd-modal-section";
     searchSection.setAttribute("data-ssd-search", "");
-    modal.appendChild(searchSection);
+    body.appendChild(searchSection);
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -3325,17 +3780,54 @@
     oldCarousel.parentNode.replaceChild(fresh, oldCarousel);
   }
 
-  // After detail loads, probe DMM for screenshots and merge into the carousel.
+  // 探测图片可加载性：resolve "ok" | "error" | "timeout"。
+  // 超时不等于失败——外站动图/大图可能只是慢（用户 2026-10-26）；
+  // 只有 onerror 才是真失败，才写入负缓存。
+  function probeUrl(url, timeoutMs) {
+    return new Promise(function (resolve) {
+      if (!url) return resolve("error");
+      var im = new Image();
+      var done = false;
+      var t = setTimeout(function () {
+        if (done) return;
+        done = true;
+        im.onload = im.onerror = null;
+        resolve("timeout");
+      }, timeoutMs || 15000);
+      im.onload = function () {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve("ok");
+      };
+      im.onerror = function () {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve("error");
+      };
+      im.src = url;
+    });
+  }
+
+  // 列表图（动图优先）+ 详情图 + DMM 截图，统一去重排序后重挂轮播
+  function recomputeModalImages() {
+    if (!_state.modal) return;
+    var merged = dedupeUrls(_modalKeep.concat(_modalExtra));
+    if (!merged.length) return;
+    if (merged.join("|") === _modalImages.join("|")) return;
+    _modalImages = merged;
+    remountCarousel();
+  }
+
   function probeModalGallery(detail, item) {
     if (_modalGalleryDone) return;
     _modalGalleryDone = true;
 
-    // Seed with box detail images (cover)
-    var boxUrls = (detail.images || []).map(function (i) { return i.url; }).filter(Boolean);
-    if (boxUrls.length) {
-      _modalImages = dedupeUrls(boxUrls);
-      remountCarousel();
-    }
+    // 已确认加载失败的外站图不进轮播，避免左右切换时出现空白（用户 2026-10-26）
+    var boxUrls = (detail.images || []).map(function (i) { return i.url; })
+      .filter(function (u) { return u && !imgFailed(u); });
+    _modalExtra = dedupeUrls(_modalExtra.concat(boxUrls));
 
     var sc = detail.scene || {};
     var contentId = null;
@@ -3343,25 +3835,25 @@
       if (!contentId && u.url) contentId = contentIdFromR18Url(u.url);
     });
     if (!contentId) contentId = deriveContentId(sc.code);
-    if (!contentId) return; // non-DMM scene: box cover is all we have
+
+    var flush = function () {
+      (_modalListProbed || Promise.resolve()).then(function () { recomputeModalImages(); });
+    };
 
     // Progressive merge (enumeration path reports each shot as found)
     var onImage = function (url) {
-      if (!_state.modal) return; // modal closed
-      if (_modalImages.indexOf(url) === -1) {
-        _modalImages.push(url);
-        remountCarousel();
-      }
+      _modalExtra = dedupeUrls(_modalExtra.concat([url]));
+      flush();
     };
 
+    if (!contentId) { flush(); return; } // non-DMM scene: covers are all we have
+
     probeDmmGallery(contentId, onImage).then(function (galleryUrls) {
-      if (!_state.modal) return;
-      var merged = dedupeUrls(_modalImages.concat(galleryUrls || []));
-      var changed = merged.length !== _modalImages.length;
-      _modalImages = merged;
-      if (changed) remountCarousel();
+      _modalExtra = dedupeUrls(_modalExtra.concat(galleryUrls || []));
+      flush();
     }).catch(function (e) {
       console.warn("[SSD] DMM gallery probe failed:", e);
+      flush();
     });
   }
 
@@ -3564,7 +4056,7 @@
     // Local performer avatar when mapped (fast, internal); box image otherwise
     var localMap = (_state.localPerformerMaps || {})[(item.endpoint || "").toLowerCase()] || {};
     var lp = localMap[String(performer.id).toLowerCase()];
-    var imgSrc = lp ? ("/performer/" + lp.id + "/image")
+    var imgSrc = lp ? appUrl("/performer/" + lp.id + "/image")
       : (((performer.images || [])[0] || {}).url || "");
 
     // Mount immediately with a fixed-size portrait skeleton (instant feedback);
@@ -3666,7 +4158,7 @@
     // Box performer: derive age from birth_date
     return _boxRateLimiter.submit(function () {
       return callBoxGQL(
-        item.endpoint, item.box.api_key,
+        item.endpoint, boxKey(item.box),
         "query($id:ID!){findPerformer(id:$id){id birth_date country}}",
         { id: performer.id }
       );
@@ -3856,12 +4348,33 @@
 
   // ─── Action: Search Resources (Jackett via Python backend) ────────────────
 
-  // Default query: code for JAV scenes, title for western ones (auto-fallback).
-  // An editable search bar is mounted above the results so the query can be
-  // corrected per scene (long titles, custom keywords, ...).
+  // 番号形态判定：只有真的像番号才拿 code 当搜索词。
+  // stash-box 的 code 不保证是番号 —— TPDB 场景的 code 来自 external_id，
+  // 实测形如 "japanhdv.com-6097"（站点域名 + 站点内 ID），拿它搜 Jackett
+  // 只会得到无关结果（论坛反馈：「有 ID 时结果完全不相关，没有 ID 时反而准确」）。
+  function looksLikeCode(v) {
+    var s = String(v || "").trim();
+    if (!s || s.length > 24) return false;
+    if (/[\s.]/.test(s)) return false;                       // 空格或域名点 = 不是番号
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s)) return false;   // uuid
+    if (/^\d{6}[-_]\d{2,4}$/.test(s)) return true;            // 051424_001 类无码番号
+    if (!/\d/.test(s)) return false;                          // 无数字 = slug / 标题
+    // SSIS-001 / T28-123 / FC2-PPV-1234567 / 1pondo-123456
+    return /^[A-Za-z0-9]{2,12}[-_](?:\d{2,7}|[A-Za-z]{2,4}[-_]\d{1,7})$/.test(s);
+  }
+
+  // 搜索词：番号形 code 优先（JAV 场景标题是日文长句，搜不出结果），
+  // 否则一律用标题 —— western 场景本来就没有番号。
+  function searchQueryFor(sc) {
+    var code = String((sc && sc.code) || "").trim();
+    var title = String((sc && sc.title) || "").trim();
+    if (code && looksLikeCode(code)) return code;
+    return title || code;
+  }
+
   function handleSearchResources(item, btn) {
     var sc = _state.modalDetail ? _state.modalDetail.scene : item.scene;
-    var defaultQuery = sc.code || sc.title || "";
+    var defaultQuery = searchQueryFor(sc);
     if (!defaultQuery) {
       showModalNotice(tc("无法构建搜索词（无番号或标题）", "Cannot build search query (no code or title)"), "error");
       return;
@@ -3945,14 +4458,16 @@
     results.appendChild(loading);
     scrollModalToBottom();
 
+    var rid = newRequestId();
     runPluginTask(TASK_SEARCH, [
       { key: "mode", value: { str: "search" } },
       { key: "query", value: { str: query } },
+      { key: "rid", value: { str: rid } },
     ]).then(function (jobId) {
       if (!jobId) throw new Error(tc("任务提交失败", "Task submission failed"));
-      return pollJob(jobId);
+      return searchBudgetMs().then(function (budget) { return pollJob(jobId, budget); });
     }).then(function () {
-      return fetchSearchResult();
+      return waitSearchResult(rid);
     }).then(function (result) {
       btn.disabled = false;
       btn.textContent = tc("搜索资源", "Search Resources");
@@ -3978,9 +4493,16 @@
     ).then(function (r) { return (r && r.runPluginTask) || null; });
   }
 
-  function pollJob(jobId) {
+  // 每次任务一个 requestId：结果/错误都带着它回传，前端只认自己那个。
+  // 只靠「日志里第一条 marker」会把上一次（或并行任务）的结果当成这次的
+  // —— 论坛反馈：搜完演员 A 再搜 B，显示的还是 A 的结果。
+  function newRequestId() {
+    return "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function pollJob(jobId, timeoutMs) {
     var startTime = Date.now();
-    var timeout = 60000;
+    var timeout = timeoutMs || 60000;
     return new Promise(function (resolve, reject) {
       function tick() {
         callGQL("query($i:FindJobInput!){findJob(input:$i){id status}}", { i: { id: jobId } })
@@ -3998,22 +4520,65 @@
     });
   }
 
-  function fetchSearchResult() {
+  // 前端任务预算 = 后端 Jackett 超时 + 30s 调度余量。以前前端固定 60s 而后端
+  // 默认 120s：前端先报超时，后端的结果随后才落日志，下一次搜索就会读到它。
+  function searchBudgetMs() {
+    return getPluginSettings().then(function (s) {
+      var sec = parseInt((s && s.jackettTimeout) || "", 10);
+      if (!(sec > 0)) sec = 120;
+      return sec * 1000 + 30000;
+    }).catch(function () { return 150000; });
+  }
+
+  // "marker 后面的负载"：新格式是 JSON，老格式（或日志被截断）解析不出 JSON
+  function readMarkerPayload(msg, marker) {
+    var i = msg.indexOf(marker);
+    if (i === -1) return null;
+    var raw = msg.substring(i + marker.length).trim();
+    try { return JSON.parse(raw); } catch (e) { return { __raw: raw }; }
+  }
+
+  // 返回 null = 本次结果还没出现在日志里（交给 waitSearchResult 重试）
+  function fetchSearchResult(rid) {
     return callGQL("query{logs{level message}}", {}).then(function (r) {
       var logs = (r && r.logs) || [];
-      // Stash logs are newest-first: the first marker found is the latest run's
       for (var i = 0; i < logs.length; i++) {
         var msg = (logs[i] || {}).message || "";
-        var errIdx = msg.indexOf(ERROR_MARKER);
-        if (errIdx !== -1) throw new Error(msg.substring(errIdx + ERROR_MARKER.length).trim());
-        var resultIdx = msg.indexOf(RESULT_MARKER);
-        if (resultIdx !== -1) {
-          var jsonStr = msg.substring(resultIdx + RESULT_MARKER.length).trim();
-          try { return JSON.parse(jsonStr); } catch (e) { console.warn("[SSD] result parse failed:", e); }
+        if (msg.indexOf(ERROR_MARKER) !== -1) {
+          var err = readMarkerPayload(msg, ERROR_MARKER);
+          if (!err || err.rid !== rid) continue;
+          throw new Error(err.message || err.__raw || tc("搜索失败", "Search failed"));
+        }
+        if (msg.indexOf(RESULT_MARKER) !== -1) {
+          var res = readMarkerPayload(msg, RESULT_MARKER);
+          if (!res || res.rid !== rid) continue;
+          // 解析失败就是失败，不能顺手拿更旧的一条顶替（那正是串结果的来源）
+          if (res.__raw) throw new Error(tc("结果解析失败（日志可能被截断）",
+            "Could not parse results (log may be truncated)"));
+          return res;
         }
       }
-      return { count: 0, results: [] };
+      return null;
     });
+  }
+
+  // job 结束 ≠ 日志已落库：等一小会儿再判失败（以前读一次就返回，容易读到
+  // 上一次的旧结果）
+  function waitPayload(reader, rid, missingMsg) {
+    var deadline = Date.now() + 5000;
+    function attempt() {
+      return reader(rid).then(function (res) {
+        if (res) return res;
+        if (Date.now() > deadline) throw new Error(missingMsg);
+        return new Promise(function (resolve) { setTimeout(resolve, 300); }).then(attempt);
+      });
+    }
+    return attempt();
+  }
+
+  function waitSearchResult(rid) {
+    return waitPayload(fetchSearchResult, rid, tc("任务已完成但没收到搜索结果，请重试",
+      "Task finished without returning results — please retry"));
   }
 
   function renderSearchResults(section, result) {
@@ -4025,6 +4590,19 @@
     header.className = "ssd-search-header";
     header.textContent = tc("搜索结果 (", "Search Results (") + (result.count || 0) + ")";
     section.appendChild(header);
+
+    // 后端只下发前 SEARCH_RESULT_LIMIT 条：抬头报总数、列表却更短时说清楚，
+    // 否则就是"日志说 230 条，插件里只有几条"（论坛反馈）
+    if (result.truncated) {
+      var shown = _searchResults.length;
+      var hint = document.createElement("div");
+      hint.className = "ssd-search-truncated";
+      hint.textContent = tc(
+        "共 " + (result.count || 0) + " 条，仅显示前 " + shown + " 条，加番号或关键词可缩小范围",
+        (result.count || 0) + " results — showing the first " + shown +
+          ", refine the query to narrow it down");
+      section.appendChild(hint);
+    }
 
     if (_searchResults.length === 0) {
       var empty = document.createElement("div");
@@ -4158,13 +4736,18 @@
       pushBtn.onclick = function () {
         pushBtn.disabled = true;
         pushBtn.textContent = tc("推送中...", "Pushing...");
+        var prId = newRequestId();
         runPluginTask(TASK_PUSH, [
           { key: "mode", value: { str: "push_download" } },
           { key: "magnet", value: { str: res.magnet } },
+          { key: "rid", value: { str: prId } },
         ]).then(function (jobId) {
           if (!jobId) throw new Error("Task submission failed");
           return pollJob(jobId);
-        }).then(function () { return fetchPushResult(); })
+        }).then(function () {
+          return waitPayload(fetchPushResult, prId, tc("任务已完成但没收到推送结果",
+            "Task finished without a push result"));
+        })
         .then(function () {
           pushBtn.textContent = tc("已推送 ✓", "Pushed ✓");
           pushBtn.classList.add("ssd-btn-success");
@@ -4191,18 +4774,24 @@
     return row;
   }
 
-  function fetchPushResult() {
+  // 返回 null = 本次推送还没出现在日志里（交给 waitPayload 重试）
+  function fetchPushResult(rid) {
     return callGQL("query{logs{level message}}", {}).then(function (r) {
       var logs = (r && r.logs) || [];
-      // Stash logs are newest-first (see fetchSearchResult)
       for (var i = 0; i < logs.length; i++) {
         var msg = (logs[i] || {}).message || "";
         if (msg.indexOf(ERROR_MARKER) !== -1) {
-          throw new Error(msg.substring(msg.indexOf(ERROR_MARKER) + ERROR_MARKER.length).trim());
+          var err = readMarkerPayload(msg, ERROR_MARKER);
+          if (!err || err.rid !== rid) continue;
+          throw new Error(err.message || err.__raw || tc("推送失败", "Push failed"));
         }
-        if (msg.indexOf(RESULT_MARKER) !== -1) return true;
+        if (msg.indexOf(RESULT_MARKER) !== -1) {
+          var res = readMarkerPayload(msg, RESULT_MARKER);
+          if (!res || res.rid !== rid) continue;
+          return true;
+        }
       }
-      return true;
+      return null;
     });
   }
 
@@ -4342,14 +4931,17 @@
     return Promise.all([getStashBoxes(), getPluginSettings()]).then(function (res) {
       var boxes = res[0] || [];
       var settings = res[1] || {};
-      var recentDays = parseInt(settings.recentDays, 10);
-      if (!(recentDays > 0)) recentDays = 30; // §4.2 default lookback
-      var cutoff = localDateStr(new Date(Date.now() - recentDays * 86400000));
+      // 角标属于发现页：窗口取发现页设置（SSD:dp:prefs），与发现页关注列表同口径；
+      // 演员详情 tab 的长窗仍由插件设置 recentDays 驱动（用户 2026-10-26）。
+      var prefs = {};
+      try { prefs = JSON.parse(localStorage.getItem(DP_PREFS_KEY) || "null") || {}; } catch (_) {}
+      var recentDays = parseInt(prefs.recentDays, 10);
+      if (isNaN(recentDays) || recentDays < 0) recentDays = 30; // 发现页默认短窗
+      var cutoff = recentDays > 0 ? localDateStr(new Date(Date.now() - recentDays * 86400000)) : null;
 
       // 关注页是单源口径（只显示当前数据源的新作，用户 2026-10-25 第七轮），
       // 角标同样只统计当前数据源，避免「角标有未读、关注页却全是暂无新作品」。
-      var wanted = "";
-      try { wanted = String(((JSON.parse(localStorage.getItem(DP_PREFS_KEY) || "null") || {}).source) || ""); } catch (_) {}
+      var wanted = String(prefs.source || "");
       if (!wanted) wanted = String(settings.preferredBox || "");
       wanted = wanted.toLowerCase();
       var byEndpoint = {};
@@ -4372,35 +4964,42 @@
         var box = boxByEp[ep];
         if (!box) return Promise.resolve(null);
         return _boxRateLimiter.submit(function () {
-          return callBoxGQL(box.endpoint, box.api_key,
-            // performers 是 PerformerAppearance（{as, performer}），写成 performers{id}
-            // 会被 stash-box 校验拒绝（HTTP 422）→ 轮询永远 0（用户 2026-10-25 第七轮）
-            "query($input:SceneQueryInput!){queryScenes(input:$input){count scenes{id date performers{performer{id}}}}}",
-            {
-              input: {
-                date: { value: cutoff, modifier: "GREATER_THAN" },
-                performers: { value: byEndpoint[ep], modifier: "INCLUDES" },
-                sort: "DATE", direction: "DESC",
-                page: 1, per_page: 100,
-              },
-            }
-          );
-        }).then(function (data) {
-          return { ep: ep, ids: byEndpoint[ep], scenes: (((data || {}).queryScenes || {}).scenes) || [] };
+          var input = {
+            performers: { value: byEndpoint[ep], modifier: "INCLUDES" },
+            sort: "DATE", direction: "DESC",
+            page: 1, per_page: 100,
+          };
+          // 0 = 不限：不带日期过滤
+          if (cutoff) input.date = { value: cutoff, modifier: "GREATER_THAN" };
+          return callBoxSceneList(box, input);
+        }).then(function (qs) {
+          return { ep: ep, ids: byEndpoint[ep], scenes: (qs && qs.scenes) || [] };
         }).catch(function () { return null; }); // a failed box keeps its cached count next round
       }));
     }).then(function (results) {
       var marks = {};
       try { marks = ((JSON.parse(localStorage.getItem(DP_READ_KEY) || "null") || {}).marks) || {}; } catch (_) {}
+      // 「预告也计入提醒」（默认关，用户 2026-10-27 语义反转）：关闭时预告场景
+      // 不计入导航角标。旧 key skipPreviewNotify 兼容读 —— discover.js 挂载时
+      // 会把旧值迁移成 notifyPreviewScenes，但本函数可能在它之前就跑。
+      var skipPrev = true;
+      try {
+        var pf = JSON.parse(localStorage.getItem(DP_PREFS_KEY) || "null") || {};
+        var prevNotify = pf.notifyPreviewScenes === true ||
+          (pf.notifyPreviewScenes === undefined && pf.skipPreviewNotify === false);
+        skipPrev = !prevNotify;
+      } catch (_) {}
+      var today = localDateStr(new Date());
       var n = 0;
       (results || []).forEach(function (r) {
         if (!r) return;
         var set = {};
         r.ids.forEach(function (id) { set[String(id)] = true; });
         (r.scenes || []).forEach(function (sc) {
+          if (skipPrev && sc.release_date && sc.release_date > today) return;
           if (marks[r.ep + ":" + String(sc.id || "").toLowerCase()]) return;
-          ((sc.performers || [])).forEach(function (pf) {
-            var pid = pf && pf.performer && pf.performer.id;
+          ((sc.performers || [])).forEach(function (pf2) {
+            var pid = pf2 && pf2.performer && pf2.performer.id;
             if (pid && set[String(pid)]) n++;
           });
         });
@@ -4418,6 +5017,12 @@
     callGQL: callGQL,
     callBoxGQL: callBoxGQL,
     boxRateLimiter: _boxRateLimiter,
+    // TPDB REST fallback (list endpoints) and the base-path helper of the new version
+    appUrl: typeof appUrl === "function" ? appUrl : function (p) { return p; },
+    callBoxSceneList: callBoxSceneList,
+    callBoxPerformerList: callBoxPerformerList,
+    isTPDBBox: isTPDBBox,
+    TPDB_MAX_PAGES_PER_ID: TPDB_MAX_PAGES_PER_ID,
     // config
     getStashBoxes: getStashBoxes,
     getPluginSettings: getPluginSettings,

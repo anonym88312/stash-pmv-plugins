@@ -2581,4 +2581,7 @@ export default {
   "Current time": "Текущее время",
   "Length:": "Длина:",
   "Start from:": "Начать с:",
+  "All previews in view play by themselves, like the wall of classic Stash": "Все видимые превью воспроизводятся сами, как стена в классическом Stash",
+  "Autoplay": "Автовоспроизведение",
+  "Always, and all in view play by themselves": "Всегда, и всё видимое воспроизводится само",
 };
