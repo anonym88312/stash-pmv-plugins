@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.125.1",
+    date: "2026-10-28",
+    items: [
+      ["ui", "Discover → Overview looks like the rest of Stash UI: the accent is the interface's accent (it was grey), the window of a scene follows the interface colours (no fixed grey, green and orange buttons), and with Liquid Glass the panels, lists and buttons are frosted glass.", "“发现 → 概览”现在与 Stash UI 其余部分风格一致：强调色改用界面强调色（原先是灰色），场景窗口跟随界面颜色（不再是固定的灰色、绿色和橙色按钮），开启液态玻璃时面板、列表和按钮均为毛玻璃效果。", "discover::.ssd-dp-tabs"],
+    ],
+  },
+  {
     v: "3.125.0",
     date: "2026-10-28",
     items: [

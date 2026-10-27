@@ -86,3 +86,30 @@ html.kb-glass .scene-card .card-popovers .btn.minimal, html.kb-glass .ssd-search
 .ssd-tab-pane .text-muted { color: var(--text-2); }
 html.kb-glass .ssd-tab-pane .btn.btn-secondary, html.kb-glass .ssd-tab-pane .btn-secondary.form-control, html.kb-glass .ssd-tab-pane .clearable-text-field.form-control { border-color: var(--glass-edge); background: color-mix(in srgb, var(--text) 6%, transparent); }
 html.kb-glass .ssd-tab-pane .dropdown-menu { border-color: var(--glass-edge); background: var(--glass-shine), var(--glass-deep, var(--glass)); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); }
+
+/* ── Stash UI look for the page's own parts (the original draws its own grey accent, a fixed dark scene window and opaque panels) ── */
+/* accent = Stash UI's accent; the window of a scene follows the interface colours instead of its fixed greys and green */
+html .ssd-dp-page, html .ssd-nav-item, html .ssd-dp-modal { --sx-acc: var(--pink); --sx-acc-d: color-mix(in srgb, var(--pink) 78%, #000); --sx-acc-tx: var(--ink, #fff); }
+html:root { --ssd-accent: color-mix(in srgb, var(--pink) 45%, var(--bg-3)); --ssd-accent-hover: color-mix(in srgb, var(--pink) 60%, var(--bg-3)); --ssd-primary: var(--pink); --ssd-primary-hover: color-mix(in srgb, var(--pink) 82%, #000); --ssd-modal-bg: var(--bg-2); --ssd-modal-border: var(--bg-3); --ssd-modal-text: var(--text); --ssd-modal-muted: var(--text-2); }
+.ssd-modal { border: 1px solid var(--bg-3); border-radius: 14px !important; }
+.ssd-modal-overlay { background: rgba(0, 0, 0, .6) !important; }
+.ssd-dp-modal-overlay { background: rgba(0, 0, 0, .6); }
+
+/* ── Liquid Glass: panels (a few, with blur) … ── */
+html.kb-glass :is(.ssd-dp-tabs, .ssd-dp-toolbar, .ssd-dp-state, .ssd-dp-set-box, .ssd-dp-modal, .ssd-modal, .ssd-dp-fgrp, .ssd-dp-pfhead, .ssd-panel) {
+  border-color: var(--glass-edge); background: var(--glass-shine), var(--glass); box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter);
+}
+html.kb-glass .ssd-modal { background: var(--glass-shine), var(--glass-deep, var(--glass)) !important; border-color: var(--glass-edge); box-shadow: var(--glass-shadow) !important; }
+html.kb-glass .ssd-dp-modal { background: var(--glass-shine), var(--glass-deep, var(--glass)); }
+html.kb-glass :is(.ssd-modal-overlay, .ssd-dp-modal-overlay) { background: rgba(0, 0, 0, .45) !important; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+/* … the many small things (cards in lists, chips: no blur, it would slow scrolling) … */
+html.kb-glass :is(.ssd-dp-mini, .ssd-dp-pg, .ssd-dp-grpchip, .ssd-dp-chip, .ssd-meta-item, .ssd-search-item, .ssd-find-item, .ssd-pill) {
+  border-color: var(--glass-edge); background: var(--glass-shine), var(--glass-deep, var(--glass));
+}
+/* … and the controls */
+html.kb-glass :is(.ssd-dp-toolbar input, .ssd-dp-toolbar select, .ssd-dp-toolbar .grow, .ssd-dp-btn, .ssd-dp-extbtn, .ssd-dp-setsel, .ssd-dp-refresh, .ssd-dp-modal-close, .ssd-modal-close) {
+  border-color: var(--glass-edge); background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+html.kb-glass .ssd-dp-refresh { background-image: none; box-shadow: none; }
+html.kb-glass .ssd-dp-tab.on { background: color-mix(in srgb, var(--pink) 24%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pink) 40%, transparent); }

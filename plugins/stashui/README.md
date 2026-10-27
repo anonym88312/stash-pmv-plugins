@@ -247,7 +247,7 @@ Settings → General → **Install as app**: Stash UI gets its own window and a 
 
 ## Credits
 
-- **Discover → Overview**: the page and its code are from the plugin [stashDiscover](https://github.com/k6cc/stash-jav-tools/tree/main/stashDiscover) by ufousox007, used here with the author's permission (`app/js/vendor/stashdiscover/`, with the changes noted at the top of each file). Stash-box questions go through Stash UI's backend, which holds the API key; its settings (time windows, Jackett incl. timeout, downloader) are kept in Stash UI's plugin settings under Discover → Settings. Version 2.4.7 of stashDiscover is in (ThePornDB's list through its REST interface, asked by the backend too).
+- **Discover → Overview**: the page and its code are from the plugin [stashDiscover](https://github.com/k6cc/stash-jav-tools/tree/main/stashDiscover) by ufousox007, used here with the author's permission (`app/js/vendor/stashdiscover/`, with the changes noted at the top of each file). Stash-box questions go through Stash UI's backend, which holds the API key; its settings (time windows, Jackett incl. timeout, downloader) are kept in Stash UI's plugin settings under Discover → Settings. Version 2.4.7 of stashDiscover is in (ThePornDB's list through its REST interface, asked by the backend too). The page is drawn in Stash UI's accent colour and – with Liquid Glass on – as frosted glass (`stashui-compat.css`).
 
 ## Technical notes
 
