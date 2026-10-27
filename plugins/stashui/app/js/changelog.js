@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.126.0",
+    date: "2026-10-28",
+    items: [
+      ["pmv", "PMV Generator 2.38.0: Pictures (Style → Pictures). Image flash: pictures from your library cover the clips for a moment – one picture or a burst, 1, 2, 4 or 8 per beat (or following the song), set how often and how long a burst lasts. Image overlay: a see-through picture fades in over the playing clips for a few beats (opacity, length, how often). Both can use their own tags and performers.", "PMV 生成器 2.38.0：图片（样式 → 图片）。图片闪现：媒体库里的图片短暂盖住片段——单张或连发，每拍 1、2、4 或 8 张（或跟随歌曲），可设置频率和连发时长。图片叠加：半透明图片在正在播放的片段上淡入几拍（不透明度、长度、频率）。两者都可使用各自的标签和演员。"],
+    ],
+  },
+  {
     v: "3.125.1",
     date: "2026-10-28",
     items: [
