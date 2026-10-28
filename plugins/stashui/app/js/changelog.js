@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.127.1",
+    date: "2026-10-28",
+    items: [
+      ["ui", "Watch links for a slow upload: choose the quality the others get – 720p (default), 480p, 360p or the original. A smaller MP4 copy is made once (progress bar, a few minutes, low priority), the link works when it's ready, and the copy is deleted with the link. At 720p a viewer needs about 2.5 Mbit/s of your upload instead of the whole file's speed. It also makes MKV / HEVC videos playable in any browser. Needs “Reload plugins” in Stash.", "上传较慢时的观看链接：可选择对方收到的画质——720p（默认）、480p、360p 或原始画质。会一次性生成较小的 MP4 副本（带进度条，需几分钟，低优先级），就绪后链接即可使用，副本会随链接一起删除。720p 时每位观看者只占用约 2.5 Mbit/s 的上传带宽，而不是整个文件的码率。这也让 MKV / HEVC 视频能在任何浏览器中播放。需要在 Stash 中“重新加载插件”。", "scene/@scene::[data-wlink]"],
+    ],
+  },
+  {
     v: "3.127.0",
     date: "2026-10-28",
     items: [

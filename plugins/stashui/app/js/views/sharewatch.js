@@ -7,7 +7,7 @@ import * as C from "../shareconn.js";
 import { startCard } from "./sharing.js";
 import { DURATIONS, LIMITS, watchBase, watchUrl, watchDirect, copyText } from "./watchlink.js";
 
-const STATE = () => ({ ok: t("on"), paused: t("switched off"), expired: t("expired"), missing: t("video not found"), full: t("limit reached") });
+const STATE = () => ({ ok: t("on"), paused: t("switched off"), expired: t("expired"), missing: t("video not found"), full: t("limit reached"), preparing: t("being prepared"), failed: t("couldn't be prepared") });
 const when = (sec) => (sec ? new Date(sec * 1000).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
 const left = (w) => {
   if (!w.expires) return t("until you switch it off");
@@ -23,8 +23,8 @@ export function mountWatch(host, ctx) {
     const url = watchUrl(base(), w);
     const dead = w.state !== "ok";
     return `<div class="kb-share-link is-${w.state === "ok" ? "ok" : w.enabled ? "expired" : "paused"}" data-w="${esc(w.id)}">
-      <div class="kb-share-linkhead"><b>${esc(w.title || t("Video"))}</b><span class="kb-share-state">${esc(STATE()[w.state] || w.state)}${dead ? "" : " · " + esc(left(w))}</span></div>
-      <div class="kb-hint">${esc(fmtBytes(w.size))} · ${t("Viewers: {n}", { n: w.maxViews ? w.views + " / " + w.maxViews : w.views })}${w.last ? " · " + t("Last viewed: {time}", { time: when(w.last) }) : ""}</div>
+      <div class="kb-share-linkhead"><b>${esc(w.title || t("Video"))}</b><span class="kb-share-state">${esc(STATE()[w.state] || w.state)}${w.state === "preparing" ? " " + ((w.prep && w.prep.pct) || 0) + " %" : ""}${dead ? "" : " · " + esc(left(w))}</span></div>
+      <div class="kb-hint">${w.size ? esc(fmtBytes(w.size)) + " · " : ""}${w.quality ? w.quality + "p · " : ""}${t("Viewers: {n}", { n: w.maxViews ? w.views + " / " + w.maxViews : w.views })}${w.last ? " · " + t("Last viewed: {time}", { time: when(w.last) }) : ""}</div>
       <div class="kb-phone-url"><code>${esc(url)}</code><button type="button" class="kb-btn is-ghost" data-copy title="${esc(t("Copy the link"))}">${icon("copies")}</button></div>
       <div class="kb-share-row">
         <a class="kb-btn is-ghost" href="${esc(url)}" target="_blank" rel="noopener">${t("Open it")}</a>

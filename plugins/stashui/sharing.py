@@ -27,17 +27,19 @@ import os
 import re
 import secrets
 import shutil
+import subprocess
 import sys
 import threading
 import time
 import urllib.parse
 
-VERSION = 2
+VERSION = 3
 PUBLIC_PORT = int(sys.argv[1])
 ADMIN_PORT = int(sys.argv[2])
 ADMIN_TOKEN = sys.argv[3]
 DATA = sys.argv[4]
 INBOX = os.path.join(DATA, "inbox")
+WATCHDIR = os.path.join(DATA, "watch")  # the smaller copies made for watch links
 
 IMG = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif", ".avif", ".bmp"}
 VID = {".mp4", ".m4v", ".mov", ".3gp", ".webm", ".mkv", ".avi", ".mpg", ".mpeg", ".wmv", ".flv", ".ts"}
@@ -99,7 +101,12 @@ def load_config():
 cfg = load_config()
 inbox = [x for x in read_json("inbox.json", []) if isinstance(x, dict) and os.path.exists(os.path.join(INBOX, str(x.get("file", ""))))]
 messages = read_json("messages.json", [])
-watches = [w for w in read_json("watch.json", []) if isinstance(w, dict) and w.get("token") and w.get("path")]
+watches = [w for w in read_json("watch.json", []) if isinstance(w, dict) and w.get("token") and (w.get("path") or w.get("src"))]
+for _w in watches:  # a smaller copy that was being made when the receiver stopped isn't finished: the link says so
+    if (_w.get("prep") or {}).get("state") in ("queued", "running"):
+        _w["prep"] = {"state": "failed", "pct": 0, "q": _w["prep"].get("q", 0), "why": "interrupted"}
+jobs = {}  # watch id → the running ffmpeg
+prep_lock = threading.Semaphore(1)  # one smaller copy at a time
 viewers = {}  # (watch id, ip) → when it last asked: the same viewer counts once per half hour
 streams = {"n": 0}  # videos being sent right now
 MAX_STREAMS = 6
@@ -199,9 +206,85 @@ def watch_state(w):
         return "paused"
     if w.get("expires") and w["expires"] < time.time():
         return "expired"
-    if not os.path.isfile(w["path"]):
+    ps = (w.get("prep") or {}).get("state")
+    if ps in ("queued", "running"):
+        return "preparing"
+    if ps == "failed":
+        return "failed"
+    if not w.get("path") or not os.path.isfile(w["path"]):
         return "missing"
     return "ok"
+
+
+# Quality of a smaller copy: height, video kbit/s (the most the viewer needs from your upload, plus 96 kbit/s sound)
+QUALITY = {720: 2500, 480: 1200, 360: 700}
+
+
+def encode_watch(w, ffmpeg, duration):
+    """Make the smaller copy of a watch link's video (own thread, one at a time, low priority); the link starts to work when done."""
+    pr = w["prep"]
+    q = pr["q"]
+    out = os.path.join(WATCHDIR, w["id"] + ".mp4")
+    part = os.path.join(WATCHDIR, w["id"] + ".part.mp4")
+    tail = []
+    try:
+        with prep_lock:
+            if w not in watches:
+                return
+            pr["state"] = "running"
+            os.makedirs(WATCHDIR, exist_ok=True)
+            kb = QUALITY[q]
+            cmd = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-progress", "pipe:1", "-nostats", "-i", w["src"], "-map", "0:v:0", "-map", "0:a:0?",
+                   "-vf", f"scale=-2:'min({q},ih)'", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-maxrate", f"{kb}k", "-bufsize", f"{kb * 2}k",
+                   "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart", "-f", "mp4", part]
+            flags = (0x08000000 | 0x00004000) if os.name == "nt" else 0  # no window, below normal priority
+            proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace", creationflags=flags)
+            jobs[w["id"]] = proc
+            for line in proc.stdout:
+                line = line.strip()
+                if line.startswith("out_time_us=") or line.startswith("out_time_ms="):
+                    try:
+                        us = int(line.split("=", 1)[1])
+                    except ValueError:
+                        continue
+                    if duration > 0:
+                        pr["pct"] = max(0, min(99, int(us / 1e6 / duration * 100)))
+                elif "=" not in line and line:
+                    tail.append(line)
+                    del tail[:-6]
+            rc = proc.wait()
+        jobs.pop(w["id"], None)
+        if w not in watches:  # deleted meanwhile
+            raise OSError("deleted")
+        if rc != 0 or not os.path.isfile(part) or os.path.getsize(part) < 1024:
+            raise RuntimeError(" ".join(tail)[-200:] or "ffmpeg stopped")
+        os.replace(part, out)
+        src_ext = os.path.splitext(w["src"])[1].lower()
+        final, ext = out, ".mp4"
+        if src_ext in (".mp4", ".m4v", ".webm") and os.path.getsize(out) >= os.path.getsize(w["src"]):
+            os.remove(out)  # the video is small already: the copy would be bigger – the original goes out as it is
+            final, ext = w["src"], src_ext
+        with lock:
+            w["path"] = final
+            w["ext"] = ext
+            w["size"] = os.path.getsize(final)
+            pr["state"] = "done"
+            pr["pct"] = 100
+            save_watches()
+    except Exception as e:  # noqa: BLE001
+        jobs.pop(w["id"], None)
+        for f in (part, out):  # (only the copies made here – never the original video, nor a copy that is already in use)
+            if f == out and w.get("path") == out:
+                continue
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+        with lock:
+            if w in watches:
+                pr["state"] = "failed"
+                pr["why"] = txt(e, 200)
+                save_watches()
 
 
 def pub_watch(w):
@@ -210,7 +293,8 @@ def pub_watch(w):
         st = "full"
     return {"id": w["id"], "token": w["token"], "title": w.get("title", ""), "ext": w.get("ext", ""), "size": w.get("size", 0), "scene": w.get("scene", ""),
             "created": w.get("created"), "expires": w.get("expires"), "enabled": w.get("enabled", True), "maxViews": w.get("maxViews", 0),
-            "views": w.get("views", 0), "last": w.get("last"), "state": st}
+            "views": w.get("views", 0), "last": w.get("last"), "state": st, "quality": (w.get("prep") or {}).get("q", 0),
+            "prep": {"state": (w.get("prep") or {}).get("state", ""), "pct": (w.get("prep") or {}).get("pct", 0), "why": (w.get("prep") or {}).get("why", "")}}
 
 
 def viewer_ok(w, ip):
@@ -237,7 +321,7 @@ def html_escape(x):
 
 WATCH_NOTE = {
     "paused": "This link is switched off.", "expired": "This link has expired.", "missing": "This video isn't available any more.",
-    "full": "This link has reached its number of viewers.", "invalid": "This link isn't valid.", "busy": "Too many people are watching right now – try again in a minute.",
+    "full": "This link has reached its number of viewers.", "preparing": "This video is being prepared – please try again in a few minutes.", "failed": "This video couldn't be prepared.", "invalid": "This link isn't valid.", "busy": "Too many people are watching right now – try again in a minute.",
 }
 
 
@@ -545,7 +629,7 @@ class Public(http.server.BaseHTTPRequestHandler):
             return self.send_html(404, note_page("invalid"))
         st = watch_state(w)
         if st != "ok":
-            return self.send_html(410 if st in ("expired", "missing") else 423, note_page(st))
+            return self.send_html(410 if st in ("expired", "missing", "failed") else 503 if st == "preparing" else 423, note_page(st))
         if not viewer_ok(w, ip):
             return self.send_html(410, note_page("full"))
         ext = w.get("ext") or ".mp4"
@@ -956,11 +1040,21 @@ class Admin(http.server.BaseHTTPRequestHandler):
                 if len(watches) >= 300:
                     raise ValueError("too many watch links – delete some")
                 hours = d.get("hours")
-                w = {"id": secrets.token_hex(4), "token": secrets.token_urlsafe(18), "title": txt(d.get("title"), 80) or "Video", "path": path, "ext": ext,
-                     "size": os.path.getsize(path), "scene": txt(d.get("scene"), 20), "created": time.time(),
+                q = int(d.get("quality") or 0)
+                if q and q not in QUALITY:
+                    raise ValueError("unknown quality")
+                ff = str(d.get("ffmpeg") or "")
+                if q and not os.path.isfile(ff):
+                    raise ValueError("ffmpeg not found")
+                w = {"id": secrets.token_hex(4), "token": secrets.token_urlsafe(18), "title": txt(d.get("title"), 80) or "Video", "path": "" if q else path, "src": path,
+                     "ext": ".mp4" if q else ext, "size": 0 if q else os.path.getsize(path), "scene": txt(d.get("scene"), 20), "created": time.time(),
                      "expires": time.time() + float(hours) * 3600 if hours else None, "enabled": True,
                      "maxViews": max(0, min(100000, int(float(d.get("maxViews") or 0)))), "views": 0, "last": None}
+                if q:
+                    w["prep"] = {"state": "queued", "pct": 0, "q": q}
                 watches.append(w)
+                if q:
+                    threading.Thread(target=encode_watch, args=(w, ff, float(d.get("duration") or 0)), daemon=True).start()
             else:
                 w = next((x for x in watches if x["id"] == d.get("id")), None)
                 if not w:
@@ -976,6 +1070,17 @@ class Admin(http.server.BaseHTTPRequestHandler):
                         w["maxViews"] = max(0, min(100000, int(float(d.get("maxViews") or 0))))
                 elif act == "del":
                     watches.remove(w)
+                    job = jobs.pop(w["id"], None)
+                    if job:
+                        try:
+                            job.kill()
+                        except OSError:
+                            pass
+                    for f in (os.path.join(WATCHDIR, w["id"] + ".mp4"), os.path.join(WATCHDIR, w["id"] + ".part.mp4")):  # the smaller copy goes with the link
+                        try:
+                            os.remove(f)
+                        except OSError:
+                            pass
                 else:
                     raise ValueError("unknown action")
             save_watches()
