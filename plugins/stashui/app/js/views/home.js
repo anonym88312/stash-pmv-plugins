@@ -4,12 +4,13 @@
 
 import { esc, icon, fmtNum, store, seed, errorToast, folderMode, openDrawer, confirmDialog } from "../ui.js";
 import { t } from "../i18n.js";
-import { gql, stats, findItems, loadFolders } from "../api.js";
+import { gql, stats, findItems, findPerformers, loadFolders } from "../api.js";
 import { toPiece, Hang } from "../pieces.js";
 import { app, go } from "../main.js";
 import { roomsHtml, fillRoomCovers, fillRoomCounts } from "./folder.js";
 import { tagPicker } from "./tagpicker.js";
 import { perfPicker, hasPerformers } from "./perfpicker.js";
+import { performerCard, toggleCardFav } from "./performers.js";
 import { mountRailEditor } from "./homerail.js";
 import { track, forget, closeBar, resumeHidden } from "../bulkbar.js";
 import { mountSlots, extensionsReady } from "../ext.js";
@@ -94,6 +95,7 @@ const SORTS = [
   ["rating", "Rating"],
   ["duration", "Duration"],
   ["title", "Title"],
+  ["scenes_count", "Most scenes"], // (performers only)
   ["random", "Random"],
 ];
 const SCENE_ONLY = new Set(["last_played_at", "play_count", "duration"]);
@@ -137,18 +139,35 @@ function customQuery(c, kind) {
   const f = {};
   const tags = [...(c.tags || [])];
   if (c.fav && app.favId) tags.push(app.favId);
-  if (tags.length) f.tags = { value: tags, modifier: "INCLUDES_ALL" };
+  if (tags.length || (c.tagsX || []).length) f.tags = { value: tags, modifier: "INCLUDES_ALL", ...((c.tagsX || []).length ? { excludes: c.tagsX } : {}) };
   if ((c.perfs || []).length) f.performers = { value: c.perfs, modifier: "INCLUDES_ALL" };
   let sort = c.sort || "created_at";
-  if (kind !== "scene" && SCENE_ONLY.has(sort)) sort = "created_at";
+  if (sort === "scenes_count" || (kind !== "scene" && SCENE_ONLY.has(sort))) sort = "created_at";
   return { filter: f, find: { sort: sort === "random" ? seed() : sort, direction: c.dir || (sort === "title" ? "ASC" : "DESC") } };
 }
+// A section of performers: what the Performers page is asked for (the tags are the performers' own tags)
+function performerQuery(c) {
+  const f = {};
+  if ((c.tags || []).length || (c.tagsX || []).length) f.tags = { value: c.tags || [], excludes: c.tagsX || [], modifier: "INCLUDES_ALL" };
+  if (c.fav) f.filter_favorites = true;
+  const s0 = c.sort || "created_at";
+  const sort = s0 === "title" ? "name" : ["date", "last_played_at", "duration"].includes(s0) ? "created_at" : s0; // (the scene sorts a performer doesn't have)
+  return { filter: f, sort: sort === "random" ? seed() : sort, dir: c.dir || (sort === "name" ? "ASC" : "DESC") };
+}
 function customLink(c) {
+  if (c.kind === "performer") {
+    const p = new URLSearchParams();
+    if ((c.tags || []).length) p.set("ptags", c.tags.join(","));
+    if ((c.tagsX || []).length) p.set("ptagsx", c.tagsX.join(","));
+    if (c.fav) p.set("fav", "1");
+    return `#/performers${p.toString() ? "?" + p : ""}`;
+  }
   const kind = c.kind === "image" ? "images" : "scenes";
   const q = new URLSearchParams();
   if (c.sort && c.sort !== "random") q.set("sort", c.sort);
   if (c.dir) q.set("dir", c.dir);
   if ((c.tags || []).length) q.set("tags", c.tags.join(","));
+  if ((c.tagsX || []).length) q.set("xtags", c.tagsX.join(","));
   if ((c.perfs || []).length) q.set("perfs", c.perfs.join(","));
   if (c.fav) q.set("fav", "1");
   return `#/${kind}${q.toString() ? "?" + q : ""}`;
@@ -231,6 +250,7 @@ export async function render(main) {
       const el = sec.querySelector("[data-w]");
       if (s.id === "folders") return paintFolders(sec);
       if (s.id === "random") return paintRandom(sec, el);
+      if (s.custom && s.custom.kind === "performer") return paintPerformers(sec, el, s.custom);
       hangs.push(wall(el, fetcherFor(s), undefined, s.id));
     });
     // Sections of extension plugins (slot home.section), behind the others; each one is filled when it is scrolled to
@@ -310,6 +330,32 @@ export async function render(main) {
     };
   }
 
+  // A section of performers: cards in a grid (the heart works, a click opens the performer)
+  function paintPerformers(sec, el, c) {
+    el.className = "kb-perfgrid kb-home-perfs";
+    let list = [];
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-pfav]");
+      if (!b) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCardFav(b, list);
+    });
+    whenVisible(el).then(async () => {
+      try {
+        const q = performerQuery(c);
+        const r = await findPerformers({ perPage: Number(c.count) || 12, sort: q.sort, dir: q.dir, filter: q.filter });
+        if (!el.isConnected) return;
+        list = r.performers;
+        if (!list.length) return void (sec.hidden = true);
+        el.innerHTML = list.map((p) => performerCard(p)).join("");
+      } catch (e) {
+        errorToast(e, "Home");
+        sec.hidden = true;
+      }
+    });
+  }
+
   function paintFolders(sec) {
     loadFolders()
       .then((tree) => {
@@ -387,10 +433,11 @@ export async function render(main) {
       </div>`;
   }
   function customHint(c) {
-    const what = { scene: t("Scenes"), image: t("Images"), both: t("Scenes + images") }[c.kind || "scene"];
+    const what = { scene: t("Scenes"), image: t("Images"), both: t("Scenes + images"), performer: t("Performers") }[c.kind || "scene"];
     const sort = t((SORTS.find(([k]) => k === (c.sort || "created_at")) || SORTS[0])[1]);
     const bits = [what, sort];
     if ((c.tags || []).length) bits.push(t("{n} tags", { n: c.tags.length }));
+    if ((c.tagsX || []).length) bits.push(t("{n} tags left out", { n: c.tagsX.length }));
     if ((c.perfs || []).length) bits.push(t("{n} performers", { n: c.perfs.length }));
     if (c.fav) bits.push(t("favorites only"));
     return bits.join(" · ");
@@ -483,12 +530,12 @@ export async function render(main) {
 
   // Add / edit an own section
   function sectionForm(index) {
-    const c = Object.assign({ title: "", kind: "scene", sort: "created_at", dir: "", tags: [], perfs: [], fav: false, count: 12 }, index == null ? {} : layout[index].custom);
+    const c = Object.assign({ title: "", kind: "scene", sort: "created_at", dir: "", tags: [], tagsX: [], perfs: [], fav: false, count: 12 }, index == null ? {} : layout[index].custom);
     const d = openDrawer({
       title: index == null ? t("New section") : t("Edit section"),
       body: `
         <label class="kb-form-row"><span>${t("Title")}</span><input class="kb-field" data-f="title" value="${esc(c.title)}" placeholder="${esc(t("e.g. Favorite PMVs"))}"></label>
-        <div class="kb-form-row"><span>${t("What")}</span><div class="kb-seg" data-kind>${[["scene", "Scenes"], ["image", "Images"], ["both", "Scenes + images"]].map(([v, l]) => `<button type="button" data-v="${v}"${c.kind === v ? ' class="is-on"' : ""}>${t(l)}</button>`).join("")}</div></div>
+        <div class="kb-form-row"><span>${t("What")}</span><div class="kb-seg" data-kind>${[["scene", "Scenes"], ["image", "Images"], ["both", "Scenes + images"], ["performer", "Performers"]].map(([v, l]) => `<button type="button" data-v="${v}"${c.kind === v ? ' class="is-on"' : ""}>${t(l)}</button>`).join("")}</div></div>
         <div class="kb-pe-grid">
           <label class="kb-form-row"><span>${t("Sort by")}</span><select class="kb-field" data-f="sort">${SORTS.map(([v, l]) => `<option value="${v}"${c.sort === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
           <label class="kb-form-row"><span>${t("Order")}</span><select class="kb-field" data-f="dir"><option value="">${t("Automatic")}</option><option value="DESC"${c.dir === "DESC" ? " selected" : ""}>${t("Descending")}</option><option value="ASC"${c.dir === "ASC" ? " selected" : ""}>${t("Ascending")}</option></select></label>
@@ -506,12 +553,18 @@ export async function render(main) {
       if (!b) return;
       kind = b.dataset.v;
       el.querySelectorAll("[data-kind] [data-v]").forEach((x) => x.classList.toggle("is-on", x === b));
+      paintPerfRow();
     });
-    const tags = tagPicker(el.querySelector("[data-tags]"), { include: c.tags, placeholder: t("Search tag") });
+    let tagsX = [...(c.tagsX || [])];
+    const tags = tagPicker(el.querySelector("[data-tags]"), { include: c.tags, exclude: tagsX, allowExclude: true, placeholder: t("Add tag (right-click a tag to exclude it)"), onChange: (inc, exc) => (tagsX = exc) });
     let perfs = null;
+    let perfsAvail = false;
+    // (a section of performers has no performer filter: its tags are the performers' own)
+    const paintPerfRow = () => (el.querySelector("[data-perfrow]").hidden = !perfsAvail || kind === "performer");
     hasPerformers().then((yes) => {
       if (!yes && !c.perfs.length) return;
-      el.querySelector("[data-perfrow]").hidden = false;
+      perfsAvail = true;
+      paintPerfRow();
       perfs = perfPicker(el.querySelector("[data-perfs]"), { include: c.perfs, modes: false, placeholder: t("Search performer") });
     });
     el.querySelector("[data-cancel]").onclick = d.close;
@@ -524,7 +577,8 @@ export async function render(main) {
         dir: f("dir").value,
         count: Number(f("count").value),
         tags: tags.include,
-        perfs: perfs ? perfs.include : c.perfs,
+        tagsX,
+        perfs: kind === "performer" ? [] : perfs ? perfs.include : c.perfs,
         fav: f("fav").checked,
       };
       if (index == null) layout.push({ id: "c" + Date.now().toString(36), custom });

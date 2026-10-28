@@ -29,6 +29,48 @@ export function applyDisplay() {
     b.classList.toggle("is-on", !!store.get("nsfw", false));
     b.setAttribute("aria-pressed", !!store.get("nsfw", false));
   });
+  applyTabLook();
+}
+
+// The name and the icon in the browser tab (Settings → This interface). Another page that sets its own title meanwhile is left alone.
+let titleSet = "";
+let iconSet = "";
+let iconDefault = null;
+function applyTabLook() {
+  const ttl = String(store.get("pageTitle", "") || "").trim().slice(0, 60);
+  if (ttl !== titleSet) {
+    if (document.title === (titleSet || "Stash UI")) document.title = ttl || "Stash UI";
+    titleSet = ttl;
+  }
+  const fav = String(store.get("favicon", "") || "");
+  if (fav !== iconSet) {
+    const link = document.querySelector('link[rel="icon"]');
+    if (link) {
+      if (iconDefault == null) iconDefault = link.getAttribute("href");
+      link.setAttribute("href", /^data:image\//.test(fav) ? fav : iconDefault);
+    }
+    iconSet = fav;
+  }
+}
+// A picture → a small square PNG (data address) for the tab icon
+export function iconFromFile(file, size = 64) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = c.height = size;
+      const s = Math.min(im.naturalWidth, im.naturalHeight);
+      c.getContext("2d").drawImage(im, (im.naturalWidth - s) / 2, (im.naturalHeight - s) / 2, s, s, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/png"));
+    };
+    im.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("not a picture"));
+    };
+    im.src = url;
+  });
 }
 // full → icons only → hidden → full (the button at the top of the menu)
 export function cycleRail() {
@@ -37,6 +79,13 @@ export function cycleRail() {
   applyDisplay();
 }
 export const nsfwOn = () => !!store.get("nsfw", false);
+// NSFW mode: things with one of these tags (Settings → This interface) are never blurred. Ids kept in "nsfwKeepTags".
+let keepIds = null;
+export function nsfwKeeps(tags) {
+  if (!keepIds) keepIds = new Set((store.get("nsfwKeepTags", []) || []).map(String));
+  return keepIds.size > 0 && (tags || []).some((x) => keepIds.has(String(x.id)));
+}
+window.addEventListener("stash:display-changed", () => (keepIds = null));
 export function toggleNsfw(force) {
   store.set("nsfw", force == null ? !nsfwOn() : !!force);
   applyDisplay();

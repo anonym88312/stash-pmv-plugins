@@ -2657,4 +2657,13 @@ export default {
   "Couldn't make the smaller version: {why}": "无法生成较小的版本：{why}",
   "being prepared": "准备中",
   "couldn't be prepared": "准备失败",
+  "NSFW mode: never blur these tags": "NSFW 模式：这些标签永不模糊",
+  "Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.": "带有这些标签之一的场景、图片和图库保持清晰（缩略图；选择“全部”时也包括播放器和查看器）。列表下次加载时生效。",
+  "Page title": "页面标题",
+  "The name in the browser tab. Empty = “Stash UI”.": "浏览器标签页中显示的名称。留空 = “Stash UI”。",
+  "Tab icon": "标签页图标",
+  "A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.": "浏览器标签页的小图标（任意图片——会裁成正方形并缩小）。保存在此浏览器中。",
+  "Default icon": "默认图标",
+  "That isn't a picture the browser can read.": "浏览器无法读取这张图片。",
+  "{n} tags left out": "已排除 {n} 个标签",
 };

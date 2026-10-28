@@ -2600,4 +2600,13 @@ export default {
   "Couldn't make the smaller version: {why}": "小さいバージョンを作れませんでした：{why}",
   "being prepared": "準備中",
   "couldn't be prepared": "準備に失敗",
+  "NSFW mode: never blur these tags": "NSFW モード: これらのタグはぼかさない",
+  "Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.": "これらのタグのいずれかが付いたシーン・画像・ギャラリーは鮮明なままです（サムネイル。「すべて」を選ぶとプレーヤーとビューアも）。リストを次に読み込むときに反映されます。",
+  "Page title": "ページのタイトル",
+  "The name in the browser tab. Empty = “Stash UI”.": "ブラウザのタブに表示される名前。空欄 = 「Stash UI」。",
+  "Tab icon": "タブのアイコン",
+  "A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.": "ブラウザのタブ用の小さな画像（任意の画像。正方形に切り抜かれて小さくなります）。このブラウザに保存されます。",
+  "Default icon": "標準のアイコン",
+  "That isn't a picture the browser can read.": "ブラウザで読み込めない画像です。",
+  "{n} tags left out": "除外タグ {n} 個",
 };

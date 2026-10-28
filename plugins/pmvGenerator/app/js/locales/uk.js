@@ -2633,4 +2633,13 @@ export default {
   "Couldn't make the smaller version: {why}": "Не вдалося створити меншу версію: {why}",
   "being prepared": "готується",
   "couldn't be prepared": "не вдалося підготувати",
+  "NSFW mode: never blur these tags": "Режим NSFW: ніколи не розмивати ці теги",
+  "Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.": "Сцени, зображення та галереї з одним із цих тегів залишаються чіткими (мініатюри, а при «Усе» — і плеєр з переглядачем). Діє для списків під час наступного завантаження.",
+  "Page title": "Заголовок сторінки",
+  "The name in the browser tab. Empty = “Stash UI”.": "Назва на вкладці браузера. Порожньо = «Stash UI».",
+  "Tab icon": "Значок вкладки",
+  "A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.": "Маленька картинка для вкладки браузера (будь-яке зображення — його обрізають до квадрата й зменшують). Зберігається в цьому браузері.",
+  "Default icon": "Значок за замовчуванням",
+  "That isn't a picture the browser can read.": "Браузер не може прочитати це зображення.",
+  "{n} tags left out": "Виключено тегів: {n}",
 };

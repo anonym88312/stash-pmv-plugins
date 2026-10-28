@@ -5,7 +5,7 @@ import { t, locale } from "./i18n.js";
 import { tierNow } from "./tiers.js";
 import { tierBadge } from "./versusx.js";
 import { critOf } from "./ratingx.js";
-import { cardAspect, previewsOn } from "./display.js";
+import { cardAspect, previewsOn, nsfwKeeps } from "./display.js";
 
 // Stash files animated GIFs as video files (codec "gif") but serves the GIF itself: those are images
 export const isGif = (vf) => !!vf && vf.__typename === "VideoFile" && (/gif/i.test(vf.format || "") || /gif/i.test(vf.video_codec || "") || /\.gif$/i.test(vf.basename || vf.path || ""));
@@ -133,7 +133,7 @@ function pieceHtml(p) {
     .map((c) => `<span class="kb-bc kb-bc-${c}${bStamp === "auto" && p.stamp && c !== "tl" && c !== "bl" ? " after-stamp" : ""}${p.fav && c === "br" ? " has-fav" : ""}${studioAt === c && (c === "bl" || c === "br") ? " after-studio" : ""}">${slot[c]}</span>`)
     .join("");
   return (
-    `<${tag} class="kb-piece" data-key="${p.kind}:${p.id}"${href ? ` href="${href}"` : ' type="button"'} aria-label="${esc(p.title)}">` +
+    `<${tag} class="kb-piece${p.raw && nsfwKeeps(p.raw.tags) ? " kb-nsfw-ok" : ""}" data-key="${p.kind}:${p.id}"${href ? ` href="${href}"` : ' type="button"'} aria-label="${esc(p.title)}">` +
     (p.thumb ? `<img alt="" loading="lazy" decoding="async" src="${esc(p.thumb)}">` : "") +
     stamp +
     (p.resume ? `<span class="kb-resume"><i style="width:${(p.resume * 100).toFixed(1)}%"></i></span>` : "") +

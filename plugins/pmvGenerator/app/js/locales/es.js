@@ -2576,4 +2576,13 @@ export default {
   "Couldn't make the smaller version: {why}": "No se pudo crear la versión pequeña: {why}",
   "being prepared": "en preparación",
   "couldn't be prepared": "no se pudo preparar",
+  "NSFW mode: never blur these tags": "Modo NSFW: no desenfocar nunca estas etiquetas",
+  "Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.": "Las escenas, imágenes y galerías con una de estas etiquetas se ven nítidas (miniaturas y, con «Todo», también el reproductor y el visor). Se aplica a las listas la próxima vez que se carguen.",
+  "Page title": "Título de la página",
+  "The name in the browser tab. Empty = “Stash UI”.": "El nombre que aparece en la pestaña del navegador. Vacío = «Stash UI».",
+  "Tab icon": "Icono de la pestaña",
+  "A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.": "Una imagen pequeña para la pestaña del navegador (cualquier imagen: se recorta en cuadrado y se reduce). Se guarda en este navegador.",
+  "Default icon": "Icono predeterminado",
+  "That isn't a picture the browser can read.": "El navegador no puede leer esta imagen.",
+  "{n} tags left out": "{n} etiquetas excluidas",
 };

@@ -2593,4 +2593,13 @@ export default {
   "Couldn't make the smaller version: {why}": "Không tạo được bản nhỏ hơn: {why}",
   "being prepared": "đang chuẩn bị",
   "couldn't be prepared": "không chuẩn bị được",
+  "NSFW mode: never blur these tags": "Chế độ NSFW: không bao giờ làm mờ các thẻ này",
+  "Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.": "Cảnh, ảnh và thư viện ảnh có một trong các thẻ này luôn rõ nét (ảnh thu nhỏ và, với “Tất cả”, cả trình phát và trình xem). Áp dụng cho danh sách ở lần tải tiếp theo.",
+  "Page title": "Tiêu đề trang",
+  "The name in the browser tab. Empty = “Stash UI”.": "Tên hiển thị trên tab trình duyệt. Để trống = “Stash UI”.",
+  "Tab icon": "Biểu tượng tab",
+  "A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.": "Một hình nhỏ cho tab trình duyệt (ảnh bất kỳ – sẽ được cắt vuông và thu nhỏ). Lưu trong trình duyệt này.",
+  "Default icon": "Biểu tượng mặc định",
+  "That isn't a picture the browser can read.": "Trình duyệt không đọc được hình này.",
+  "{n} tags left out": "Loại trừ {n} thẻ",
 };

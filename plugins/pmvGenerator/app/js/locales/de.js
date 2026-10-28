@@ -2554,4 +2554,13 @@ export default {
   "Couldn't make the smaller version: {why}": "Die kleinere Version konnte nicht erstellt werden: {why}",
   "being prepared": "wird vorbereitet",
   "couldn't be prepared": "Vorbereitung fehlgeschlagen",
+  "NSFW mode: never blur these tags": "NSFW-Modus: diese Tags nie unscharf machen",
+  "Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.": "Szenen, Bilder und Galerien mit einem dieser Tags bleiben scharf (Vorschaubilder und, mit „Alles“, auch Player und Betrachter). Gilt für Listen beim nächsten Laden.",
+  "Page title": "Seitentitel",
+  "The name in the browser tab. Empty = “Stash UI”.": "Der Name im Browser-Tab. Leer = „Stash UI“.",
+  "Tab icon": "Tab-Symbol",
+  "A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.": "Ein kleines Bild für den Browser-Tab (ein beliebiges Bild – es wird quadratisch zugeschnitten und verkleinert). Wird in diesem Browser gespeichert.",
+  "Default icon": "Standardsymbol",
+  "That isn't a picture the browser can read.": "Der Browser kann dieses Bild nicht lesen.",
+  "{n} tags left out": "{n} Tags ausgeschlossen",
 };

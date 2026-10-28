@@ -6,6 +6,7 @@ import { t } from "../i18n.js";
 import { getImage } from "../api.js";
 import { app, go, closeOverlay } from "../main.js";
 import { placardHtml, bindPlacard } from "./placard.js";
+import { nsfwKeeps } from "../display.js";
 
 export async function render(host, params) {
   document.body.classList.add("kb-noscroll");
@@ -64,6 +65,7 @@ export async function render(host, params) {
     </div>`;
 
   const stage = host.querySelector(".kb-stage");
+  if (nsfwKeeps(x.tags)) stage.classList.add("kb-nsfw-ok"); // (NSFW mode: tags that are never blurred)
   const $ = (s) => host.querySelector(s);
   const img = $(".kb-img");
   const canvas = $("[data-canvas]");

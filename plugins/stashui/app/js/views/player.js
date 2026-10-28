@@ -21,6 +21,7 @@ import { openMarkerEdit } from "../markeredit.js";
 import { generatePreviews } from "../genprev.js";
 import { fpsOf, stepFrame, snap, fmtExact } from "../frames.js";
 import { videoGlow } from "../theme.js";
+import { nsfwKeeps } from "../display.js";
 import { mountSlots } from "../ext.js";
 import { oData, syncOf, pointsOf, addPoint, setPoint, removePoint, ownClips, clipsFor, oPrefs, setOPrefs, createOPlayer, openOPicker, refLen } from "../oclip.js";
 import { BINS, watchRecorder, watchBins, motionBins, combine, peaks } from "../heat.js";
@@ -200,6 +201,7 @@ export async function render(host, params, query = {}) {
     </div>`;
 
   const stage = host.querySelector(".kb-stage");
+  if (nsfwKeeps(x.tags)) stage.classList.add("kb-nsfw-ok"); // (NSFW mode: tags that are never blurred)
   const $ = (s) => host.querySelector(s);
   const v = $("video");
   setShape(f.width, f.height);

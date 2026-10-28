@@ -2635,4 +2635,13 @@ export default {
   "Couldn't make the smaller version: {why}": "Не удалось создать меньшую версию: {why}",
   "being prepared": "готовится",
   "couldn't be prepared": "не удалось подготовить",
+  "NSFW mode: never blur these tags": "Режим NSFW: никогда не размывать эти теги",
+  "Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.": "Сцены, изображения и галереи с одним из этих тегов остаются чёткими (миниатюры, а при «Всё» — и плеер с просмотрщиком). Действует для списков при следующей загрузке.",
+  "Page title": "Заголовок страницы",
+  "The name in the browser tab. Empty = “Stash UI”.": "Название на вкладке браузера. Пусто = «Stash UI».",
+  "Tab icon": "Значок вкладки",
+  "A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.": "Маленькая картинка для вкладки браузера (любое изображение — оно обрезается до квадрата и уменьшается). Хранится в этом браузере.",
+  "Default icon": "Значок по умолчанию",
+  "That isn't a picture the browser can read.": "Браузер не может прочитать это изображение.",
+  "{n} tags left out": "Исключено тегов: {n}",
 };

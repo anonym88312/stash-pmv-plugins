@@ -7,6 +7,15 @@
 
 export const CHANGES = [
   {
+    v: "3.129.0",
+    date: "2026-10-28",
+    items: [
+      ["ui", "NSFW mode: pick tags that are never blurred (Settings → This interface → “NSFW mode: never blur these tags”). Scenes, images and galleries with one of them stay sharp in the lists – and, with “Everything”, in the player and viewer. Applies to a list the next time it loads. (Thanks Shackleford!)", "NSFW 模式：可选择永不模糊的标签（设置 → 此界面 → “NSFW 模式：这些标签永不模糊”）。带有这些标签的场景、图片和图库在列表中保持清晰——选择“全部”时在播放器和查看器中也一样。列表下次加载时生效。（感谢 Shackleford！）", "settings::NSFW mode: never blur these tags"],
+      ["ui", "New: the title and the icon of the browser tab can be chosen (Settings → This interface → “Page title” and “Tab icon”). The icon is any picture – it is cut square and made small; both are kept in this browser. (Thanks Shackleford!)", "新增：可自定义浏览器标签页的标题和图标（设置 → 此界面 →“页面标题”和“标签页图标”）。图标可以是任意图片——会裁成正方形并缩小；两者都保存在此浏览器中。（感谢 Shackleford！）", "settings::Page title"],
+      ["ui", "Start page: your own sections can leave tags out now (right-click a tag in the tag field – it is crossed out), and “What” has a new choice, “Performers”: a section of performer cards, filtered by the performers' own tags, favorites only, sorted by most scenes, rating, O counter and so on. (Thanks Shackleford!)", "主页：自定义板块现在可以排除标签（在标签框中右键点击标签——会被划掉），“内容”新增选项“演员”：显示演员卡片的板块，可按演员自己的标签筛选、只看收藏，并按场景数、评分、O 计数等排序。（感谢 Shackleford！）", "::[data-customize]"],
+    ],
+  },
+  {
     v: "3.128.0",
     date: "2026-10-28",
     items: [

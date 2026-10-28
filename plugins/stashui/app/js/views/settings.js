@@ -2,7 +2,8 @@
 // translated when shown (the English text is the key).
 // Fields and types come live from Stash; unknown options end up under "More options".
 
-import { applyDisplay } from "../display.js";
+import { applyDisplay, iconFromFile } from "../display.js";
+import { tagPicker } from "./tagpicker.js";
 import { cardInfo } from "../pieces.js";
 import { forgetLarge, largeNow } from "../scale.js";
 import { esc, icon, toast, errorToast, store, confirmDialog, fmtDate, folderMode, ratingSystem, setRatingSystem } from "../ui.js";
@@ -536,6 +537,12 @@ async function renderApp(body) {
         <input type="range" min="6" max="40" step="2" data-dsp="nsfwBlur" value="${store.get("nsfwBlur", 18)}"></label>
       <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("NSFW mode: clear while the mouse is on it")}</b><small>${t("A thumbnail shows sharp as long as you point at it.")}</small></span>
         <span class="kb-switch"><input type="checkbox" data-dsp="nsfwHover"${store.get("nsfwHover", false) ? " checked" : ""}><i></i></span></label>
+      <div class="kb-set kb-set-ext"><div class="kb-set-label"><b>${t("NSFW mode: never blur these tags")}</b><small>${t("Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.")}</small></div>
+        <div data-nsfwtags></div></div>
+      <label class="kb-set"><span class="kb-set-label"><b>${t("Page title")}</b><small>${t("The name in the browser tab. Empty = “Stash UI”.")}</small></span>
+        <input type="text" class="kb-field" data-dsp="pageTitle" maxlength="60" placeholder="Stash UI" value="${esc(store.get("pageTitle", "") || "")}"></label>
+      <div class="kb-set"><div class="kb-set-label"><b>${t("Tab icon")}</b><small>${t("A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.")}</small></div>
+        <span class="kb-set-btns"><img class="kb-favprev" data-favprev alt="" width="28" height="28" hidden><button type="button" class="kb-btn" data-favpick>${t("Choose a picture")}</button><button type="button" class="kb-btn is-ghost" data-favreset>${t("Default icon")}</button><input type="file" accept="image/*" data-favfile hidden></span></div>
       <label class="kb-set"><span class="kb-set-label"><b>${t("Menu on the left")}</b><small>${t("Full, icons only, or hidden until you press the menu button in the top left corner. The button at the top of the menu switches between them too.")}</small></span>
         <select class="kb-field" data-dsp="railMode">${[["full", "Full"], ["mini", "Icons only"], ["hidden", "Hidden"]].map(([v, l]) => `<option value="${v}"${store.get("railMode", "full") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
       <label class="kb-set"><span class="kb-set-label"><b>${t("Menu width")}</b><small>${t("How wide the menu on the left is (on a computer).")}</small></span>
@@ -628,6 +635,47 @@ async function renderApp(body) {
     if (el.type === "range") el.addEventListener("change", () => toast(t("Saved"), "ok"));
     else el.addEventListener("change", () => toast(t("Saved"), "ok"));
   });
+  // the icon of the browser tab
+  const favPaint = () => {
+    const f = String(store.get("favicon", "") || "");
+    const im = body.querySelector("[data-favprev]");
+    im.hidden = !f;
+    if (f) im.src = f;
+    body.querySelector("[data-favreset]").disabled = !f;
+  };
+  favPaint();
+  body.querySelector("[data-favpick]").onclick = () => body.querySelector("[data-favfile]").click();
+  body.querySelector("[data-favfile]").onchange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      store.set("favicon", await iconFromFile(file));
+      applyDisplay();
+      favPaint();
+      toast(t("Saved"), "ok");
+    } catch (err) {
+      toast(t("That isn't a picture the browser can read."), "error");
+    }
+  };
+  body.querySelector("[data-favreset]").onclick = () => {
+    store.set("favicon", "");
+    applyDisplay();
+    favPaint();
+    toast(t("Saved"), "ok");
+  };
+  // tags that NSFW mode never blurs
+  const nsfwTags = body.querySelector("[data-nsfwtags]");
+  if (nsfwTags)
+    tagPicker(nsfwTags, {
+      include: store.get("nsfwKeepTags", []) || [],
+      placeholder: t("Search tag"),
+      onChange: (inc) => {
+        store.set("nsfwKeepTags", inc);
+        window.dispatchEvent(new Event("stash:display-changed"));
+        toast(t("Saved"), "ok");
+      },
+    });
   // the stash-boxes set up in Stash fill the "Missing scenes: stash-box" list
   const boxSel = body.querySelector("[data-boxsel]");
   if (boxSel)
