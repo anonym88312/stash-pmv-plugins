@@ -9,6 +9,8 @@ import { setPluginConfig } from "../api.js";
 import { lang } from "../i18n.js";
 import { lazyCovers } from "./perfstats.js";
 
+const LOCALES = ["ja", "vi", "fr", "es", "de", "pl", "ru", "uk"];
+
 let cssDone = false;
 function stylesheet() {
   if (cssDone) return;
@@ -28,6 +30,12 @@ const domain = (host) => String(host || "").split(".").slice(-2).join(".");
 // his core (window.SSD) with the connections to Stash UI set; `withPage` also loads the Overview page module and the stylesheets
 export async function prepare(withPage, css = withPage) {
   window.__ssdLocale = lang;
+  // his texts exist in Chinese and English; the other languages of Stash UI come from our own files (js/vendor/stashdiscover/locales/),
+  // a text they don't have shows in English
+  const code = String(lang || "en").split("-")[0];
+  if (!/^(en|zh)$/.test(code) && LOCALES.includes(code)) {
+    window.__ssdStrings = (await import("../vendor/stashdiscover/locales/" + code + ".js").catch(() => ({ default: null }))).default;
+  } else window.__ssdStrings = null;
   window.__ssdBackend = (args) => runBackend(args);
   window.__ssdSaveConfig = (key, value) => setPluginConfig("stashui", { [key]: value });
   if (css) stylesheet();

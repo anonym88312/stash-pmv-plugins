@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.131.1",
+    date: "2026-10-28",
+    items: [
+      ["ui", "Discover → Overview (and the Discover tab of performers and studios) now speaks the language of Stash UI – Japanese, Vietnamese, French, Spanish, German, Polish, Russian and Ukrainian, not only English and Chinese. The translations are ours (not by the plugin's author, not checked by native speakers) and live in their own files (js/vendor/stashdiscover/locales/), so a text that is new in a later version of stashDiscover simply stays English until it is translated. Only tested against a fake stash-box and a mock Stash.", "Discover → Overview（以及演员和工作室页面的 Discover 标签）现在使用 Stash UI 的界面语言：日语、越南语、法语、西班牙语、德语、波兰语、俄语和乌克兰语，而不只是英文和中文。译文是我们自己做的（不是插件作者提供的，也没有母语者校对），放在单独的文件里（js/vendor/stashdiscover/locales/）；stashDiscover 以后新版本里的新文字在翻译之前会显示英文。仅在模拟的 stash-box 和模拟的 Stash 上测试过。", "discover::.ssd-dp-toolbar"],
+    ],
+  },
+  {
     v: "3.131.0",
     date: "2026-10-28",
     items: [

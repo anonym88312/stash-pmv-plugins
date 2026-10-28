@@ -8,6 +8,9 @@
  *  - plugin settings (Jackett, downloader, windows …) live in the stashui plugin config (key "ssd")
  *  - Jackett search / downloader push (runPluginOp) call the backend modes ssd_search / ssd_push
  *  - the REST list of ThePornDB (tpdbGet) is asked through the backend (mode box_rest) instead of the page
+ *  - more languages: tc(zh, en) looks the English text up in window.__ssdStrings (our translations, locales/<lang>.js) when the language
+ *    isn't zh – see trEn() below; the [zh, en] tables that were read with isZh() (boxErrText, panelTitle, genderText) go through tc(),
+ *    and the region names follow the language (regionName)
  *  - the Discover tab of the performer / studio page is mounted into a panel of Stash UI's page (mountEntityTab) instead of being
  *    injected into Stash's tabs; the nav entry and the route shell of the original are not part of this file
  */
@@ -37,8 +40,44 @@
     return /^zh/i.test(String(window.__ssdLocale || document.documentElement.lang || ""));
   }
 
+  // Stash UI change: other languages than zh / en. The English text is the key into window.__ssdStrings (a { "English text": "text" }
+  // object of the current Stash UI language, from js/vendor/stashdiscover/locales/<lang>.js – our own translations, loaded by
+  // views/ssdpage.js). Texts with dynamic parts have {0} {1} … in the key and are matched by pattern; a text that isn't in the
+  // object (e.g. new in a later version of the plugin) stays English.
+  var _trPat = null, _trFrom = null;
+  function trPatterns(dict) {
+    if (_trFrom === dict) return _trPat;
+    _trFrom = dict;
+    _trPat = Object.keys(dict).filter(function (k) { return k.indexOf("{0}") >= 0; }).map(function (k) {
+      var parts = k.split(/\{\d+\}/), order = (k.match(/\{(\d+)\}/g) || []).map(function (m) { return +m.slice(1, -1); });
+      var re = new RegExp("^" + parts.map(function (p) { return p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }).join("([\\s\\S]*?)") + "$");
+      return { re: re, order: order, out: dict[k], lit: parts.join("").length };
+    }).sort(function (a, b) { return b.lit - a.lit; });
+    return _trPat;
+  }
+  function trEn(en) {
+    var dict = window.__ssdStrings;
+    if (!dict || typeof en !== "string") return en;
+    if (Object.prototype.hasOwnProperty.call(dict, en)) return dict[en];
+    var pats = trPatterns(dict);
+    for (var i = 0; i < pats.length; i++) {
+      var m = pats[i].re.exec(en);
+      if (!m) continue;
+      return pats[i].out.replace(/\{(\d+)\}/g, function (x, n) {
+        var at = pats[i].order.indexOf(+n);
+        if (at < 0) return x;
+        var v = m[at + 1]; // a captured part that is itself a known text ("studio", "performer") is translated too
+        return Object.prototype.hasOwnProperty.call(dict, v) ? dict[v] : v;
+      });
+    }
+    // "<text> (detail)" – an error text with the box's own message appended
+    var d = /^([\s\S]*?)( \([\s\S]*\))$/.exec(en);
+    if (d && Object.prototype.hasOwnProperty.call(dict, d[1])) return dict[d[1]] + d[2];
+    return en;
+  }
+
   function tc(zh, en) {
-    return isZh() ? zh : en;
+    return isZh() ? zh : trEn(en);
   }
 
   // ─── Box request failures (kind → status label) ──────────────────────────
@@ -59,7 +98,7 @@
 
   function boxErrText(kind, zh) {
     var pair = BOX_ERR_TEXT[kind] || BOX_ERR_TEXT.unknown;
-    return zh ? pair[0] : pair[1];
+    return tc(pair[0], pair[1]); // Stash UI change: the language of the page (the zh flag is ignored)
   }
 
   // Error carrying a kind so the caller can classify failures (box vs config)
@@ -1395,7 +1434,7 @@
       return tc("源上没有待发现的场景", "Nothing left to discover on the source");
     }
     var pair = PANEL_TITLES[vs] || PANEL_TITLES.loading;
-    return isZh() ? pair[0] : pair[1];
+    return tc(pair[0], pair[1]);
   }
 
   function panelIcon(kind) {
@@ -1701,7 +1740,7 @@
 
   function genderText(v) {
     var pair = GENDER_TEXT[String(v || "").toUpperCase()];
-    return pair ? (isZh() ? pair[0] : pair[1]) : "";
+    return pair ? tc(pair[0], pair[1]) : "";
   }
 
   function boxUrls(p) {
@@ -1941,7 +1980,7 @@
   function regionName(cc) {
     try {
       if (typeof Intl !== "undefined" && Intl.DisplayNames) {
-        return new Intl.DisplayNames([isZh() ? "zh-CN" : "en"], { type: "region" }).of(cc) || cc;
+        return new Intl.DisplayNames([isZh() ? "zh-CN" : (String(window.__ssdLocale || "en").split("-")[0] || "en")], { type: "region" }).of(cc) || cc;
       }
     } catch (e) { /* unsupported — fall back to the code */ }
     return cc;
@@ -2761,7 +2800,7 @@
       noticeText.textContent = tc(
         partialFail.map(function (f) { return f.name + " 查询失败（" + boxErrText(f.kind, true) + "）"; }).join("；")
           + " · 结果可能不完整",
-        partialFail.map(function (f) { return f.name + " failed (" + boxErrText(f.kind, false) + ")"; }).join("; ")
+        partialFail.map(function (f) { return tc("", f.name + " failed (" + boxErrText(f.kind, false) + ")"); }).join("; ")
           + " — the result may be incomplete");
       noticeBar.appendChild(noticeText);
       var noticeRetry = makePanelBtn(tc("重试", "Retry"), "secondary", "sm");

@@ -2,7 +2,8 @@
  * https://github.com/k6cc/stash-jav-tools/tree/main/stashDiscover  (used in Stash UI with the author's permission)
  *
  * Changes for Stash UI: no React shell (Stash UI calls SSD.discoverMount(root)), and the settings page has a block for the options
- * the original keeps in its plugin yml (time windows, Jackett, downloader). Everything else is the original code.
+ * the original keeps in its plugin yml (time windows, Jackett, downloader); lookbackText() uses tc() (more languages, see ssd.js).
+ * Everything else is the original code.
  */
 /* ──────────────────────────────────────────────────────────────────────────
  * stashDiscover — discover.js（"发现"导航页内容模块）
@@ -302,8 +303,9 @@
   }
 
   function lookbackText(days, zh) {
-    if (days > 0) return zh ? "回看 " + days + " 天" : "lookback " + days + "d";
-    return zh ? "回看：不限" : "lookback: unlimited";
+    // Stash UI change: tc() (the language of the page) instead of the zh flag
+    if (days > 0) return tc("回看 " + days + " 天", "lookback " + days + "d");
+    return tc("回看：不限", "lookback: unlimited");
   }
 
   // 「预告也计入提醒」（用户 2026-10-27）：默认关闭 = 预告不参与任何口径。
