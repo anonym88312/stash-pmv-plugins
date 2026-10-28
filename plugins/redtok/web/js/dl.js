@@ -196,7 +196,20 @@ async function scanNow() {
 
 // The scene of a saved video gets what RedGifs knows: date, creator (as the studio) and the link. The scan runs on its own,
 // so the scene is looked up (by its file name "<creator> - <id>") for up to ~2 minutes.
-const SCENE_Q = "query($f: SceneFilterType) { findScenes(scene_filter: $f, filter: { per_page: 1 }) { scenes { id tags { id } performers { id } } } }";
+const SCENE_Q = "query($f: SceneFilterType) { findScenes(scene_filter: $f, filter: { per_page: 20 }) { scenes { id tags { id } performers { id } files { path } } } }";
+const SCENE_Q_OLD = "query($f: SceneFilterType) { findScenes(scene_filter: $f, filter: { per_page: 20 }) { scenes { id tags { id } performers { id } path } } }"; // older Stash: one `path`
+// Is this file the video of RedGifs id `id`? Its name is the id or ends with it ("user - id", "user_id" …).
+function isDownloadOf(path, id) {
+  const stem = String(path || "").split(/[\\/]/).pop().replace(/\.[^.]*$/, "").toLowerCase();
+  return !!stem && stem.split(/[ _-]+/).pop() === String(id).toLowerCase();
+}
+// The scene whose FILE is this download – not just the first hit of the path search (it could be another video).
+async function sceneOf(g) {
+  const f = { path: { value: `${g.user} - ${g.id}`, modifier: "INCLUDES" } };
+  let hits;
+  try { hits = (await gql(SCENE_Q, { f })).findScenes.scenes; } catch (e) { hits = (await gql(SCENE_Q_OLD, { f })).findScenes.scenes; }
+  return (hits || []).find((s) => (s.files ? s.files.map((x) => x.path) : [s.path]).some((p) => isDownloadOf(p, g.id))) || null;
+}
 const studioIds = new Map();
 async function studioFor(name) {
   if (studioIds.has(name)) return studioIds.get(name);
@@ -241,9 +254,8 @@ async function fillMeta(list) {
       const { g } = it;
       let sid = "";
       try {
-        const d = await gql(SCENE_Q, { f: { path: { value: `${g.user} - ${g.id}`, modifier: "INCLUDES" } } });
-        sid = d.findScenes.scenes[0] ? d.findScenes.scenes[0].id : "";
-        it.sc = d.findScenes.scenes[0] || null;
+        it.sc = await sceneOf(g);
+        sid = it.sc ? it.sc.id : "";
       } catch (e) { /* try again */ }
       if (!sid && --it.left > 0) continue;
       todo.splice(todo.indexOf(it), 1);

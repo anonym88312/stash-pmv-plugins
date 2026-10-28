@@ -410,6 +410,12 @@ def stash_gql(conn, query, variables=None):
     return d.get("data") or {}
 
 
+def is_download_of(path, gif_id):
+    """Is this file the video of RedGifs id `gif_id`? Its name is the id or ends with it ("user - id", "user_id" …)."""
+    stem = os.path.splitext(re.split(r"[\\/]", str(path or ""))[-1])[0].lower()
+    return bool(stem) and re.split(r"[ _\-]+", stem)[-1] == str(gif_id).lower()
+
+
 class MetaFiller:
     """What the page's fillMeta did, for videos Stash has scanned: date, details, link, the creator as the studio, tags, performer."""
 
@@ -457,11 +463,22 @@ class MetaFiller:
         self.perfs[key] = pid
         return pid
 
+    def scene(self, job):
+        """The scene whose FILE is this download – never just the first hit of the path search (a library with several
+        folders could hand back another video). None = not scanned yet."""
+        f = {"path": {"value": f"{job['user']} - {job['id']}", "modifier": "INCLUDES"}}
+        q = "query($f: SceneFilterType) { findScenes(scene_filter: $f, filter: { per_page: 20 }) { scenes { id tags { id } performers { id } %s } } }"
+        try:
+            hits = stash_gql(self.conn, q % "files { path }", {"f": f})["findScenes"]["scenes"] or []
+            paths = lambda s: [x.get("path") or "" for x in s.get("files") or []]  # noqa: E731
+        except Exception:  # noqa: BLE001 – an older Stash: the scene has one `path`
+            hits = stash_gql(self.conn, q % "path", {"f": f})["findScenes"]["scenes"] or []
+            paths = lambda s: [s.get("path") or ""]  # noqa: E731
+        return next((s for s in hits if any(is_download_of(p, job["id"]) for p in paths(s))), None)
+
     def apply(self, job):
         """True = done (or nothing to do), False = the scene isn't there yet."""
-        d = stash_gql(self.conn, "query($f: SceneFilterType) { findScenes(scene_filter: $f, filter: { per_page: 1 }) { scenes { id tags { id } performers { id } } } }",
-                      {"f": {"path": {"value": f"{job['user']} - {job['id']}", "modifier": "INCLUDES"}}})
-        sc = (d["findScenes"]["scenes"] or [None])[0]
+        sc = self.scene(job)
         if not sc:
             return False
         m = job.get("m") or {}
