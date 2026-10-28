@@ -192,7 +192,7 @@ export function mediaBrowser(host, opts) {
         sortSel.value = st.sort;
       }).catch(() => {});
     st.sort = sortSel.value;
-    if (!defPaint) defPaint = defButton($("[data-dir]"), () => defKey(kind), () => (st.sort === "random" ? "" : st.sort + "|" + st.dir));
+    if (!defPaint) defPaint = defButton($("[data-dir]"), () => defKey(kind), () => st.sort + "|" + st.dir); // (Random too: the page then opens in a new random order every time)
     defPaint();
     $("[data-dir]").innerHTML = st.dir === "ASC" ? "↑" : "↓";
     $("[data-dir]").hidden = st.sort === "random";

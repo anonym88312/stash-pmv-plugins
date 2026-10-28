@@ -7,6 +7,16 @@
 
 export const CHANGES = [
   {
+    v: "3.128.0",
+    date: "2026-10-28",
+    items: [
+      ["ui", "Fixed: a slideshow (or the arrow keys) in the image viewer left fullscreen with every new picture. The page's overlay now goes fullscreen, like it already did for videos – the next picture stays in fullscreen; closing the viewer leaves it. (Thanks Shackleford!)", "修复：图片查看器中的幻灯片（或方向键）每换一张图就会退出全屏。现在和视频一样，由页面的覆盖层进入全屏——下一张图会继续保持全屏；关闭查看器才会退出。（感谢 Shackleford！）"],
+      ["ui", "New: an “X” in every search field once something is typed – one tap clears it. (Thanks Shackleford!)", "新增：所有搜索框在输入内容后会出现“X”——点一下即可清空。（感谢 Shackleford！）", "scenes::[data-q]"],
+      ["ui", "“Make default” now works with the Random sort order too: the page then opens in a new random order every time. (Thanks Shackleford!)", "“设为默认”现在也可用于“随机”排序：页面每次打开都是新的随机顺序。（感谢 Shackleford！）", "scenes::[data-sortdef]"],
+      ["ui", "Fixed: tag chips (on a scene or image, in the search results, folders and tags) stayed purple whatever colour preset was chosen. With another accent colour they now take a lighter shade of it; the default theme stays as it was. (Thanks Shackleford!)", "修复：无论选择哪种配色预设，标签标记（场景或图片上、搜索结果、文件夹和标签中）一直是紫色。使用其他强调色时，现在会采用它的浅色调；默认主题保持不变。（感谢 Shackleford！）"],
+    ],
+  },
+  {
     v: "3.127.1",
     date: "2026-10-28",
     items: [

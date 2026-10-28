@@ -296,6 +296,14 @@ select.kb-field option { background: var(--base); }
 .kb-search { position: relative; }
 .kb-search .kb-ic { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--faint); pointer-events: none; }
 .kb-search .kb-field { width: 220px; padding-left: 32px; }
+/* "X" that clears the field (searchclear.js; the browser's own one is hidden so there aren't two) */
+.kb-search > .kb-field[data-sx] { padding-right: 30px; }
+.kb-search input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+.kb-search .kb-search-x { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: none; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; color: var(--faint); background: none; cursor: pointer; }
+.kb-search .kb-search-x.is-on { display: inline-flex; }
+.kb-search .kb-search-x:hover { color: var(--text); background: color-mix(in srgb, var(--text) 14%, transparent); }
+.kb-search .kb-search-x .kb-ic { position: static; left: auto; top: auto; transform: none; width: 14px; height: 14px; color: inherit; pointer-events: none; }
+.kb-search-big .kb-search-x { right: auto; left: calc(min(640px, 100%) - 32px); }
 
 .kb-seg { display: inline-flex; padding: 2px; gap: 2px; border: 1px solid var(--bg-3); border-radius: var(--r); background: var(--base); }
 .kb-seg button, .kb-seg > a { height: 30px; padding: 0 12px; border: 0; border-radius: 2px; color: var(--text-2); font: 500 13px/1 var(--f-label); background: transparent; }
@@ -350,10 +358,10 @@ select.kb-field option { background: var(--base); }
   border-radius: 3px;
   color: var(--text);
   font: 400 13px/1 var(--f-label);
-  background: rgba(180, 140, 255, .16);
+  background: color-mix(in srgb, var(--violet) 16%, transparent);
   box-shadow: inset 3px 0 0 var(--violet);
 }
-a.kb-chip:hover, button.kb-chip:hover { background: rgba(180, 140, 255, .28); }
+a.kb-chip:hover, button.kb-chip:hover { background: color-mix(in srgb, var(--violet) 28%, transparent); }
 .kb-chip.is-on { color: var(--ink); background: var(--pink); box-shadow: none; }
 .kb-chip.is-not { background: rgba(255, 62, 138, .14); box-shadow: inset 3px 0 0 var(--pink); text-decoration: line-through; text-decoration-color: rgba(255, 62, 138, .8); }
 .kb-chip button { padding: 0 0 0 2px; border: 0; color: inherit; font-size: 16px; line-height: 1; background: none; opacity: .75; }

@@ -232,10 +232,15 @@ export async function render(host, params) {
       startSlides();
     }
   };
+  // The page's overlay root goes fullscreen, not the stage: every picture (slideshow, arrows) builds a new stage, and a
+  // removed fullscreen element would leave fullscreen – the root stays, so the next picture continues in fullscreen
   function fullscreen() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else stage.requestFullscreen().catch(() => toast(t("Fullscreen not allowed")));
+    else (stage.closest("#overlay-root") || stage).requestFullscreen().catch(() => toast(t("Fullscreen not allowed")));
   }
+  const onFsChange = () => stage.classList.toggle("is-full", !!document.fullscreenElement);
+  document.addEventListener("fullscreenchange", onFsChange);
+  onFsChange(); // (opened while the previous picture was fullscreen)
 
   // Controls hide when idle
   let idle;
@@ -302,6 +307,9 @@ export async function render(host, params) {
 
   return () => {
     document.removeEventListener("keydown", onKey);
+    document.removeEventListener("fullscreenchange", onFsChange);
+    // Fullscreen stays when the next picture or scene opens – any other way out (close, Back) leaves it
+    if (document.fullscreenElement && !/^#\/(image|scene)\//.test(location.hash)) document.exitFullscreen().catch(() => {});
     clearTimeout(idle);
     app.viewerIdle = stage.classList.contains("is-idle"); // (the next picture keeps it)
     app.slideshowRunning = slideKeep && !!slideTimer;

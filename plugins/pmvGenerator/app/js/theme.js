@@ -93,7 +93,7 @@ export function applyTheme(theme = store.get("theme")) {
   const s = document.documentElement.style;
   if (!theme || !theme.colors) {
     TOKENS.forEach(([v]) => s.removeProperty(v));
-    ["--pink-2", "--pink-deep", "--fav", "--line", "--ink", "--paper", "--tone"].forEach((v) => s.removeProperty(v));
+    ["--pink-2", "--pink-deep", "--violet", "--fav", "--line", "--ink", "--paper", "--tone"].forEach((v) => s.removeProperty(v));
     return;
   }
   const c = Object.assign({}, PRESETS[0][1], theme.colors);
@@ -101,6 +101,9 @@ export function applyTheme(theme = store.get("theme")) {
   s.setProperty("--pink-2", `color-mix(in srgb, ${c["--pink"]}, #fff 25%)`);
   s.setProperty("--pink-deep", `color-mix(in srgb, ${c["--pink"]}, #000 55%)`);
   s.setProperty("--fav", c["--pink"]);
+  // Tag chips and the like are violet in the default theme; with another accent they follow it (a lighter shade of it)
+  if (String(c["--pink"]).toLowerCase() === PRESETS[0][1]["--pink"]) s.removeProperty("--violet");
+  else s.setProperty("--violet", `color-mix(in srgb, ${c["--pink"]} 70%, #fff)`);
   s.setProperty("--line", `color-mix(in srgb, ${c["--bg-3"]} 85%, ${c["--bg"]})`);
   s.setProperty("--ink", c["--bg"]);
   s.setProperty("--paper", c["--text"]);
