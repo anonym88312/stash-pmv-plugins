@@ -92,7 +92,7 @@ async function renderSearch(main) {
     grid.innerHTML = `<div class="kb-empty"><b>${t("No stash-box is set up in Stash yet")}</b><p>${t("Add StashDB (or another stash-box) under Settings → Metadata Providers in classic Stash – then you can search it here.")}</p><p><a class="kb-btn" href="#/extern/classic-settings">${t("Open in classic Stash")}</a></p></div>`;
     return;
   }
-  const want = store.get("discoverBox", "") || store.get("missingBox", "");
+  const want = store.get("discoverBox", "");
   let box = boxes.find((b) => b.endpoint === want) || boxes[0];
   if (boxes.length > 1) {
     boxSel.hidden = false;

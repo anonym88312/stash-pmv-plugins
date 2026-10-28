@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.129.1",
+    date: "2026-10-28",
+    items: [
+      ["ui", "Tidied up: the five old “Missing scenes” settings in Settings → This interface (oldest date, newest date, last days, stash-box, cover pictures) are gone – they stopped doing anything when the performer's Missing scenes tab became the Discover tab (it has its own time window and box choice). Nothing else changes.", "整理：设置 → 此界面中五个旧的“缺失场景”设置（最早日期、最晚日期、最近天数、stash-box、封面图片）已移除——自演员页的“缺失场景”标签页改为发现标签页后，它们就不再起作用了（发现标签页有自己的时间范围和 stash-box 选择）。其他没有变化。"],
+    ],
+  },
+  {
     v: "3.129.0",
     date: "2026-10-28",
     items: [

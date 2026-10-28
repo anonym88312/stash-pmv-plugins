@@ -519,16 +519,6 @@ async function renderApp(body) {
         <select class="kb-field" data-dsp="studioPos">${[["bl", "Bottom left"], ["br", "Bottom right"], ["tl", "Top left"], ["tr", "Top right"]].map(([v, l]) => `<option value="${v}"${store.get("studioPos", "bl") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
       <label class="kb-set"><span class="kb-set-label"><b>${t("Studio logo: size")}</b><small>${t("How big the logo is.")}</small></span>
         <select class="kb-field" data-dsp="studioSize">${[["s", "Small"], ["m", "Medium"], ["l", "Large"], ["xl", "Extra large"]].map(([v, l]) => `<option value="${v}"${store.get("studioSize", "m") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Missing scenes: oldest date")}</b><small>${t("The performer page's “Missing scenes” only lists scenes from this date on. Empty = no limit.")}</small></span>
-        <input type="date" class="kb-field" data-dsp="missingFrom" value="${esc(store.get("missingFrom", ""))}"></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Missing scenes: newest date")}</b><small>${t("… and only up to this date. Empty = no limit.")}</small></span>
-        <input type="date" class="kb-field" data-dsp="missingTo" value="${esc(store.get("missingTo", ""))}"></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Missing scenes: only the last days")}</b><small>${t("Only scenes from the last n days (0 = off). Replaces the oldest and newest date.")}</small></span>
-        <input type="number" min="0" max="36500" class="kb-field" data-dsp="missingDays" value="${esc(store.get("missingDays", "") || "")}" placeholder="0"></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Missing scenes: stash-box")}</b><small>${t("Which stash-box is asked first when a performer is linked to several. The ones set up in Stash (Settings → Metadata Providers) are listed.")}</small></span>
-        <select class="kb-field" data-dsp="missingBox" data-boxsel><option value="">${t("Automatic")}</option></select></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Missing scenes: cover pictures")}</b><small>${t("Shows the cover of each scene in the list (fetched through the plugin, only while you scroll to it).")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-dsp="missingCovers"${store.get("missingCovers", true) !== false ? " checked" : ""}><i></i></span></label>
       <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("NSFW mode")}</b><small>${t("Blurs all pictures and hover previews – also with the eye button at the top of the menu on the left.")}</small></span>
         <span class="kb-switch"><input type="checkbox" data-dsp="nsfw"${store.get("nsfw", false) ? " checked" : ""}><i></i></span></label>
       <label class="kb-set"><span class="kb-set-label"><b>${t("NSFW mode: what is blurred")}</b><small>${t("Thumbnails and previews – or also the player and the image viewer.")}</small></span>
@@ -676,15 +666,6 @@ async function renderApp(body) {
         toast(t("Saved"), "ok");
       },
     });
-  // the stash-boxes set up in Stash fill the "Missing scenes: stash-box" list
-  const boxSel = body.querySelector("[data-boxsel]");
-  if (boxSel)
-    gql(`query { configuration { general { stashBoxes { endpoint name } } } }`)
-      .then((d) => {
-        for (const b of d.configuration.general.stashBoxes || []) boxSel.insertAdjacentHTML("beforeend", `<option value="${esc(b.endpoint)}">${esc(b.name || b.endpoint)}</option>`);
-        boxSel.value = store.get("missingBox", "");
-      })
-      .catch(() => {});
   const setCardInfo = (patch) => {
     store.set("cardInfo", Object.assign(cardInfo(), patch));
     toast(t("Saved"), "ok");
