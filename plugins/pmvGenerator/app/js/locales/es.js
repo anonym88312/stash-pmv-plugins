@@ -2585,4 +2585,8 @@ export default {
   "Default icon": "Icono predeterminado",
   "That isn't a picture the browser can read.": "El navegador no puede leer esta imagen.",
   "{n} tags left out": "{n} etiquetas excluidas",
+  "Info on performer cards": "Información en las tarjetas de artistas",
+  "What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).": "Lo que dicen las tarjetas de la página Artistas bajo el nombre. Haz clic para activar o desactivar cada una (tras la próxima carga de la página).",
+  "{c} hair": "Pelo {c}",
+  "{c} eyes": "Ojos {c}",
 };

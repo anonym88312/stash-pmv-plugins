@@ -78,6 +78,9 @@ export function cycleRail() {
   store.set("railMode", RAIL_MODES[(RAIL_MODES.indexOf(cur) + 1) % RAIL_MODES.length] || "mini");
   applyDisplay();
 }
+// What a performer card says under the name (Settings → This interface → Info on performer cards); the first three are what it always said
+const PERF_INFO = { scenes: true, age: true, rating: true, images: false, country: false, ethnicity: false, hair: false, eye: false, height: false, tags: false };
+export const perfInfo = () => Object.assign({}, PERF_INFO, store.get("perfInfo", {}));
 export const nsfwOn = () => !!store.get("nsfw", false);
 // NSFW mode: things with one of these tags (Settings → This interface) are never blurred. Ids kept in "nsfwKeepTags".
 let keepIds = null;

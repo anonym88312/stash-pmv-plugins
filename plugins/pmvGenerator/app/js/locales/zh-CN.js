@@ -2666,4 +2666,8 @@ export default {
   "Default icon": "默认图标",
   "That isn't a picture the browser can read.": "浏览器无法读取这张图片。",
   "{n} tags left out": "已排除 {n} 个标签",
+  "Info on performer cards": "演员卡片上的信息",
+  "What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).": "演员页的卡片在名字下显示的内容。点击可逐项开关（下次加载页面后生效）。",
+  "{c} hair": "{c}发",
+  "{c} eyes": "{c}瞳",
 };

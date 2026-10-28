@@ -1,6 +1,7 @@
 // All performers as portrait cards: search, sort, gender, favorites only. Scrolling loads more.
 
 import { getDef, defButton } from "../defsort.js";
+import { perfInfo } from "../display.js";
 import { esc, icon, debounce, errorToast, toast, plural, promptDialog, confirmDialog, starsHtml, pop, burst } from "../ui.js";
 import { t, locale } from "../i18n.js";
 import { findPerformers, updatePerformer, createPerformer, destroyPerformers, gql, routeSignal } from "../api.js";
@@ -89,8 +90,19 @@ export function countryOf(c) {
 }
 
 export function performerCard(p, pick) {
+  const o = perfInfo();
   const age = ageOf(p.birthdate);
-  const sub = [p.scene_count ? plural(p.scene_count, "scene", "scenes") : "", age ? t("{n} years", { n: age }) : ""].filter(Boolean).join(" · ");
+  const sub = [
+    o.scenes && p.scene_count ? plural(p.scene_count, "scene", "scenes") : "",
+    o.images && p.image_count ? plural(p.image_count, "image", "images") : "",
+    o.age && age ? t("{n} years", { n: age }) : "",
+    o.country && p.country ? countryOf(p.country) : "",
+    o.ethnicity && p.ethnicity ? p.ethnicity : "",
+    o.hair && p.hair_color ? t("{c} hair", { c: p.hair_color }) : "",
+    o.eye && p.eye_color ? t("{c} eyes", { c: p.eye_color }) : "",
+    o.height && p.height_cm ? p.height_cm + " cm" : "",
+  ].filter(Boolean).join(" · ");
+  const tagLine = o.tags && (p.tags || []).length ? `<small class="kb-perf-tags">${esc(p.tags.slice(0, 4).map((x) => x.name).join(", "))}</small>` : "";
   return `<a class="kb-perf" href="#/performer/${p.id}" data-pid="${p.id}">
     <span class="kb-perf-img"><img alt="" loading="lazy" src="${esc(p.image_path || "")}">
       <button type="button" class="kb-perf-fav${p.favorite ? " is-on" : ""}" data-pfav title="${p.favorite ? t("Remove from favorites") : t("Add to favorites")}">${icon("heart")}</button>
@@ -99,7 +111,8 @@ export function performerCard(p, pick) {
       ${pick === true ? `<span class="kb-pick kb-perf-pick" role="checkbox" aria-checked="false" aria-label="${t("Select")}">${icon("check")}</span>` : ""}</span>
     <b>${esc(p.name)}${p.disambiguation ? ` <small>(${esc(p.disambiguation)})</small>` : ""}</b>
     <small>${sub || "&nbsp;"}</small>
-    ${p.rating100 ? starsHtml(p.rating100) : ""}
+    ${tagLine}
+    ${o.rating && p.rating100 ? starsHtml(p.rating100) : ""}
   </a>`;
 }
 

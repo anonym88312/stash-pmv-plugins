@@ -11,6 +11,16 @@ import { fpsOf, frameAt, secOf, snap, showFrame, stepFrame, fmtExact } from "./f
 
 const FIELDS = "id title seconds end_seconds primary_tag { id name } tags { id name }";
 
+// The tag a part gets when none is picked (Stash needs a main tag): "Highlight", made when it doesn't exist yet
+let highlightId = null;
+export async function highlightTag() {
+  if (highlightId) return highlightId;
+  const d = await gql(`query { findTags(tag_filter: { name: { value: "Highlight", modifier: EQUALS } }, filter: { per_page: 1 }) { tags { id } } }`);
+  if (d.findTags.tags[0]) return (highlightId = d.findTags.tags[0].id);
+  const c = await gql(`mutation { tagCreate(input: { name: "Highlight" }) { id } }`);
+  return (highlightId = c.tagCreate.id);
+}
+
 // The tags picked last, newest first ({ id, name }): the tag pickers list the first 3 on top
 const RECENT = "markerTags";
 const recentTags = () => store.get(RECENT, []);
@@ -68,7 +78,7 @@ export function openMarkerEdit({ scene, marker, video, defaultTag, done }) {
   });
   const el = d.el;
   const $ = (s) => el.querySelector(s);
-  if (el.previousElementSibling) el.previousElementSibling.style.display = "none"; // the video stays usable
+  if (video && el.previousElementSibling) el.previousElementSibling.style.display = "none"; // the video stays usable
   el.classList.add("kb-cut");
 
   // ---------- Start and end ----------

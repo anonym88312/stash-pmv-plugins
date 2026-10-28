@@ -736,7 +736,7 @@ export function mediaBrowser(host, opts) {
       })
       .catch((e) => errorToast(e, "Saved filter"));
   }
-  // Quick keys on the card under the mouse (like the "quick tools" plugins): E edit, T tags, D or Delete delete
+  // Quick keys on the card under the mouse (like the "quick tools" plugins): E edit, T tags, M add a part (scenes), D or Delete delete
   let hoverKey = null;
   host.addEventListener("pointerover", (e) => {
     const c = e.target.closest && e.target.closest(".kb-piece[data-key]:not(.kb-xpiece)");
@@ -748,12 +748,15 @@ export function mediaBrowser(host, opts) {
     if (e.target.closest && e.target.closest("input, textarea, select, [contenteditable]")) return;
     if (document.querySelector(".kb-drawer, .kb-dialog") || document.body.classList.contains("kb-noscroll")) return; // (a drawer, or the player / viewer on top)
     const k = e.key.toLowerCase();
-    if (k !== "e" && k !== "t" && k !== "d" && k !== "delete") return;
+    if (k !== "e" && k !== "t" && k !== "m" && k !== "d" && k !== "delete") return;
     const key = hoverKey;
     const piece = hang && hang.pieces.find((p) => p.kind + ":" + p.id === key);
-    if (!piece || piece.kind !== kind) return;
+    if (!piece || piece.kind !== kind || (k === "m" && kind !== "scene")) return;
     e.preventDefault();
-    if (k === "e") openEditor(kind, [piece], { onSaved: () => refreshItems([piece.id]), onDeleted: () => hang.remove([key]), quick: true });
+    if (k === "m") {
+      // "Add a part" for the scene under the mouse (time typed in, 0:00 to begin with; the tag defaults to "Highlight")
+      import("../markeredit.js").then((m) => m.openMarkerEdit({ scene: piece.raw, marker: null, video: null, defaultTag: m.highlightTag, done: () => {} }));
+    } else if (k === "e") openEditor(kind, [piece], { onSaved: () => refreshItems([piece.id]), onDeleted: () => hang.remove([key]), quick: true });
     else if (k === "t") {
       // a small tag box at the card (the bigger form is E); a card that isn't on screen any more falls back to the form
       const card = host.querySelector(`.kb-piece[data-key="${CSS.escape(key)}"]`);

@@ -7,6 +7,14 @@
 
 export const CHANGES = [
   {
+    v: "3.131.0",
+    date: "2026-10-28",
+    items: [
+      ["ui", "New: press M while the mouse rests on a scene card to add a part (marker) to that scene – the “Add a part” window opens with the time field at 0:00 (type the time, give it a tag; without a tag it gets “Highlight”). (Thanks JoeBiden!)", "新增：鼠标停在场景卡片上时按 M，可为该场景添加片段（标记）——会打开“添加片段”窗口，时间默认为 0:00（输入时间、选择标签；不选标签则用“Highlight”）。（感谢 JoeBiden！）", "scenes::[data-q]"],
+      ["ui", "New: choose what the cards on the Performers page (and in Performers sections of the start page) say under the name – scenes, images, age, rating, country, ethnicity, hair color, eye color, height and their tags (Settings → This interface → Info on performer cards). Applies after the next page load. (Thanks JoeBiden!)", "新增：可选择演员页（以及主页演员板块）卡片在名字下显示的内容——场景数、图片数、年龄、评分、国家、种族、发色、瞳色、身高和标签（设置 → 此界面 → 演员卡片上的信息）。下次加载页面后生效。（感谢 JoeBiden！）", "settings::Info on performer cards"],
+    ],
+  },
+  {
     v: "3.130.0",
     date: "2026-10-28",
     items: [

@@ -173,7 +173,7 @@ export const F_PERFORMER = `id name disambiguation alias_list gender birthdate d
   tags { id name }`;
 
 export async function findPerformers({ q, page = 1, perPage = 60, sort = "name", dir, filter, ids } = {}) {
-  const d = await gql(`query($f: FindFilterType, $p: PerformerFilterType, $ids: [ID!]) { findPerformers(filter: $f, performer_filter: $p, ids: $ids) { count performers { id name disambiguation gender favorite rating100 scene_count image_count o_counter image_path birthdate country } } }`, {
+  const d = await gql(`query($f: FindFilterType, $p: PerformerFilterType, $ids: [ID!]) { findPerformers(filter: $f, performer_filter: $p, ids: $ids) { count performers { id name disambiguation gender favorite rating100 scene_count image_count o_counter image_path birthdate country ethnicity hair_color eye_color height_cm tags { id name } } } }`, {
     f: { q: q || undefined, page, per_page: perPage, sort, direction: dir || (sort === "name" ? "ASC" : "DESC") },
     p: filter || {},
     ids: ids || null,

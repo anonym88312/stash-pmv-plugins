@@ -2609,4 +2609,8 @@ export default {
   "Default icon": "標準のアイコン",
   "That isn't a picture the browser can read.": "ブラウザで読み込めない画像です。",
   "{n} tags left out": "除外タグ {n} 個",
+  "Info on performer cards": "パフォーマーカードの情報",
+  "What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).": "パフォーマーページのカードが名前の下に表示する内容。クリックで項目ごとにオン／オフ（次にページを読み込んだ後に反映）。",
+  "{c} hair": "{c}の髪",
+  "{c} eyes": "{c}の目",
 };

@@ -396,4 +396,12 @@ export default {
   "Tags from their newest {n} videos": "最新の {n} 本の動画のタグ",
   "Keep downloading in the background": "バックグラウンドでダウンロードを続ける",
   "Stash carries on downloading, scanning and filling in the details when you close this page. Needs the plugin reloaded after an update – until then the page downloads itself, as before.": "このページを閉じても、Stash がダウンロード、スキャン、詳細の入力を続けます。更新後はプラグインの再読み込みが必要です。それまではこれまでどおりページ自身がダウンロードします。",
+  "Follow creators from a list": "リストからクリエイターをフォロー",
+  "Paste creator names, @names or redgifs.com/users/… addresses – one per line or separated by commas. Each one is looked up on RedGifs first; names that don't exist are skipped.": "クリエイター名、@名前、redgifs.com/users/… のアドレスを貼り付けてください（1行に1つ、またはカンマ区切り）。それぞれ先に RedGifs で確認し、存在しない名前は飛ばします。",
+  "No names found in the text.": "テキストに名前が見つかりません。",
+  "Looking up … {n} of {total}": "確認中 … {n} / {total}",
+  "{a} followed · {b} already followed · {c} not found": "フォロー {a} 件 · フォロー済み {b} 件 · 見つからず {c} 件",
+  "Follow them": "フォローする",
+  "{n} creator followed": "{n} 人のクリエイターをフォローしました",
+  "{n} creators followed": "{n} 人のクリエイターをフォローしました",
 };

@@ -2563,4 +2563,8 @@ export default {
   "Default icon": "Standardsymbol",
   "That isn't a picture the browser can read.": "Der Browser kann dieses Bild nicht lesen.",
   "{n} tags left out": "{n} Tags ausgeschlossen",
+  "Info on performer cards": "Infos auf den Darstellerkarten",
+  "What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).": "Was die Karten der Darstellerseite unter dem Namen anzeigen. Anklicken schaltet jede Angabe an oder aus (nach dem nächsten Laden der Seite).",
+  "{c} hair": "Haare: {c}",
+  "{c} eyes": "Augen: {c}",
 };

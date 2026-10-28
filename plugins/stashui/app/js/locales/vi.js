@@ -2602,4 +2602,8 @@ export default {
   "Default icon": "Biểu tượng mặc định",
   "That isn't a picture the browser can read.": "Trình duyệt không đọc được hình này.",
   "{n} tags left out": "Loại trừ {n} thẻ",
+  "Info on performer cards": "Thông tin trên thẻ diễn viên",
+  "What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).": "Những gì thẻ ở trang Diễn viên hiển thị dưới tên. Nhấp để bật hoặc tắt từng mục (sau lần tải trang tiếp theo).",
+  "{c} hair": "Tóc {c}",
+  "{c} eyes": "Mắt {c}",
 };

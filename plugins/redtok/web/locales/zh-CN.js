@@ -397,4 +397,12 @@ export default {
   "Tags from their newest {n} videos": "标签来自他们最新的 {n} 个视频",
   "Keep downloading in the background": "在后台继续下载",
   "Stash carries on downloading, scanning and filling in the details when you close this page. Needs the plugin reloaded after an update – until then the page downloads itself, as before.": "关闭此页面后，Stash 仍会继续下载、扫描并填写详细信息。更新后需要重新加载插件 – 在此之前由页面自己下载，和以前一样。",
+  "Follow creators from a list": "从列表关注创作者",
+  "Paste creator names, @names or redgifs.com/users/… addresses – one per line or separated by commas. Each one is looked up on RedGifs first; names that don't exist are skipped.": "粘贴创作者名称、@名称或 redgifs.com/users/… 链接——每行一个，或用逗号分隔。每个名称会先在 RedGifs 上查询；不存在的名称会被跳过。",
+  "No names found in the text.": "文本中没有找到名称。",
+  "Looking up … {n} of {total}": "正在查询 … {n} / {total}",
+  "{a} followed · {b} already followed · {c} not found": "已关注 {a} 个 · 已关注过 {b} 个 · 未找到 {c} 个",
+  "Follow them": "关注他们",
+  "{n} creator followed": "已关注 {n} 位创作者",
+  "{n} creators followed": "已关注 {n} 位创作者",
 };

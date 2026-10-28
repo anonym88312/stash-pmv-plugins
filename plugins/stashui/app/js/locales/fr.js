@@ -2549,4 +2549,8 @@ export default {
   "Default icon": "Icône par défaut",
   "That isn't a picture the browser can read.": "Le navigateur ne peut pas lire cette image.",
   "{n} tags left out": "{n} tags exclus",
+  "Info on performer cards": "Infos sur les cartes d’interprètes",
+  "What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).": "Ce que disent les cartes de la page Interprètes sous le nom. Cliquez pour activer ou désactiver chaque élément (au prochain chargement de la page).",
+  "{c} hair": "Cheveux {c}",
+  "{c} eyes": "Yeux {c}",
 };

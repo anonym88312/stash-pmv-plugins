@@ -5,7 +5,7 @@ import { $, esc, t, tn, fmt, ago, mmss, ic, toast, nav, on, modal, pushLayer, cl
 import {
   settings, saveSettings, makeSource, listSource, ORDERS, orderOf, rg, takeUsers, userOf, userPic, users,
   liked, following, niches, hidden, nope, blocked, history, saved, doneSet, isFollowing, setFollow, followsNiche, setNiche, tagFollows, followsTag, setFollowTag, isHidden, setHidden, setNope,
-  algo, scanTaste, creatorTags, isBlockedTag, setBlockedTag, stashMark, stashDelete, DELETE_TAG, unlikeMany, clearHistory, removeFromHistory, forgetDownloads, exportData, importData, stashPerformer, usingBackend,
+  algo, scanTaste, creatorTags, isBlockedTag, setBlockedTag, stashMark, stashDelete, DELETE_TAG, unlikeMany, clearHistory, removeFromHistory, forgetDownloads, exportData, importData, stashPerformer, usingBackend, followFromList, creatorNames,
 } from "./data.js";
 import { av, tick, setSpeed, setAutoNext, setFit, setMuted, setFrame, frameName, FRAMES } from "./feed.js";
 import { enqueue, jobs, jobOf, isSaved, cancelQueued, retryFailed, clearFinished, activeJobs, ensureBase } from "./dl.js";
@@ -837,7 +837,7 @@ export function openSettings(focus) {
     <h3 class="sh">${esc(t("Your data"))}</h3>
     ${sw("syncDev", t("Sync between devices"), t("Follows, niches, #tags, likes, saved, hidden and blocked are kept in Stash and shared with every device that opens this Stash with this switch on. The newer change wins; watch history and settings stay on each device.") + (lastSync() ? " " + t("Last synced: {time}", { time: new Date(lastSync()).toLocaleTimeString() }) : ""))}
     <div class="set is-col"><span class="st"><b>${esc(t("{a} liked · {b} followed · {c} watched · {d} saved", { a: liked.length, b: following.length, c: history.length, d: Math.max(saved.length, doneSet.size) }))}</b><small>${esc(t("All of it stays in this browser. A copy goes to a backup file next to Stash, so another browser or device gets it back by itself."))}</small></span>
-      <span class="setrow"><button class="btn" data-export>${ic("down")}${esc(t("Export"))}</button><label class="btn">${ic("backup")}${esc(t("Import"))}<input type="file" accept=".json,application/json" data-import hidden></label><button class="btn is-ghost" data-clearw>${esc(t("Clear watch history"))}</button><button class="btn is-ghost" data-forget>${esc(t("Forget downloads list"))}</button></span></div>
+      <span class="setrow"><button class="btn" data-export>${ic("down")}${esc(t("Export"))}</button><label class="btn">${ic("backup")}${esc(t("Import"))}<input type="file" accept=".json,application/json" data-import hidden></label><button class="btn" data-follist>${ic("user")}${esc(t("Follow creators from a list"))}</button><button class="btn is-ghost" data-clearw>${esc(t("Clear watch history"))}</button><button class="btn is-ghost" data-forget>${esc(t("Forget downloads list"))}</button></span></div>
     <h3 class="sh">${esc(t("Keyboard"))}</h3>
     <div class="keys">${KEYS().map(([k, v]) => `<span><kbd>${esc(k)}</kbd>${esc(v)}</span>`).join("")}</div>
     <h3 class="sh">${esc(t("About"))}</h3>
@@ -915,6 +915,24 @@ export function openSettings(focus) {
     const u = e.target.closest("[data-unhide]");
     if (u) { setHidden(u.dataset.unhide, false); return paint(); }
     if (e.target.closest("[data-resetnope]")) { nope.splice(0); store.set("nope", []); return paint(); }
+    if (e.target.closest("[data-follist]")) {
+      // names, @names or redgifs.com/users/… addresses – each one is looked up on RedGifs before it is followed
+      modal(`<h3>${esc(t("Follow creators from a list"))}</h3><p>${esc(t("Paste creator names, @names or redgifs.com/users/… addresses – one per line or separated by commas. Each one is looked up on RedGifs first; names that don't exist are skipped."))}</p><textarea class="imp-ta" data-fltext rows="8" spellcheck="false" placeholder="name1&#10;@name2&#10;https://www.redgifs.com/users/name3"></textarea><p class="imp-res" data-flres></p><div class="row"><button class="btn is-ghost" data-close>${esc(t("Close"))}</button><button class="btn is-red" data-flgo>${esc(t("Follow them"))}</button></div>`, (m) => {
+        const ta = m.querySelector("[data-fltext]");
+        const out = m.querySelector("[data-flres]");
+        const go = m.querySelector("[data-flgo]");
+        go.onclick = async () => {
+          const n = creatorNames(ta.value).length;
+          if (!n) return void (out.textContent = t("No names found in the text."));
+          go.disabled = true;
+          const r = await followFromList(ta.value, (p) => (out.textContent = t("Looking up … {n} of {total}", { n: p.added.length + p.already.length + p.missing.length, total: p.total })));
+          go.disabled = false;
+          out.textContent = t("{a} followed · {b} already followed · {c} not found", { a: r.added.length, b: r.already.length, c: r.missing.length }) + (r.stopped ? " – " + t("RedGifs asks to slow down – try again in a minute") : "") + (r.missing.length ? ": " + r.missing.slice(0, 8).join(", ") + (r.missing.length > 8 ? " …" : "") : "");
+          if (r.added.length) { toast(tn(r.added.length, "{n} creator followed", "{n} creators followed")); paint(); }
+        };
+      });
+      return;
+    }
     if (e.target.closest("[data-export]")) {
       const blob = new Blob([exportData()], { type: "application/json" });
       const a = document.createElement("a");

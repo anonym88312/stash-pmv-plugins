@@ -2,7 +2,7 @@
 // translated when shown (the English text is the key).
 // Fields and types come live from Stash; unknown options end up under "More options".
 
-import { applyDisplay, iconFromFile } from "../display.js";
+import { applyDisplay, iconFromFile, perfInfo } from "../display.js";
 import { tagPicker } from "./tagpicker.js";
 import { cardInfo } from "../pieces.js";
 import { forgetLarge, largeNow } from "../scale.js";
@@ -495,6 +495,8 @@ async function renderApp(body) {
         <span class="kb-switch"><input type="checkbox" data-studiologo${store.get("studioLogos", false) ? " checked" : ""}><i></i></span></label>
       <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Other pictures on performer cards")}</b><small>${t("While the mouse rests on a performer card, it shows other pictures of that performer from your library, one after the other. Not on touch screens.")}</small></span>
         <span class="kb-switch"><input type="checkbox" data-perfhover${store.get("perfHover", true) !== false ? " checked" : ""}><i></i></span></label>
+      <div class="kb-set"><span class="kb-set-label"><b>${t("Info on performer cards")}</b><small>${t("What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).")}</small></span>
+        <div class="kb-chips" data-perfinfo>${[["scenes", "Scenes"], ["images", "Images"], ["age", "Age"], ["rating", "Rating"], ["country", "Country"], ["ethnicity", "Ethnicity"], ["hair", "Hair color"], ["eye", "Eye color"], ["height", "Height"], ["tags", "Tags"]].map(([k, l]) => `<button type="button" class="kb-chip${perfInfo()[k] ? " is-on" : ""}" data-pi="${k}">${t(l)}</button>`).join("")}</div></div>
       <div class="kb-set"><span class="kb-set-label"><b>${t("Folder for new clips and GIFs")}</b><small>${t("Every clip, GIF and edit you make is saved here, all together – not next to each original. Needs a full path (e.g. E:\\Stash\\Clips) and should lie inside a library folder, so Stash finds the files. Empty = next to each original.")}</small><small class="kb-set-msg" data-clipsdirmsg></small></span>
         <span class="kb-set-btns"><input class="kb-field" type="text" data-clipsdir autocomplete="off" spellcheck="false" placeholder="${esc(t("next to each original"))}"><button type="button" class="kb-btn" data-clipsdirsave>${t("Save")}</button></span></div>
       <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Resolution on scene cards")}</b><small>${t("Shows 1080p, 720p … next to the length in the corner of scene thumbnails (after the next page load).")}</small></span>
@@ -675,6 +677,13 @@ async function renderApp(body) {
     if (!b) return;
     b.classList.toggle("is-on");
     setCardInfo({ [b.dataset.ci]: b.classList.contains("is-on") });
+  };
+  body.querySelector("[data-perfinfo]").onclick = (e) => {
+    const b = e.target.closest("[data-pi]");
+    if (!b) return;
+    b.classList.toggle("is-on");
+    store.set("perfInfo", Object.assign(perfInfo(), { [b.dataset.pi]: b.classList.contains("is-on") }));
+    toast(t("Saved"), "ok");
   };
   body.querySelector("[data-cistyle]").onchange = (e) => setCardInfo({ style: e.target.value });
   body.querySelector("[data-cihour]").onchange = (e) => setCardInfo({ hour: e.target.checked });

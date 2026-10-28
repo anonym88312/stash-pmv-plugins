@@ -214,6 +214,45 @@ export function setFollow(name, on) {
   emit("follow", { name, on });
   return on;
 }
+// "Follow creators from a list": names, @names or redgifs.com/users/… addresses, one per line or separated by commas/spaces.
+// Each one is looked up on RedGifs first (a name that doesn't exist is skipped); the answer says which ones were new.
+export function creatorNames(text) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of String(text || "").split(/[\s,;]+/)) {
+    let n = raw.trim();
+    const m = n.match(/redgifs\.com\/users\/([\w.\-]+)/i);
+    n = (m ? m[1] : n).replace(/^@/, "");
+    if (!/^[\w.\-]{2,60}$/.test(n) || /^https?$/i.test(n) || seen.has(n.toLowerCase())) continue;
+    seen.add(n.toLowerCase());
+    out.push(n);
+  }
+  return out;
+}
+export async function followFromList(text, progress) {
+  const names = creatorNames(text);
+  const res = { total: names.length, added: [], already: [], missing: [], stopped: false };
+  let i = 0;
+  const worker = async () => {
+    while (i < names.length && !res.stopped) {
+      const name = names[i++];
+      if (isFollowing(name)) { res.already.push(name); progress && progress(res); continue; }
+      try {
+        const d = await rg(`/users/${encodeURIComponent(name)}/search?order=recent&count=1`);
+        const u = (d.users || []).find((x) => low(x.username) === low(name)) || (d.users || [])[0];
+        const real = (u && u.username) || ((d.gifs || [])[0] && d.gifs[0].userName) || "";
+        if (!real) res.missing.push(name);
+        else { setFollow(real, true); res.added.push(real); }
+      } catch (e) {
+        if (e.status === 429) res.stopped = true;
+        else res.missing.push(name); // (404: no such creator)
+      }
+      progress && progress(res);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  return res;
+}
 export const followsNiche = (id) => niches.some((n) => n.id === id);
 export function setNiche(n, on) {
   if (on === followsNiche(n.id)) return on;

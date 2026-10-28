@@ -395,4 +395,12 @@ export default {
   "Tags from their newest {n} videos": "Thẻ từ {n} video mới nhất của họ",
   "Keep downloading in the background": "Tiếp tục tải ở chế độ nền",
   "Stash carries on downloading, scanning and filling in the details when you close this page. Needs the plugin reloaded after an update – until then the page downloads itself, as before.": "Stash vẫn tiếp tục tải, quét và điền thông tin khi bạn đóng trang này. Cần tải lại plugin sau khi cập nhật – cho đến lúc đó trang tự tải như trước.",
+  "Follow creators from a list": "Theo dõi người sáng tạo từ danh sách",
+  "Paste creator names, @names or redgifs.com/users/… addresses – one per line or separated by commas. Each one is looked up on RedGifs first; names that don't exist are skipped.": "Dán tên người sáng tạo, @tên hoặc địa chỉ redgifs.com/users/… – mỗi dòng một tên hoặc cách nhau bằng dấu phẩy. Mỗi tên được tra trên RedGifs trước; tên không tồn tại sẽ bị bỏ qua.",
+  "No names found in the text.": "Không tìm thấy tên nào trong văn bản.",
+  "Looking up … {n} of {total}": "Đang tra cứu … {n} / {total}",
+  "{a} followed · {b} already followed · {c} not found": "Đã theo dõi {a} · đã theo dõi từ trước {b} · không tìm thấy {c}",
+  "Follow them": "Theo dõi họ",
+  "{n} creator followed": "Đã theo dõi {n} người sáng tạo",
+  "{n} creators followed": "Đã theo dõi {n} người sáng tạo",
 };

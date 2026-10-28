@@ -2642,4 +2642,8 @@ export default {
   "Default icon": "Значок за замовчуванням",
   "That isn't a picture the browser can read.": "Браузер не може прочитати це зображення.",
   "{n} tags left out": "Виключено тегів: {n}",
+  "Info on performer cards": "Інформація на картках виконавців",
+  "What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).": "Що показують картки на сторінці «Виконавці» під іменем. Натисніть, щоб увімкнути або вимкнути кожен пункт (після наступного завантаження сторінки).",
+  "{c} hair": "Волосся: {c}",
+  "{c} eyes": "Очі: {c}",
 };

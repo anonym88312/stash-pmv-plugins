@@ -390,4 +390,12 @@ export default {
   "Tags from their newest {n} videos": "Tags de leurs {n} dernières vidéos",
   "Keep downloading in the background": "Continuer les téléchargements en arrière-plan",
   "Stash carries on downloading, scanning and filling in the details when you close this page. Needs the plugin reloaded after an update – until then the page downloads itself, as before.": "Stash continue de télécharger, de scanner et de remplir les détails quand vous fermez cette page. Il faut recharger le plugin après une mise à jour – d'ici là, la page télécharge elle-même, comme avant.",
+  "Follow creators from a list": "Suivre des créateurs depuis une liste",
+  "Paste creator names, @names or redgifs.com/users/… addresses – one per line or separated by commas. Each one is looked up on RedGifs first; names that don't exist are skipped.": "Collez des noms de créateurs, des @noms ou des adresses redgifs.com/users/… – un par ligne ou séparés par des virgules. Chacun est d’abord vérifié sur RedGifs ; les noms qui n’existent pas sont ignorés.",
+  "No names found in the text.": "Aucun nom trouvé dans le texte.",
+  "Looking up … {n} of {total}": "Vérification … {n} sur {total}",
+  "{a} followed · {b} already followed · {c} not found": "{a} suivis · {b} déjà suivis · {c} introuvables",
+  "Follow them": "Les suivre",
+  "{n} creator followed": "{n} créateur suivi",
+  "{n} creators followed": "{n} créateurs suivis",
 };
