@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.130.0",
+    date: "2026-10-28",
+    items: [
+      ["ui", "Discover → Overview is updated to stashDiscover 2.5.5 (by ufousox007): a scene-card size slider in the filter row (the row folds into a “more filters” button when it gets narrow), new Settings → “Scene card badges” (studio badge, duration badge, where the small badges sit), clearer badges (“Known”, “in 3d”, “#12”), unread rows in list mode, a single hint when no stash-box is set up, and a faster ThePornDB: the performers or studios are looked up once and their scenes asked in one batch; ones ThePornDB doesn't know are skipped instead of turning a whole block red. Jackett searches now show up to 200 results (before 50). Only tested against a fake stash-box and a mock Stash – ThePornDB itself, Jackett and qBittorrent were not asked.", "Discover → Overview 更新到 stashDiscover 2.5.5（作者 ufousox007）：筛选行新增场景卡大小滑块（窗口变窄时筛选行会收成“更多筛选”按钮），设置里新增“场景卡角标”（工作室角标、时长角标、小角标位置），角标更清晰（“Known”、“in 3d”、“#12”），列表模式下显示未读行，未配置 stash-box 时只给一条提示；ThePornDB 更快：演员/工作室只查一次编号，场景一次批量获取，ThePornDB 不认识的会被跳过，而不是让整块变红。Jackett 搜索现在最多显示 200 条（之前 50 条）。仅在模拟的 stash-box 和模拟的 Stash 上测试过——没有访问真实的 ThePornDB、Jackett 和 qBittorrent。", "discover::.ssd-dp-toolbar"],
+    ],
+  },
+  {
     v: "3.129.1",
     date: "2026-10-28",
     items: [

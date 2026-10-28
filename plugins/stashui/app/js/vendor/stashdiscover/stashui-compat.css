@@ -108,8 +108,11 @@ html.kb-glass :is(.ssd-dp-mini, .ssd-dp-pg, .ssd-dp-grpchip, .ssd-dp-chip, .ssd-
   border-color: var(--glass-edge); background: var(--glass-shine), var(--glass-deep, var(--glass));
 }
 /* … and the controls */
-html.kb-glass :is(.ssd-dp-toolbar input, .ssd-dp-toolbar select, .ssd-dp-toolbar .grow, .ssd-dp-btn, .ssd-dp-extbtn, .ssd-dp-setsel, .ssd-dp-refresh, .ssd-dp-modal-close, .ssd-modal-close) {
+html.kb-glass :is(.ssd-dp-toolbar input, .ssd-dp-toolbar select, .ssd-dp-toolbar .grow, .ssd-dp-btn, .ssd-dp-extbtn, .ssd-dp-setsel, .ssd-dp-refresh, .ssd-dp-more, .ssd-dp-modal-close, .ssd-modal-close) {
   border-color: var(--glass-edge); background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 html.kb-glass .ssd-dp-refresh { background-image: none; box-shadow: none; }
 html.kb-glass .ssd-dp-tab.on { background: color-mix(in srgb, var(--pink) 24%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pink) 40%, transparent); }
+/* more filters (the toolbar folds up when it is narrow): open = accent; the tools line below it sits inside the glass toolbar already */
+html.kb-glass .ssd-dp-toolbar.is-open .ssd-dp-more { border-color: color-mix(in srgb, var(--pink) 55%, var(--glass-edge)); background: color-mix(in srgb, var(--pink) 30%, transparent); color: var(--text); }
+html.kb-glass .ssd-dp-state .ssd-dp-retry { background: color-mix(in srgb, var(--text) 5%, transparent); }

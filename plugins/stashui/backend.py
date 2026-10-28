@@ -1985,6 +1985,9 @@ def ssd_torznab(xml_text):
     return results
 
 
+SSD_SEARCH_LIMIT = 200  # stashDiscover 2.5.5: the answer is no longer squeezed through the Stash log, so more fit
+
+
 def ssd_search(stash, args):
     """Jackett (Torznab) search for a scene – the "Search Resources" button of the Discover scene window."""
     query = str(args.get("query") or "").strip()
@@ -2008,9 +2011,9 @@ def ssd_search(stash, args):
     if status != 200:
         raise RuntimeError(f"Jackett request failed (HTTP {status}): {body[:200]}")
     results = ssd_torznab(body)
-    shown = results[:50]
+    shown = results[:SSD_SEARCH_LIMIT]
     # count is everything Jackett found, "shown" what is sent on – the page says so when the list is cut
-    return {"mode": "search", "query": query, "count": len(results), "shown": len(shown), "truncated": len(results) > 50, "results": shown}
+    return {"mode": "search", "query": query, "count": len(results), "shown": len(shown), "truncated": len(results) > SSD_SEARCH_LIMIT, "results": shown}
 
 
 def ssd_session_cookie(headers):

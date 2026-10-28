@@ -1,4 +1,4 @@
-/* stashDiscover – Discover page ("发现"), taken from the plugin stashDiscover 2.4.7 by ufousox007
+/* stashDiscover – Discover page ("发现"), taken from the plugin stashDiscover 2.5.5 by ufousox007
  * https://github.com/k6cc/stash-jav-tools/tree/main/stashDiscover  (used in Stash UI with the author's permission)
  *
  * Changes for Stash UI: no React shell (Stash UI calls SSD.discoverMount(root)), and the settings page has a block for the options
@@ -1146,6 +1146,7 @@
     perfGroup: null,  // 演员过滤视图：actorsWithNew 分组引用
     perfFrom: null,   // 进入演员过滤视图前的来源视图（返回按钮回到这里）
     studioGroup: null, // 工作室过滤视图：studio 分组引用
+    csize: 1,         // 场景卡档位 0 紧凑 / 1 标准 / 2 大（只作用于场景网格）
     refs: {},         // chrome 元素引用（head/tabs/toolbar/content）
   };
 
@@ -1351,6 +1352,8 @@
     // 取关（取消关注）：爱心 + 斜杠。和列表里的爱心同源，一眼看出是「去掉关注」；
     // 纯图标按钮省掉英文 "Unfollow" 撑出的宽度（用户 2026-10-27）
     heartOff: sv('<path d="M12 20s-7-4.5-9-9c-1.5-3.5 1-7 4.5-7 2 0 3.5 1 4.5 2.5C13 5 14.5 4 16.5 4 20 4 22.5 7.5 21 11c-2 4.5-9 9-9 9z"/><path d="M4 4l16 16" stroke-width="2.6"/>'),
+    // 筛选行收起后的「更多筛选」：两条滑杆，比漏斗更贴合「多个可调选项」的语义
+    filter: sv('<circle cx="9" cy="7" r="2.5"/><path d="M3 7h3.5M11.5 7H21"/><circle cx="15" cy="17" r="2.5"/><path d="M3 17h9.5M17.5 17H21"/>'),
     check: sv('<path d="M20 6L9 17l-5-5"/>'),
   };
 
@@ -1391,8 +1394,10 @@
   function daysUntilText(dstr) {
     var d1 = new Date(dstr + "T00:00:00"), d0 = new Date(SSD.localDateStr(new Date()) + "T00:00:00");
     var n = Math.round((d1 - d0) / 86400000);
-    if (isNaN(n) || n <= 0) return tc("今天上映", "out today");
-    return tc(n + " 天后上映", "in " + n + " days");
+    // 角标要短：英文原本 "in 3 days" / "out today"（9 字符）在 217px 的卡上
+    // 占去四分之一封面，压成 "in 3d" / "today"（用户 2026-10-28）
+    if (isNaN(n) || n <= 0) return tc("今天上映", "today");
+    return tc(n + " 天后上映", "in " + n + "d");
   }
   function itemHaystack(it) {
     var sc = it.scene || {};
@@ -1545,7 +1550,9 @@
   };
   function errText(e) {
     if (!e) return tc("未知错误", "Unknown error");
-    if (e.ssdKind === "no-box") return tc("未配置 stash-box，请先在 Stash 设置中添加", "No stash-box configured — add one in Stash settings first");
+    if (e.ssdKind === "no-box") return tc(
+      "未配置 stash-box — 请在 设置 → 元数据提供者 中添加一个实例",
+      "No stash-box configured — add one under Settings → Metadata Providers");
     var pair = ERR_KIND_TEXT[e.ssdKind] || ERR_KIND_TEXT.unknown;
     var zh = pair[0], en = pair[1];
     // 明细一律附上：以前只有 "HTTP xxx" 才拼进去，于是 TPDB 在发现页的任何
@@ -1579,17 +1586,39 @@
   function decorateCard(card, item, opts) {
     opts = opts || {};
     var sc = item.scene || {};
-    var previewEl = card.querySelector(".scene-card-preview");
-    if (previewEl) {
+    // 角标挂在 .thumbnail-section（与原生 .studio-overlay 同级）而不是
+    // .scene-card-preview：sfwswitch（社区「NSFW 模糊」插件）给 preview 整体上
+    // blur(30px)，filter 作用于整个子树，角标会被一起糊掉（用户 2026-10-28）。
+    var badgeHost = card.querySelector(".thumbnail-section") || card.querySelector(".scene-card-preview");
+    if (badgeHost) {
+      // 角标归拢进一个竖向堆叠的容器：① 多个角标同时出现时（预告 + 库内演员）
+      // 不再互相压在同一坐标上；② 位置由容器一处控制，「默认角标位置」才能只切
+      // 一个属性（用户 2026-10-28）。发现页的源徽章恒不渲染（cardCtx 传空
+      // queryBoxes），容器里实际是 预告 / 距上映天数 / 库内演员。
+      var badgeBox = badgeHost.querySelector(".ssd-badges");
+      if (!badgeBox) {
+        badgeBox = el("div", "ssd-badges");
+        var moved = badgeHost.querySelectorAll(".ssd-overlay-box, .ssd-overlay-preview");
+        for (var bi = 0; bi < moved.length; bi++) badgeBox.appendChild(moved[bi]);
+        badgeHost.appendChild(badgeBox);
+      }
       if (opts.days) {
-        var old = previewEl.querySelector(".ssd-overlay-preview");
+        var old = badgeBox.querySelector(".ssd-overlay-preview");
         if (old) old.remove();
         if (sc.release_date && sc.release_date > SSD.localDateStr(new Date())) {
-          previewEl.appendChild(el("span", "ssd-overlay-days", daysUntilText(sc.release_date)));
+          badgeBox.appendChild(el("span", "ssd-overlay-days", daysUntilText(sc.release_date)));
         }
       }
-      if (item.hasLocalPerformer) {
-        previewEl.appendChild(el("span", "ssd-overlay-inlib", tc("库内", "In library")));
+      // 徽章语义是「这部片里有你库内的演员」，不是「这部片已入库」——
+      // 原本文案只写「库内」被读成后者（用户 2026-10-28 反馈）。
+      // hasLocalPerformer 只在热门榜赋值，opts.inlib 再兜一层，防止将来别的
+      // 数据集带上该字段时误显示。
+      if (opts.inlib && item.hasLocalPerformer) {
+        // 英文角标要短到与中文「库内演员」等宽（"Known performer" 在窄卡上压
+        // 掉半张封面），缩写取 "Known"，完整解释放 title（用户 2026-10-28）
+        var libBadge = el("span", "ssd-overlay-inlib", tc("库内演员", "Known"));
+        libBadge.title = tc("这部片里有你库内的演员", "Features a performer in your library");
+        badgeBox.appendChild(libBadge);
       }
     }
     if (opts.unread) {
@@ -1606,9 +1635,39 @@
     }
     return card;
   }
+  // 列表模式（一个场景一行）下的未读标记：表格行画不出卡片那圈红框，改给 <tr>
+  // 打 ssd-row-new（判定口径与卡片完全一致），封面描红 + 整行淡红，见 CSS。
+  // 「记已读」只挂在封面链接上 —— 那才是打开场景弹窗的入口（用户 2026-10-28：
+  // 光点行不该算看过）。标题列是跳 stash-box 的新标签页，也不算。
+  // 不重排整表：此刻正在冒泡的可能是一个 target=_blank 的 <a>，重建表格有打断
+  // 跳转的风险，所以只摘本行的标记，计数交给 emitUnread()。
+  function decorateUnreadRows(tbl, items) {
+    var rows = tbl.querySelectorAll("tbody tr");
+    for (var i = 0; i < items.length && i < rows.length; i++) {
+      (function (row, it) {
+        var sc = it && it.scene;
+        if (!sc) return;
+        if (readIs(it.endpoint, sc.id)) return;
+        if (!notifyPreviewScenes() && isPreviewScene(sc)) return;
+        row.classList.add("ssd-row-new");
+        var coverLink = row.querySelector("td.cover_image-data a");
+        if (!coverLink) return;
+        coverLink.addEventListener("click", function () {
+          if (!row.classList.contains("ssd-row-new")) return;
+          readMark(it.endpoint, sc.id);
+          row.classList.remove("ssd-row-new");
+          emitUnread();
+        });
+      })(rows[i], items[i]);
+    }
+  }
   function sceneGrid(items, opts) {
     opts = opts || {};
-    if (_dp.mode === "list" && opts.allowList) return SSD.buildSceneTable(items);
+    if (_dp.mode === "list" && opts.allowList) {
+      var tbl = SSD.buildSceneTable(items);
+      if (opts.unread) decorateUnreadRows(tbl, items);
+      return tbl;
+    }
     var grid = el("div", "ssd-card-grid");
     grid.setAttribute("data-zoom", "0");
     var ctx = cardCtx();
@@ -2045,7 +2104,10 @@
         // 只留作品数：「· 最近有新作」在窄卡里必然被省略号吃掉
         // （实测 1280 下文字需 125px、可用只有 113px — 用户 2026-10-27）
         sub: tc((pf.sceneCount || 0) + " 部作品", (pf.sceneCount || 0) + " scenes"),
-        badge: tc("热门榜 #" + rank, "Trending #" + rank), badgeKind: "hot",
+        // 角标只留序号：英文 "Trending #12" 有 12 字符，迷你卡只有 168px 宽，
+        // 会被撑到半张卡；中文「热门榜 #12」已经够短，保持（用户 2026-10-28）
+        badge: tc("热门榜 #" + rank, "#" + rank), badgeKind: "hot",
+        badgeTitle: tc("热门榜第 " + rank + " 位", "Trending #" + rank),
         onClick: function () { openPerfModal({ src: "hot", stashId: pf.stashId, name: pf.name, image: pf.image, sceneCount: pf.sceneCount, rank: rank }); },
       }));
     });
@@ -2341,6 +2403,11 @@
 
     // 相关场景
     var sc = el("div", "ssd-dp-modal-scenes");
+    // 档位随发现页滑块（用户 2026-10-28）：弹层不在 .ssd-dp-page 内，
+    // 必须自己带一份 data-csize，CSS 才能算出 --ssd-card-min
+    sc.setAttribute("data-csize", String(_dp.csize));
+    // 角标三件套同理：弹层此时还没挂进 DOM，显式传节点写一次
+    applyBadgePrefs([sc]);
     sc.appendChild(el("h4", "ssd-dp-pfsect", tc("相关场景", "Related scenes")));
     var scBody = el("div");
     sc.appendChild(scBody);
@@ -2365,8 +2432,9 @@
       }).catch(function () {});
 
     // 场景区填充：共同出演源 = 共演场景；热门源 = 懒加载近期场景（§3.5）
+    // allowList：列表模式下弹层里也是表格（用户 2026-10-28）
     if (p.src === "co" && p.items && p.items.length) {
-      scBody.appendChild(sceneGrid(p.items.slice(0, 6)));
+      scBody.appendChild(sceneGrid(p.items.slice(0, 6), { allowList: true }));
       SSD.layoutCardGrid();
     } else {
       scBody.appendChild(stateBox("loading"));
@@ -2377,7 +2445,7 @@
         var scenes = (qs && qs.scenes) || [];
         if (!scenes.length) { scBody.appendChild(stateBox("empty", tc("暂无场景", "No scenes"))); return; }
         var box2 = { name: d.source.name, endpoint: endpoint, apiKey: apiKey };
-        scBody.appendChild(sceneGrid(scenes.map(function (s2) { return shapeBoxItem(box2, s2); })));
+        scBody.appendChild(sceneGrid(scenes.map(function (s2) { return shapeBoxItem(box2, s2); }), { allowList: true }));
         SSD.layoutCardGrid();
       }).catch(function () {
           if (!_dpModal) return;
@@ -2640,7 +2708,8 @@
     }).catch(function () {});
 
     // 下半：场景卡（分组内不受 cap 限制）
-    c.appendChild(sceneGrid(filterItems(g.items)));
+    // allowList：列表模式下同样落成表格（用户 2026-10-28：原先这里固定网格）
+    c.appendChild(sceneGrid(filterItems(g.items), { allowList: true }));
     SSD.layoutCardGrid();
   }
 
@@ -2701,7 +2770,7 @@
     acts.appendChild(boxBtn);
     c.appendChild(acts);
 
-    c.appendChild(sceneGrid(filterItems(g.items)));
+    c.appendChild(sceneGrid(filterItems(g.items), { allowList: true }));
     SSD.layoutCardGrid();
   }
 
@@ -2876,7 +2945,7 @@
       if (g && expanded) {
         var body = el("div", "ssd-dp-fgrp-body");
         // 搜索时组内也过滤；未搜索时照常显示全部（含预告 — 用户 2026-10-27）
-        body.appendChild(sceneGrid(q ? filterItems(g.items) : g.items, { unread: true }));
+        body.appendChild(sceneGrid(q ? filterItems(g.items) : g.items, { unread: true, allowList: true }));
         grp.appendChild(body);
       }
       c.appendChild(grp);
@@ -2979,12 +3048,12 @@
     secG.appendChild(el("div", "ssd-dp-sethint", tc(
       "0 = 不限。仅作用于发现页；演员详情「发现」标签的窗口在插件设置的 Recent Window 中调整。",
       "0 = unlimited. Applies to the Discover page only; the performer-page Discover tab uses Recent Window in the plugin settings.")));
-    // TPDB 按演员逐个取片，每人最多 TPDB_MAX_PAGES_PER_ID 页（用户 2026-10-26）
+    // TPDB 走批量查询，整体最多 TPDB_MAX_PAGES_BATCH 页（用户 2026-10-26）
     if (dpRecentDays() === 0 && sourceIsTPDB()) {
-      var tpdbPages = SSD.TPDB_MAX_PAGES_PER_ID || 2;
+      var tpdbPages = SSD.TPDB_MAX_PAGES_BATCH || 5;
       secG.appendChild(el("div", "ssd-dp-sethint", tc(
-        "当前源按演员逐个取片：每人最多回溯 " + tpdbPages * 100 + " 部（" + tpdbPages + " 页），并非全部历史。",
-        "This source fetches per performer: at most " + tpdbPages * 100 + " scenes each (" + tpdbPages + " pages), not full history.")));
+        "当前源一次性批量取片：最多回溯 " + tpdbPages * 100 + " 部（" + tpdbPages + " 页），并非全部历史。",
+        "This source fetches in one batch: at most " + tpdbPages * 100 + " scenes (" + tpdbPages + " pages), not full history.")));
     }
 
     // 通知开关（独立 key SSD:dp:notify，主 JS 轮询与导航角标读取；§6.4）
@@ -3023,6 +3092,92 @@
     rowI.appendChild(makeImportButton());
     secG.appendChild(rowI);
     wrap.appendChild(secG);
+
+    // ── 场景卡角标（用户 2026-10-28）─────────────────────────────────────
+    // 三项都只切 CSS 属性，改完立即生效，不必重建卡片（重建会打断弹层与滚动位置）
+    wrap.appendChild(el("h3", "ssd-dp-set-h", tc("场景卡角标", "Scene card badges")));
+    var secB = el("div", "ssd-dp-set-box");
+
+    // 工作室名（原生 .studio-overlay）：隐藏 / 右上（默认）/ 左上
+    // 「左上」与「默认角标位置 = 左上」互斥 —— 左上角只放一组，选了这边另一组
+    // 自动让位（见下方 setStudio / setPos 的联动）
+    var rowB1 = el("div", "ssd-dp-setrow");
+    rowB1.appendChild(el("span", "ssd-dp-setname", tc("显示工作室角标", "Show studio badge")));
+    var selStudio = document.createElement("select");
+    selStudio.className = "ssd-dp-setsel";
+    [["none", tc("隐藏", "Hidden")], ["tr", tc("右上", "Top right")], ["tl", tc("左上", "Top left")]]
+      .forEach(function (o) {
+        var op = document.createElement("option");
+        op.value = o[0];
+        op.textContent = o[1];
+        selStudio.appendChild(op);
+      });
+    selStudio.value = dpStudioBadge();
+    var setStudio = function (v) {
+      dpSetPrefs({ studioBadge: v });
+      // 工作室占住左上 → 自定义角标让到左下
+      if (v === "tl") dpSetPrefs({ badgePos: "bl" });
+      syncBadgeSelects();
+      applyBadgePrefs();
+    };
+    selStudio.addEventListener("change", function () { setStudio(selStudio.value); });
+    rowB1.appendChild(selStudio);
+    secB.appendChild(rowB1);
+
+    // 右下角时长（原生 .scene-specs-overlay）：文字 = 现在的白字 + 阴影
+    var durLabel = tc("显示时长角标", "Show duration badge");
+    var rowB2 = el("div", "ssd-dp-setrow");
+    rowB2.appendChild(el("span", "ssd-dp-setname", durLabel));
+    var selDur = document.createElement("select");
+    selDur.className = "ssd-dp-setsel";
+    [["none", tc("隐藏", "Hidden")], ["text", tc("文字", "Text")], ["badge", tc("徽章", "Pill")]]
+      .forEach(function (o) {
+        var op = document.createElement("option");
+        op.value = o[0];
+        op.textContent = o[1];
+        selDur.appendChild(op);
+      });
+    selDur.value = dpDurBadge();
+    selDur.addEventListener("change", function () {
+      dpSetPrefs({ durBadge: selDur.value });
+      applyBadgePrefs();
+    });
+    rowB2.appendChild(selDur);
+    secB.appendChild(rowB2);
+
+    // 自定义角标（预告 / 距上映天数 / 库内演员）贴哪一侧
+    var posLabel = tc("默认角标位置", "Default badge position");
+    var rowB3 = el("div", "ssd-dp-setrow");
+    rowB3.appendChild(el("span", "ssd-dp-setname", posLabel));
+    var selPos = document.createElement("select");
+    selPos.className = "ssd-dp-setsel";
+    [["tl", tc("左上", "Top left")], ["bl", tc("左下", "Bottom left")]]
+      .forEach(function (o) {
+        var op = document.createElement("option");
+        op.value = o[0];
+        op.textContent = o[1];
+        selPos.appendChild(op);
+      });
+    selPos.value = dpBadgePos();
+    selPos.addEventListener("change", function () {
+      dpSetPrefs({ badgePos: selPos.value });
+      // 自定义角标要占左上 → 工作室角标（若也在左上）让到右上
+      if (selPos.value === "tl" && dpStudioBadge() === "tl") dpSetPrefs({ studioBadge: "tr" });
+      syncBadgeSelects();
+      applyBadgePrefs();
+    });
+    rowB3.appendChild(selPos);
+    secB.appendChild(rowB3);
+    // 联动会改到另一个下拉的值，这里把两个 select 拉回实际偏好（静默，不提示）
+    function syncBadgeSelects() {
+      selStudio.value = dpStudioBadge();
+      selPos.value = dpBadgePos();
+    }
+
+    secB.appendChild(el("div", "ssd-dp-sethint", tc(
+      "只作用于发现页与演员弹层里的场景卡；演员详情「发现」标签保持原样。",
+      "Applies to scene cards on the Discover page and in performer dialogs only; the performer-page Discover tab is unchanged.")));
+    wrap.appendChild(secB);
 
     // ── 显示上限（平铺列表：每位演员 / 每个工作室）— 用户 2026-10-25 第七轮 ──
     wrap.appendChild(el("h3", "ssd-dp-set-h", tc("显示上限", "Display limits")));
@@ -3260,6 +3415,9 @@
     var prefs = dpPrefs();
     if (prefs.sort) _dp.sort = prefs.sort;
     if (prefs.mode === "list" || prefs.mode === "grid") _dp.mode = prefs.mode;
+    var cs = toNum(prefs.csize, 1);
+    _dp.csize = cs >= 0 && cs <= 2 ? cs : 1;
+    refs.page = root;
 
     // ── 页头行（§3.1.1）：标题 + meta chips + 刷新 + 相对时间 ──
     var head = el("div", "ssd-dp-head");
@@ -3327,8 +3485,10 @@
     root.appendChild(refs.tabs);
 
     // ── 筛选行（§3.1.3 贯穿所有视图；搜索框限宽 + 居中 — 用户 2026-10-23 确认）──
-    // 布局：grid 三列（左空 | 搜索框居中 | 控件组靠右），见 stashDiscover.css
+    // 布局见 stashDiscover.css：单行优先（nowrap，搜索框先缩），真放不下时由
+    // syncToolbar 打 .is-collapsed，收成「搜索框 + 更多按钮」（用户 2026-10-28）
     var bar = el("div", "ssd-dp-toolbar");
+    refs.bar = bar;
     refs.search = document.createElement("input");
     refs.search.type = "search";
     refs.search.className = "grow";
@@ -3346,6 +3506,7 @@
     bar.appendChild(refs.search);
 
     var tools = el("div", "ssd-dp-tools");
+    refs.tools = tools;
     tools.appendChild(el("span", "ssd-dp-tool-label", tc("排序", "Sort")));
     refs.sort = document.createElement("select");
     [["date-desc", tc("发布日期 ↓", "Date ↓")], ["date-asc", tc("发布日期 ↑", "Date ↑")],
@@ -3392,9 +3553,55 @@
 
     refs.srcWrap = el("span", "ssd-dp-srcwrap");
     tools.appendChild(refs.srcWrap);
+
+    // ── 场景卡档位滑块（用户 2026-10-28）：位于筛选行最右，只控制场景卡；
+    //    演员迷你卡是另一套网格（.ssd-dp-grid.mini），不读这个变量 ──
+    refs.csizeWrap = el("div", "ssd-dp-csize");
+    refs.csize = document.createElement("input");
+    refs.csize.type = "range";
+    refs.csize.min = "0";
+    refs.csize.max = "2";
+    refs.csize.step = "1";
+    refs.csize.className = "ssd-dp-range";
+    refs.csize.value = String(_dp.csize);
+    refs.csize.title = tc("场景卡大小", "Scene card size");
+    refs.csize.setAttribute("aria-label", tc("场景卡大小", "Scene card size"));
+    refs.csize.addEventListener("input", function () {
+      // 拖动中只改 CSS 变量：auto-fill 自行调列数，零重排、即时可见
+      _dp.csize = toNum(this.value, 1);
+      applyCardSize();
+    });
+    refs.csize.addEventListener("change", function () {
+      // 模块卡片数是按「首行列数 × 行数」裁剪的（trimRows），列数变了不重渲染
+      // 会有模块只剩半行；松手后补一次（用户 2026-10-28）
+      dpSetPrefs({ csize: _dp.csize });
+      clearTimeout(_csizeT);
+      _csizeT = setTimeout(function () { render(); }, 180);
+    });
+    refs.csizeWrap.appendChild(refs.csize);
+    tools.appendChild(refs.csizeWrap);
+
     bar.appendChild(tools);
+
+    // 「更多筛选」按钮：仅在 .is-collapsed 下显示（点开/收起的逻辑见下方
+    // syncToolbar / setToolsOpen）。放在 tools 之后，展开时 tools 用 order:3
+    // 落回第二行，DOM 顺序与视觉顺序一致，键盘 Tab 不会跳序。
+    refs.more = el("button", "ssd-dp-more", I.filter);
+    refs.more.type = "button";
+    refs.more.title = tc("更多筛选", "More filters");
+    refs.more.setAttribute("aria-label", tc("更多筛选", "More filters"));
+    refs.more.setAttribute("aria-expanded", "false");
+    refs.more.addEventListener("click", function () {
+      setToolsOpen(!bar.classList.contains("is-open"));
+    });
+    bar.appendChild(refs.more);
+
     root.appendChild(bar);
+    bindToolbarDismiss();
     syncSourceSelect();
+    applyCardSize();
+    applyBadgePrefs();
+    syncToolbar();
 
     // ── 内容区 ──
     refs.content = el("div", "ssd-dp-content");
@@ -3417,6 +3624,8 @@
       if (!c || !c.isConnected) return;
       clearTimeout(t);
       t = setTimeout(function () {
+        // 先定筛选行状态（可能改变工具栏高度），再按新布局重排模块
+        syncToolbar();
         if (_dp.refs.content && _dp.refs.content.isConnected && _dp.view === "overview") render();
       }, 200);
     });
@@ -3505,6 +3714,130 @@
   }
 
   // ── 渲染机：syncChrome（页头/开关/工具栏状态）+ renderContent（按视图）──
+  // 场景卡档位：滑块只切 .ssd-dp-page 的 data-csize，列宽由 CSS 变量
+  // --ssd-card-min 接管（160/210/300；≤480 重映射 100/155/265）。
+  var _csizeT = 0;
+  // 有场景网格（sceneGrid → .ssd-card-grid）的视图；演员迷你卡视图（performers）
+  // 与设置页不显示滑块。perfFilter / studioFilter 里也是 sceneGrid。
+  var SCENE_GRID_VIEWS = {
+    overview: 1, follow: 1, latest: 1, trending: 1, preview: 1, studios: 1,
+    perfFilter: 1, studioFilter: 1
+  };
+  function applyCardSize() {
+    var p = _dp.refs.page;
+    if (p) p.setAttribute("data-csize", String(_dp.csize));
+    // 演员弹层挂在 document.body 上（不在 .ssd-dp-page 作用域内），拿不到页面
+    // 上的档位变量，要单独写一份；弹层开着时若档位变化也同步一次（用户 2026-10-28）
+    var modalScenes = document.querySelectorAll(".ssd-dp-modal-scenes");
+    for (var i = 0; i < modalScenes.length; i++) {
+      modalScenes[i].setAttribute("data-csize", String(_dp.csize));
+    }
+  }
+
+  // ── 场景卡角标（用户 2026-10-28）─────────────────────────────────────────
+  // 三项都是纯 CSS 开关：只切 .ssd-dp-page / 弹层上的 data-* 属性，不重建卡片
+  // （重建会打断弹层、丢滚动位置）。作用范围仅限发现页与演员弹层，演员详情
+  // 「发现」tab 不经过这些选择器，保持原样。
+  // "tr" 右上（默认）/ "tl" 左上 / "none" 隐藏。布尔值是上一版未发版实现的残留，
+  // 顺手归一以免旧 localStorage 让下拉落到空值。
+  function dpStudioBadge() {
+    var v = dpPrefs().studioBadge;
+    if (v === "tl") return "tl";
+    if (v === "none" || v === 0 || v === false) return "none";
+    return "tr";
+  }
+  function dpDurBadge() {
+    var v = dpPrefs().durBadge;
+    return (v === "none" || v === "badge") ? v : "text"; // 文字为默认
+  }
+  function dpBadgePos() { return dpPrefs().badgePos === "bl" ? "bl" : "tl"; }
+  // nodes 省略 = 页面 + 当前所有弹层；传入 = 只写指定的（弹层刚创建、还没入 DOM 时用）
+  function applyBadgePrefs(nodes) {
+    var list = nodes || [];
+    if (!nodes) {
+      if (_dp.refs.page) list.push(_dp.refs.page);
+      var ms = document.querySelectorAll(".ssd-dp-modal-scenes");
+      for (var i = 0; i < ms.length; i++) list.push(ms[i]);
+    }
+    for (var k = 0; k < list.length; k++) {
+      list[k].setAttribute("data-studio-badge", dpStudioBadge());
+      list[k].setAttribute("data-dur-badge", dpDurBadge());
+      list[k].setAttribute("data-badge-pos", dpBadgePos());
+    }
+  }
+
+  // ── 筛选行收起 / 展开（用户 2026-10-28）───────────────────────────────
+  // 判定不用媒体查询：控件组宽度随「数据源下拉」是否出现（多源才显示）变化，
+  // 写死断点会让单源用户提前收起。改用量实际内容宽：
+  //   单行需要 = 搜索框最小宽(180) + gap + 控件组自然宽
+  // 收起的 tools 是 display:none，量不到宽，故临时改成 absolute + max-content
+  // 量一次再还原——读写都在同一个 task 内完成，浏览器不会绘制中间态。
+  var TB_SEARCH_MIN = 180;
+  function toolsNaturalWidth() {
+    var t = _dp.refs.tools;
+    if (!t) return 0;
+    var s = t.style;
+    var old = [s.display, s.position, s.width, s.visibility, s.pointerEvents];
+    s.display = "flex";
+    s.position = "absolute";
+    s.width = "max-content";
+    s.visibility = "hidden";
+    s.pointerEvents = "none";
+    var w = t.getBoundingClientRect().width;
+    s.display = old[0];
+    s.position = old[1];
+    s.width = old[2];
+    s.visibility = old[3];
+    s.pointerEvents = old[4];
+    return w;
+  }
+  function setToolsOpen(on) {
+    var bar = _dp.refs.bar;
+    if (!bar) return;
+    bar.classList.toggle("is-open", !!on);
+    if (_dp.refs.more) _dp.refs.more.setAttribute("aria-expanded", on ? "true" : "false");
+  }
+  function syncToolbar() {
+    var bar = _dp.refs.bar, t = _dp.refs.tools;
+    if (!bar || !t || !bar.isConnected) return;
+    // 还没进布局（宽 0）时别判定：会把可用宽算成负数、误收起
+    if (bar.clientWidth < 1) return;
+    var cs = getComputedStyle(bar);
+    var padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    var gap = parseFloat(cs.columnGap);
+    if (isNaN(gap)) gap = 0;
+    var avail = bar.clientWidth - padX;
+    var need = TB_SEARCH_MIN + gap + toolsNaturalWidth();
+    var collapse = need > avail + 0.5;
+    if (collapse === bar.classList.contains("is-collapsed")) {
+      // 展开态只在收起态下有意义：万一状态残留（宽度刚变过），这里兜一下
+      if (!collapse) setToolsOpen(false);
+      return;
+    }
+    bar.classList.toggle("is-collapsed", collapse);
+    // 变宽到能放下了：顺手把面板收回，避免「已经全在行内了还挂着一个空面板」
+    if (!collapse) setToolsOpen(false);
+  }
+  // 点筛选区以外任意位置收回（用户 2026-10-28）。document 上只绑一次，
+  // 监听里按 isConnected 取当前 bar —— 页面重挂载后不会累积监听。
+  var _tbDismissBound = false;
+  function bindToolbarDismiss() {
+    if (_tbDismissBound) return;
+    _tbDismissBound = true;
+    document.addEventListener("pointerdown", function (e) {
+      var bar = _dp.refs.bar;
+      if (!bar || !bar.isConnected || !bar.classList.contains("is-open")) return;
+      if (bar.contains(e.target)) return;
+      setToolsOpen(false);
+    }, true);
+    document.addEventListener("keydown", function (e) {
+      var bar = _dp.refs.bar;
+      if (e.key !== "Escape" || !bar || !bar.isConnected) return;
+      if (!bar.classList.contains("is-open")) return;
+      setToolsOpen(false);
+    });
+  }
+
   function render() {
     var refs = _dp.refs;
     if (!refs.content) return;
@@ -3578,6 +3911,13 @@
       refs.gridBtn.classList.toggle("on", _dp.mode !== "list");
       refs.listBtn.classList.toggle("on", _dp.mode === "list");
     }
+    // 档位滑块只对「有场景网格 + 网格模式」的视图可见（列表模式无卡片可缩放）
+    if (refs.csizeWrap) {
+      var showSize = _dp.mode !== "list" && !!SCENE_GRID_VIEWS[_dp.view];
+      refs.csizeWrap.style.display = showSize ? "" : "none";
+    }
+    // 控件组的显隐（滑块/数据源）会改宽度 → 重新判定筛选行要不要收起
+    syncToolbar();
   }
 
   function renderContent() {
@@ -3585,6 +3925,31 @@
     if (!c) return;
     c.innerHTML = "";
     ensureData(viewDataKeys(_dp.view));
+    // 没配 stash-box 是全局状态：原先 6 个模块各挂一条「未配置」+ 重试，一屏
+    // 重复 6 遍且没有去处提示。这里收敛成一条带「打开设置」的提示（用户 2026-10-28）。
+    // 有旧数据时不挡（缓存还能看），仍走各模块内的行内提示。
+    if (_dp.view !== "settings" && !_dp.d.latest &&
+        _dp.err.latest && _dp.err.latest.ssdKind === "no-box") {
+      var nb = el("div", "ssd-dp-state");
+      nb.innerHTML = errText(_dp.err.latest);
+      var nbActs = el("div", "ssd-dp-state-acts");
+      var nbRetry = el("button", "ssd-dp-retry", tc("重试", "Retry"));
+      nbRetry.type = "button";
+      nbRetry.addEventListener("click", function () {
+        _dp.err.latest = null;
+        ensureData(viewDataKeys(_dp.view), true);
+      });
+      nbActs.appendChild(nbRetry);
+      var nbSet = el("button", "ssd-dp-retry ghost", tc("打开设置", "Open settings"));
+      nbSet.type = "button";
+      nbSet.addEventListener("click", function () {
+        window.open(SSD.appUrl("/settings"), "_blank", "noopener,noreferrer");
+      });
+      nbActs.appendChild(nbSet);
+      nb.appendChild(nbActs);
+      c.appendChild(nb);
+      return;
+    }
     switch (_dp.view) {
       case "overview": renderOverview(c); break;
       case "follow": renderFollow(c); break;
