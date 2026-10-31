@@ -55,6 +55,11 @@ export function roomHidden(node) {
 
 // exactly this folder is hidden (not just something inside one) – its numbers don't count for the folders above it
 export const isHiddenRoot = (node) => state.items.some((x) => normPath(x.path) === normPath(node.path));
+// a folder above a hidden one: stays in the tree (even if nothing else is in it) while hidden folders are listed – otherwise the hidden one couldn't be reached
+export const holdsHidden = (node) => {
+  const p = normPath(node.path);
+  return state.names && state.items.some((x) => inside(normPath(x.path), p));
+};
 // the subfolders to list: the hidden ones only when they're listed on the Folders page or their folder is open
 export const shownKids = (node) => node.kids.filter((k) => state.names || !roomHidden(k));
 

@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.132.1",
+    date: "2026-10-31",
+    items: [
+      ["ui", "Fix: a folder that only held hidden folders disappeared from the Folders page, and the hidden folders below it with it – nothing was left to open. Such folders now stay in the list (as long as hidden folders are listed) so you can get to the hidden ones.", "修复：如果一个文件夹里只有被隐藏的文件夹，它会从“文件夹”页消失，里面被隐藏的文件夹也跟着消失，无法再打开。现在这类文件夹会保留在列表中（只要隐藏的文件夹仍在列出），这样就能进入被隐藏的文件夹。", "folders::.kb-room"],
+    ],
+  },
+  {
     v: "3.132.0",
     date: "2026-10-31",
     items: [

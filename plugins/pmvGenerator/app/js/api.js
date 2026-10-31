@@ -2,7 +2,7 @@
 
 import { t, locale } from "./i18n.js";
 import { LARGE_SCENES, LARGE_IMAGES, largeNow } from "./scale.js";
-import { hideQuery, isHiddenRoot } from "./hidden.js";
+import { hideQuery, isHiddenRoot, holdsHidden } from "./hidden.js";
 
 // Requests of the page you're on stop when you leave it (a long query for a page nobody looks at any more
 // only keeps Stash busy): routeSignal() is the signal of the current page, abortRoute() ends it (main.js, on navigating).
@@ -363,7 +363,7 @@ export function loadFolders(force, opts = {}) {
     };
     let roots = [...nodes.values()].filter((n) => !n.parent || !nodes.has(n.parent));
     roots.forEach(total);
-    const keep = (list) => (data.unc ? list : list.filter((n) => n.timg + n.tvid > 0)); // (uncounted: every folder stays)
+    const keep = (list) => (data.unc ? list : list.filter((n) => n.timg + n.tvid > 0 || holdsHidden(n))); // (uncounted: every folder stays)
     roots = keep(roots);
     // Skip empty intermediate levels like a bare drive root
     while (roots.length === 1 && !roots[0].img && !roots[0].vid && keep(roots[0].kids).length === 1) roots = keep(roots[0].kids);
