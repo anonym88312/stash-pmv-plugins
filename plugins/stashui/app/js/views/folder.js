@@ -1,13 +1,17 @@
 // Folders as rooms: overview of the top folders and single rooms with subfolders and items.
 
-import { esc, icon, plural, errorToast, folderMode } from "../ui.js";
+import { esc, icon, plural, errorToast, folderMode, confirmDialog, toast } from "../ui.js";
 import { t } from "../i18n.js";
 import { loadFolders, findItems, folderLevelCounts } from "../api.js";
 import { mediaBrowser } from "./media.js";
+import { openFolder, roomHidden, hiddenEntryOf, hiddenItems, hiddenState, hiddenNames, normPath, shownKids } from "../hidden.js";
+import { saveHidden } from "../hiddensync.js";
 
 // Up to three cover images for a room (images first, otherwise scene screenshots)
 const coverCache = new Map();
 window.addEventListener("stash:library-changed", () => coverCache.clear());
+window.addEventListener("stash:hidden-opened", () => coverCache.clear()); // (what was asked while a folder was open mustn't show up later)
+window.addEventListener("stash:hidden-changed", () => coverCache.clear());
 export function roomCovers(id) {
   if (coverCache.has(id)) return coverCache.get(id);
   const ff = { files_filter: { parent_folder: { value: [id], modifier: "INCLUDES", depth: -1 } } };
@@ -27,10 +31,10 @@ export function roomCovers(id) {
 export function roomsHtml(nodes) {
   return `<div class="kb-rooms">${nodes
     .map(
-      (n) => `<a class="kb-room" href="#/folder/${n.id}" data-room="${n.id}">
+      (n) => `<a class="kb-room${roomHidden(n) ? " is-hidden" : ""}" href="#/folder/${n.id}" data-room="${n.id}">
         <div class="kb-room-art"></div>
         <b>${esc(n.name)}</b>
-        <small data-rc>${[n.tvid ? plural(n.tvid, "video", "videos") : "", n.timg ? plural(n.timg, "image", "images") : "", n.kids.length ? plural(n.kids.length, "subfolder", "subfolders") : ""].filter(Boolean).join(t(", "))}</small>
+        <small data-rc>${roomHidden(n) ? t("Hidden") : [n.tvid ? plural(n.tvid, "video", "videos") : "", n.timg ? plural(n.timg, "image", "images") : "", shownKids(n).length ? plural(shownKids(n).length, "subfolder", "subfolders") : ""].filter(Boolean).join(t(", "))}</small>
       </a>`
     )
     .join("")}</div>`;
@@ -47,7 +51,7 @@ export function fillRoomCounts(root, tree, signal) {
     n.tvid = c[0];
     n.timg = c[1];
     const el = root.querySelector(`[data-room="${id}"] [data-rc]`);
-    if (el) el.textContent = [c[0] ? plural(c[0], "video", "videos") : "", c[1] ? plural(c[1], "image", "images") : "", n.kids.length ? plural(n.kids.length, "subfolder", "subfolders") : ""].filter(Boolean).join(t(", "));
+    if (el && !roomHidden(n)) el.textContent = [c[0] ? plural(c[0], "video", "videos") : "", c[1] ? plural(c[1], "image", "images") : "", shownKids(n).length ? plural(shownKids(n).length, "subfolder", "subfolders") : ""].filter(Boolean).join(t(", "));
   };
   const ids = rooms.map((r) => r.dataset.room);
   const ctl = new AbortController();
@@ -78,7 +82,7 @@ export function fillRoomCovers(root) {
       if (urls.length === 1) art.style.gridTemplateColumns = "1fr";
     });
   }, { rootMargin: "300px" });
-  root.querySelectorAll("[data-room]").forEach((r) => io.observe(r));
+  root.querySelectorAll("[data-room]:not(.is-hidden)").forEach((r) => io.observe(r)); // (a hidden folder shows no pictures)
   return () => io.disconnect();
 }
 
@@ -121,7 +125,7 @@ export async function render(main, params, query) {
         <h1 class="kb-h1">${t("Folders")}</h1>
         <p class="kb-sub">${t("Your library by folder. Empty folders are hidden.")}</p>
       </div></header>
-      ${roomsHtml(tree.roots.length === 1 && tree.roots[0].kids.length ? tree.roots[0].kids : tree.roots)}`;
+      ${roomsHtml((tree.roots.length === 1 && tree.roots[0].kids.length ? tree.roots[0].kids : tree.roots).filter((n) => hiddenNames() || !roomHidden(n)))}`;
     const stopCounts = fillRoomCounts(main, tree);
     const stopCov = fillRoomCovers(main);
     return () => {
@@ -135,6 +139,7 @@ export async function render(main, params, query) {
     main.innerHTML = `<div class="kb-empty"><b>${t("This folder no longer exists")}</b><p>${t("It may have been moved or is empty.")}</p><a class="kb-btn" href="#/folders">${t("All folders")}</a></div>`;
     return;
   }
+  openFolder(node.path); // a hidden folder shows what's in it while its page is open
   // Breadcrumbs
   const chain = [];
   for (let n = node; n; n = n.parent && tree.nodes.get(n.parent)) chain.unshift(n);
@@ -153,14 +158,47 @@ export async function render(main, params, query) {
           .map((n) => `<span><a href="#/folder/${n.id}">${esc(n.name)}</a></span>`)
           .join("")}</nav>
         <h1 class="kb-h1">${esc(node.name)}</h1>
-        <p class="kb-sub">${[node.tvid ? plural(node.tvid, "video", "videos") : "", node.timg ? plural(node.timg, "image", "images") : ""].filter(Boolean).join(t(" and "))}${node.kids.length ? t(", plus {what}", { what: plural(node.kids.length, "subfolder", "subfolders") }) : ""}</p>
+        <p class="kb-sub">${[node.tvid ? plural(node.tvid, "video", "videos") : "", node.timg ? plural(node.timg, "image", "images") : ""].filter(Boolean).join(t(" and "))}${shownKids(node).length ? t(", plus {what}", { what: plural(shownKids(node).length, "subfolder", "subfolders") }) : ""}</p>
       </div>
       <div class="kb-head-tools">
+        <span data-hidebox></span>
         ${node.kids.length ? `<label class="kb-switch" title="${t("Also show content from subfolders")}"><input type="checkbox" data-deep${deep ? " checked" : ""}><i></i><span class="kb-lab-t">${t("Include subfolders")}</span></label>` : ""}
       </div>
     </header>
-    ${node.kids.length ? `<h2 class="kb-h2">${t("Subfolders")}</h2>${roomsHtml(node.kids)}<h2 class="kb-h2">${t("In this folder")}</h2>` : ""}
+    ${shownKids(node).length ? `<h2 class="kb-h2">${t("Subfolders")}</h2>${roomsHtml(shownKids(node))}<h2 class="kb-h2">${t("In this folder")}</h2>` : ""}
     <section data-browser></section>`;
+
+  // Hide this folder / show it again
+  const hideBox = main.querySelector("[data-hidebox]");
+  const paintHide = () => {
+    const own = hiddenItems().find((x) => normPath(x.path) === normPath(node.path));
+    const up = !own && hiddenEntryOf(node.path);
+    hideBox.innerHTML = own
+      ? `<button class="kb-btn is-ghost" data-hide="off" title="${esc(t("Its content shows up on the other pages again"))}">${icon("eyeoff")}<span>${t("Hidden – show it again")}</span></button>`
+      : up
+      ? `<span class="kb-hint" title="${esc(up.path)}">${icon("eyeoff")} ${t("Hidden with {name}", { name: up.name })}</span>`
+      : `<button class="kb-btn" data-hide="on" title="${esc(t("Its content won't show up on any other page"))}">${icon("eyeoff")}<span>${t("Hide this folder")}</span></button>`;
+  };
+  paintHide();
+  hideBox.onclick = async (e) => {
+    const b = e.target.closest("[data-hide]");
+    if (!b) return;
+    try {
+      if (b.dataset.hide === "on") {
+        const r = await confirmDialog({ title: t("Hide this folder?"), text: t("Everything in it and in its subfolders stops showing up on every page – scenes, images, galleries, markers, search, the home page. It only shows here, when you open the folder. You can show it again here or in Settings."), ok: t("Hide it") });
+        if (!r.ok) return;
+        await saveHidden({ items: [...hiddenItems(), { id: node.id, path: node.path, name: node.name }], names: hiddenState().names });
+        openFolder(node.path); // (this page keeps showing it)
+        toast(t("Hidden. It only shows when you open this folder."));
+      } else {
+        await saveHidden({ items: hiddenItems().filter((x) => normPath(x.path) !== normPath(node.path)), names: hiddenState().names });
+        toast(t("Shown on all pages again."));
+      }
+    } catch (err) {
+      errorToast(err, "Hidden folders");
+    }
+    paintHide();
+  };
 
   const stopCovers = fillRoomCovers(main);
   const stopCounts = fillRoomCounts(main, tree);
@@ -170,7 +208,7 @@ export async function render(main, params, query) {
       const c = m.get(node.id);
       const sub = main.querySelector(".kb-sub");
       if (!c || !sub) return;
-      sub.textContent = [c[0] ? plural(c[0], "video", "videos") : "", c[1] ? plural(c[1], "image", "images") : ""].filter(Boolean).join(t(" and ")) + (node.kids.length ? t(", plus {what}", { what: plural(node.kids.length, "subfolder", "subfolders") }) : "");
+      sub.textContent = [c[0] ? plural(c[0], "video", "videos") : "", c[1] ? plural(c[1], "image", "images") : ""].filter(Boolean).join(t(" and ")) + (shownKids(node).length ? t(", plus {what}", { what: plural(shownKids(node).length, "subfolder", "subfolders") }) : "");
     }).catch(() => {});
   }
   const depth = deep ? -1 : 0;

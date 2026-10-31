@@ -2,6 +2,7 @@
 
 import { t, locale } from "./i18n.js";
 import { LARGE_SCENES, LARGE_IMAGES, largeNow } from "./scale.js";
+import { hideQuery, isHiddenRoot } from "./hidden.js";
 
 // Requests of the page you're on stop when you leave it (a long query for a page nobody looks at any more
 // only keeps Stash busy): routeSignal() is the signal of the current page, abortRoute() ends it (main.js, on navigating).
@@ -43,12 +44,18 @@ function heavyDone() {
   else heavyRun--;
 }
 
-// opts.signal: an AbortSignal that cancels the request; opts.heavy: goes through the queue above
+// opts.signal: an AbortSignal that cancels the request; opts.heavy: goes through the queue above;
+// opts.raw: nothing is left out (the folder counting needs the hidden folders too – see hidden.js)
 export async function gql(query, variables, opts) {
+  if (!(opts && opts.raw)) {
+    const h = hideQuery(query, variables);
+    query = h.query;
+    variables = h.variables;
+  }
   if (opts && opts.heavy) {
     await heavySlot(opts.signal);
     try {
-      return await gql(query, variables, { signal: opts.signal });
+      return await gql(query, variables, { signal: opts.signal, raw: true });
     } finally {
       heavyDone();
     }
@@ -255,7 +262,7 @@ async function folderData(opts) {
     if (cached && cached.v === 1 && cached.key === key) return cached;
   } catch (e) { /* no stats or no stored tree – count below */ }
   if (largeNow()) {
-    const f = await gql(`query { findFolders(filter: { per_page: -1 }) { folders { id path basename parent_folder { id } } } }`, undefined, { signal: opts && opts.signal, heavy: true });
+    const f = await gql(`query { findFolders(filter: { per_page: -1 }) { folders { id path basename parent_folder { id } } } }`, undefined, { signal: opts && opts.signal, heavy: true, raw: true });
     const data = { v: 1, unc: true, key, folders: f.findFolders.folders.map((x) => [x.id, x.path, x.basename || x.path, x.parent_folder ? x.parent_folder.id : null]), counts: {} };
     if (key) {
       try {
@@ -268,7 +275,7 @@ async function folderData(opts) {
     findFolders(filter: { per_page: -1 }) { folders { id path basename parent_folder { id } } }
     findScenes(filter: { per_page: -1 }) { scenes { files { parent_folder { id } } } }
     findImages(filter: { per_page: -1 }) { images { visual_files { ... on ImageFile { parent_folder { id } } ... on VideoFile { parent_folder { id } } } } }
-  }`, undefined, { signal: opts && opts.signal, heavy: true });
+  }`, undefined, { signal: opts && opts.signal, heavy: true, raw: true });
   const counts = {}; // folder id → [videos, images]
   const add = (file, i) => {
     const id = file && file.parent_folder && file.parent_folder.id;
@@ -349,6 +356,7 @@ export function loadFolders(force, opts = {}) {
       n.tvid = n.vid;
       n.kids.forEach((k) => {
         total(k);
+        if (isHiddenRoot(k)) return; // (what's in a hidden folder isn't counted for the folders above it)
         n.timg += k.timg;
         n.tvid += k.tvid;
       });
@@ -380,6 +388,17 @@ export async function folderIdForPath(path) {
   const d = await gql(`query($p: String!) { findFolders(folder_filter: { path: { value: $p, modifier: EQUALS } }, filter: { per_page: 1 }) { folders { id } } }`, { p: path });
   return d.findFolders.folders[0] ? d.findFolders.folders[0].id : null;
 }
+
+// (the numbers of the folders above a hidden one change)
+window.addEventListener("stash:hidden-changed", () => {
+  folderCache = null;
+  levelCounts.clear();
+  videoCounts.clear();
+});
+window.addEventListener("stash:hidden-opened", () => {
+  levelCounts.clear();
+  videoCounts.clear();
+});
 
 // After deleting, scanning, cleaning …: recount folders and refresh all displays (navigation, counts)
 export function libraryChanged() {

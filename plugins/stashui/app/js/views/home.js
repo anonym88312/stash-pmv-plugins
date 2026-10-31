@@ -8,6 +8,7 @@ import { gql, stats, findItems, findPerformers, loadFolders } from "../api.js";
 import { toPiece, Hang } from "../pieces.js";
 import { app, go } from "../main.js";
 import { roomsHtml, fillRoomCovers, fillRoomCounts } from "./folder.js";
+import { roomHidden } from "../hidden.js";
 import { tagPicker } from "./tagpicker.js";
 import { perfPicker, hasPerformers } from "./perfpicker.js";
 import { performerCard, toggleCardFav } from "./performers.js";
@@ -359,7 +360,7 @@ export async function render(main) {
   function paintFolders(sec) {
     loadFolders()
       .then((tree) => {
-        const top = (tree.roots.length === 1 && tree.roots[0].kids.length ? tree.roots[0].kids : tree.roots).slice().sort((a, b) => b.timg + b.tvid - (a.timg + a.tvid)).slice(0, 8);
+        const top = (tree.roots.length === 1 && tree.roots[0].kids.length ? tree.roots[0].kids : tree.roots).filter((n) => !roomHidden(n)).sort((a, b) => b.timg + b.tvid - (a.timg + a.tvid)).slice(0, 8);
         const el = sec.querySelector("[data-rooms]");
         el.innerHTML = roomsHtml(top);
         const stopCov = fillRoomCovers(el);

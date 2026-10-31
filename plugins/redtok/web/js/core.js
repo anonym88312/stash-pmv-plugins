@@ -146,7 +146,15 @@ const P = {
 export const ic = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${P[n] || ""}"/></svg>`;
 
 // ---------- Stash and the plugin backend ----------
+// Folders hidden in Stash UI are left out here too (its hidden.js; without Stash UI nothing is hidden)
+let hiddenLib = null;
+const hidden = () => (hiddenLib = hiddenLib || import("/plugin/stashui/assets/js/hidden.js").catch(() => ({})));
 export async function gql(query, variables, signal) {
+  const h = await hidden();
+  if (h.hideQuery) {
+    h.refresh && h.refresh();
+    ({ query, variables } = h.hideQuery(query, variables));
+  }
   const r = await fetch("/graphql", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, variables }), signal });
   const d = await r.json();
   if (d.errors) throw new Error(d.errors[0].message);

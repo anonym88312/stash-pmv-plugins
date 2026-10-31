@@ -601,3 +601,13 @@ html.kb-glass .kb-tl2-clip.is-o { background: color-mix(in srgb, var(--pink) 38%
 html.kb-glass .kb-mkc-row, html.kb-glass .kb-mkc-list { border-color: rgba(255, 255, 255, .16); }
 html.kb-glass .kb-mkc-badge { background: color-mix(in srgb, var(--violet) 26%, transparent); }
 @media (max-width: 560px) { .kb-mkc-row { grid-template-columns: 22px minmax(0, 1fr); } .kb-mkc-time { grid-column: 2; } }
+
+/* Hidden folders (Settings → General) */
+.kb-set.kb-set-col { grid-template-columns: minmax(0, 1fr); }
+.kb-hidden-list { display: flex; flex-direction: column; gap: 8px; }
+.kb-hrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-2); }
+.kb-hrow-name { min-width: 0; }
+.kb-hrow-name b { display: block; font: 600 14.5px/1.3 var(--f-text); }
+.kb-hrow-name small { display: block; overflow: hidden; color: var(--faint); font: 400 12.5px/1.3 var(--f-label); text-overflow: ellipsis; white-space: nowrap; }
+.kb-hrow .kb-set-btns { display: flex; flex: none; align-items: center; gap: 8px; }
+html.kb-glass .kb-hrow { background: linear-gradient(135deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .03)); border-color: rgba(255, 255, 255, .14); }

@@ -14,6 +14,7 @@ applyTheme(); // same colors as in Stash UI (same browser storage)
   try {
     stashLang = (await gql(`query { configuration { interface { language } } }`)).configuration.interface.language || "";
   } catch (e) { /* standalone or older Stash – the browser language decides */ }
+  await import("./hiddensync.js").then((m) => m.syncHidden()).catch(() => {}); // hidden folders (Stash UI): left out here too
   const lang = await initLang(stashLang);
   if (lang !== "en") {
     try {

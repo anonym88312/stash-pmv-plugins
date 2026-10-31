@@ -6,6 +6,7 @@
 import { esc, icon, toast, errorToast, confirmDialog, menu, fmtDuration, fmtBytes, fmtNum, plural, store, ratingText } from "../ui.js";
 import { t } from "../i18n.js";
 import { gql, destroyItems } from "../api.js";
+import { roomHidden } from "../hidden.js";
 
 const ACCURACY = [
   [0, "Exact"],
@@ -80,7 +81,7 @@ export async function render(main) {
     list.innerHTML = `<div class="kb-loading">${t("Comparing scenes …")}</div>`;
     try {
       const d = await gql(Q, { d: distance, dd: durDiff });
-      groups = (d.findDuplicateScenes || []).filter((g) => g.length > 1).map((g) => g.slice().sort((a, b) => score(b) - score(a)));
+      groups = (d.findDuplicateScenes || []).map((g) => g.filter((x) => !(x.files[0] && roomHidden({ path: x.files[0].path })))).filter((g) => g.length > 1).map((g) => g.slice().sort((a, b) => score(b) - score(a)));
     } catch (e) {
       list.innerHTML = `<div class="kb-empty"><b>${t("Couldn't search for duplicates")}</b><p>${esc(e.message)}</p></div>`;
       return;

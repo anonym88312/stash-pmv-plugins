@@ -7,6 +7,15 @@
 
 export const CHANGES = [
   {
+    v: "3.132.0",
+    date: "2026-10-31",
+    items: [
+      ["ui", "New: hidden folders. Open a folder on the Folders page and press “Hide this folder”: what lies in it (and in its subfolders) then shows up on no page – not in Scenes, Images, Galleries, Markers, search, the home page, History, Versus, the PMV Generator, Media Storm or RedTok – only when you open the folder itself. The folder is listed on the Folders page with an eye symbol (or not at all: Settings → This interface → Hidden folders, where you also find the list with “Open” and “Show again”). It is kept in Stash, so every device hides the same folders. Numbers such as the scene count of a performer or tag, Stash's own pages and the funscript tools still include hidden folders.", "新增：隐藏文件夹。在“文件夹”页打开一个文件夹，点“隐藏此文件夹”：其中（及子文件夹）的内容就不会出现在任何页面上——场景、图片、图库、标记、搜索、主页、历史、Versus、PMV 生成器、Media Storm 和 RedTok 都看不到——只有打开该文件夹本身才会显示。该文件夹在“文件夹”页会带一个眼睛图标（也可以完全不显示：设置 → 此界面 → 隐藏的文件夹，那里还有带“打开”和“重新显示”的列表）。设置保存在 Stash 中，所以所有设备隐藏的是同一批文件夹。演员或标签的场景数量等数字、Stash 自带的页面和 Funscript 工具仍会包含隐藏文件夹。", "settings::Hidden folders"],
+      ["pmv", "The PMV Generator leaves out the folders hidden in Stash UI.", "PMV 生成器会跳过在 Stash UI 中隐藏的文件夹。"],
+      ["storm", "Media Storm leaves out the folders hidden in Stash UI.", "Media Storm 会跳过在 Stash UI 中隐藏的文件夹。"],
+    ],
+  },
+  {
     v: "3.131.1",
     date: "2026-10-28",
     items: [

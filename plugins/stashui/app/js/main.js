@@ -8,6 +8,7 @@ import { isLarge } from "./scale.js";
 import { applyTheme, initAmbient } from "./theme.js";
 import { LATEST } from "./changelog.js";
 import { visibleRail, navIcon } from "./railcfg.js";
+import { lockAll, roomHidden } from "./hidden.js";
 
 applyTheme(); // chosen colors before anything is drawn
 initAmbient();
@@ -221,6 +222,7 @@ async function route() {
 async function mountBase(r, main, seq) {
   abortRoute(); // what the page you left was still asking for isn't needed any more (an open player doesn't count: the page stays)
   if (app.base && app.base.cleanup) app.base.cleanup();
+  lockAll(); // hidden folders open only on their own page (the folder page opens its folder again)
   app.base = { hash: hashNow(), cleanup: null };
   document.getElementById("app").classList.remove("is-rail-open");
   markRail(r);
@@ -533,11 +535,13 @@ async function renderTree() {
       : '<span class="kb-tree-caret"></span>';
     return (
       `<div class="kb-tree-row" style="--d:${d}">${caret}<a href="#/folder/${n.id}" class="${n.id === activeId ? "is-active" : ""}" title="${esc(n.path)}">${esc(n.name)}</a></div>` +
-      (open ? n.kids.map((k) => row(k, d + 1)).join("") : "")
+      (open ? n.kids.filter((k) => !roomHidden(k)).map((k) => row(k, d + 1)).join("") : "")
     );
   };
-  box.innerHTML = treeData.roots.map((r) => row(r, 0)).join("");
+  box.innerHTML = treeData.roots.filter((r) => !roomHidden(r)).map((r) => row(r, 0)).join("");
 }
+// (a hidden folder is in the menu only while its own page is open)
+["stash:hidden-changed", "stash:hidden-opened"].forEach((ev) => window.addEventListener(ev, () => renderTree()));
 
 // Saved filters in the menu: Stash's own (scenes, images) and the playlists – one click opens the list with it
 async function renderSaved() {
@@ -678,6 +682,7 @@ async function init() {
     isLarge(); // (the totals – big library or not – decide how much is loaded on its own; not waited for)
     await import("./tiers.js").then((m) => m.ensureTiers()).catch(() => {}); // the tier badges (Versus standings)
   } catch (e) { /* older Stash or no answer – the browser language decides */ }
+  await import("./hiddensync.js").then((m) => m.syncHidden()).catch(() => {}); // hidden folders: before anything is listed
   await initLang(stashLang);
   document.getElementById("rail").setAttribute("aria-label", t("Navigation"));
   document.body.insertAdjacentHTML("beforeend", `<button class="kb-btn is-icon kb-menu-btn" id="menu-btn" aria-label="${t("Open navigation")}">${icon("menu")}</button>`);

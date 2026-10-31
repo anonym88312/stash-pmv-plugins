@@ -17,6 +17,8 @@ import { pokeJobs } from "../jobs.js";
 import { themeHtml, bindTheme } from "../theme.js";
 import { interactiveConfig, saveInteractiveConfig, testHandy, runBackend } from "../interactive.js";
 import { mountSlots, slotList, extensionsReady } from "../ext.js";
+import { hiddenItems, hiddenState, hiddenNames } from "../hidden.js";
+import { saveHidden } from "../hiddensync.js";
 
 const AREAS = {
   general: { result: "ConfigGeneralResult", input: "ConfigGeneralInput", mutation: "configureGeneral" },
@@ -55,7 +57,7 @@ SECTIONS.splice(SECTIONS.findIndex((x) => x.id === "classic-ui"), 0, Object.assi
 const CUSTOM_ENTRIES = {
   look: ["Colors", "Liquid glass", "Effects and animations"],
   "player-ui": ["At the end of a video", "Start at a random spot", "Mouse wheel on the video", "Reverse the wheel", "Picture when hovering the timeline", "Info panel in fullscreen", "Sound in previews", "The Handy", "Connection key", "Script offset"],
-  "this-ui": ["Language", "Folder loading", "This interface as home page", "Install as app", "Studio on scenes", "Resolution on scene cards", "Other pictures on performer cards", "Folder for new clips and GIFs", "Other plugins in the menu", "Rating system", "Thumbnail size", "Favorites", "Backup and restore", "Reset interface settings"],
+  "this-ui": ["Language", "Folder loading", "This interface as home page", "Install as app", "Studio on scenes", "Resolution on scene cards", "Other pictures on performer cards", "Folder for new clips and GIFs", "Hidden folders", "Show hidden folders on the Folders page", "Other plugins in the menu", "Rating system", "Thumbnail size", "Favorites", "Backup and restore", "Reset interface settings"],
   database: ["Back up database", "Optimize database", "Clean up generated files"],
   login: ["API key"],
 };
@@ -499,6 +501,10 @@ async function renderApp(body) {
         <div class="kb-chips" data-perfinfo>${[["scenes", "Scenes"], ["images", "Images"], ["age", "Age"], ["rating", "Rating"], ["country", "Country"], ["ethnicity", "Ethnicity"], ["hair", "Hair color"], ["eye", "Eye color"], ["height", "Height"], ["tags", "Tags"]].map(([k, l]) => `<button type="button" class="kb-chip${perfInfo()[k] ? " is-on" : ""}" data-pi="${k}">${t(l)}</button>`).join("")}</div></div>
       <div class="kb-set"><span class="kb-set-label"><b>${t("Folder for new clips and GIFs")}</b><small>${t("Every clip, GIF and edit you make is saved here, all together – not next to each original. Needs a full path (e.g. E:\\Stash\\Clips) and should lie inside a library folder, so Stash finds the files. Empty = next to each original.")}</small><small class="kb-set-msg" data-clipsdirmsg></small></span>
         <span class="kb-set-btns"><input class="kb-field" type="text" data-clipsdir autocomplete="off" spellcheck="false" placeholder="${esc(t("next to each original"))}"><button type="button" class="kb-btn" data-clipsdirsave>${t("Save")}</button></span></div>
+      <div class="kb-set kb-set-col"><span class="kb-set-label"><b>${t("Hidden folders")}</b><small>${t("What lies in a hidden folder shows up on no page – only when you open the folder itself. Hide a folder on its page (Folders → open it → “Hide this folder”). Numbers such as the scene count of a performer or tag may still include it.")}</small></span>
+        <div class="kb-hidden-list" data-hiddenlist></div></div>
+      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Show hidden folders on the Folders page")}</b><small>${t("Off: the hidden folders aren't listed anywhere – open one from the list above.")}</small></span>
+        <span class="kb-switch"><input type="checkbox" data-hidenames${hiddenNames() ? " checked" : ""}><i></i></span></label>
       <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Resolution on scene cards")}</b><small>${t("Shows 1080p, 720p … next to the length in the corner of scene thumbnails (after the next page load).")}</small></span>
         <span class="kb-switch"><input type="checkbox" data-cardres${store.get("cardRes", false) ? " checked" : ""}><i></i></span></label>
       <div class="kb-set"><span class="kb-set-label"><b>${t("Info on scene cards")}</b><small>${t("Extra lines under the date when scenes are shown as cards. Click to switch each one on or off.")}</small></span>
@@ -689,6 +695,40 @@ async function renderApp(body) {
   body.querySelector("[data-cihour]").onchange = (e) => setCardInfo({ hour: e.target.checked });
   body.querySelector("[data-ciclock]").onchange = (e) => setCardInfo({ clock: e.target.value });
   // the one folder for new clips and GIFs: checked by the backend (it can be made and written to, is it in a library?) before it is kept
+  // hidden folders
+  const hList = body.querySelector("[data-hiddenlist]");
+  const paintHidden = () => {
+    const items = hiddenItems();
+    hList.innerHTML = items.length
+      ? items
+          .map(
+            (x, i) => `<div class="kb-hrow"><span class="kb-hrow-name"><b>${esc(x.name)}</b><small>${esc(x.path)}</small></span><span class="kb-set-btns">${
+              x.id ? `<a class="kb-btn" href="#/folder/${esc(x.id)}">${t("Open")}</a>` : `<small>${t("Not found in Stash")}</small>`
+            }<button type="button" class="kb-btn" data-unhide="${i}">${t("Show again")}</button></span></div>`
+          )
+          .join("")
+      : `<small class="kb-hint">${t("No folder is hidden.")}</small>`;
+  };
+  paintHidden();
+  hList.onclick = async (e) => {
+    const b = e.target.closest("[data-unhide]");
+    if (!b) return;
+    try {
+      await saveHidden({ items: hiddenItems().filter((_, i) => i !== Number(b.dataset.unhide)), names: hiddenState().names });
+      toast(t("Shown on all pages again."), "ok");
+    } catch (err) {
+      errorToast(err, "Hidden folders");
+    }
+    paintHidden();
+  };
+  body.querySelector("[data-hidenames]").onchange = async (e) => {
+    try {
+      await saveHidden({ items: hiddenItems(), names: e.target.checked });
+      toast(t("Saved"), "ok");
+    } catch (err) {
+      errorToast(err, "Hidden folders");
+    }
+  };
   const cdInput = body.querySelector("[data-clipsdir]");
   const cdMsg = body.querySelector("[data-clipsdirmsg]");
   pluginConfig("stashui").then((c) => (cdInput.value = c.clipsDir || "")).catch(() => {});

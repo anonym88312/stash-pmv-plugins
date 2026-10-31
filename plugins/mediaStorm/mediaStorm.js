@@ -253,7 +253,16 @@
     return arr;
   }
 
+  // Folders hidden in Stash UI are left out here too (its hidden.js; without Stash UI nothing is hidden)
+  let hiddenLib = null;
+  const hidden = () => (hiddenLib = hiddenLib || import("/plugin/stashui/assets/js/hidden.js").catch(() => ({})));
+
   async function gql(query, variables) {
+    const h = await hidden();
+    if (h.hideQuery) {
+      h.refresh && h.refresh();
+      ({ query, variables } = h.hideQuery(query, variables));
+    }
     const res = await fetch("/graphql", {
       method: "POST",
       credentials: "same-origin",

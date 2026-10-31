@@ -6,6 +6,7 @@
 import { esc, icon, debounce, errorToast, plural, store, folderMode } from "../ui.js";
 import { t, locale } from "../i18n.js";
 import { loadFolders, findItems, folderVideoCounts } from "../api.js";
+import { roomHidden, hiddenNames } from "../hidden.js";
 
 const SORTS = [
   ["name", "Alphabetical"],
@@ -90,7 +91,7 @@ export async function render(main, params, query) {
 
   function plan() {
     const [key, dir] = opt.sort.split(":");
-    let list = [...tree.nodes.values()].filter((n) => tree.unc || count(n) > 0);
+    let list = [...tree.nodes.values()].filter((n) => (tree.unc || count(n) > 0) && (hiddenNames() || !roomHidden(n)));
     if (q) list = list.filter((n) => (n.name + " " + n.path).toLowerCase().includes(q));
     if (key === "random") list.sort((a, b) => (rank.get(a.id) ?? rank.set(a.id, Math.random()).get(a.id)) - (rank.get(b.id) ?? rank.set(b.id, Math.random()).get(b.id)));
     else if (key === "count") list.sort((a, b) => (dir === "ASC" ? 1 : -1) * (count(a) - count(b)) || col.compare(a.name, b.name));
@@ -102,7 +103,7 @@ export async function render(main, params, query) {
     const p = n.parent && tree.nodes.get(n.parent);
     return p ? p.name : "";
   };
-  const cardHtml = (n) => `<a class="kb-room" href="#/folder/${esc(n.id)}?kind=scene${opt.deep ? "&deep=1" : ""}" data-room="${esc(n.id)}" title="${esc(n.path)}">
+  const cardHtml = (n) => `<a class="kb-room${roomHidden(n) ? " is-hidden" : ""}" href="#/folder/${esc(n.id)}?kind=scene${opt.deep ? "&deep=1" : ""}" data-room="${esc(n.id)}" title="${esc(n.path)}">
       <div class="kb-room-art"></div>
       <b>${esc(n.name)}</b>
       <small>${[plural(count(n), "video", "videos"), !opt.deep && n.kids.length ? plural(n.kids.length, "subfolder", "subfolders") : "", parentName(n)].filter(Boolean).join(t(", "))}</small>

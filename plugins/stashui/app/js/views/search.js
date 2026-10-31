@@ -4,6 +4,7 @@ import { esc, icon, debounce, plural, errorToast, folderMode } from "../ui.js";
 import { t } from "../i18n.js";
 import { findTags, loadFolders, findPerformers } from "../api.js";
 import { mediaBrowser } from "./media.js";
+import { roomHidden } from "../hidden.js";
 import { setQuery, app } from "../main.js";
 
 export function render(main, params, query) {
@@ -38,7 +39,7 @@ export function render(main, params, query) {
       const [tags, tree, perfs] = await Promise.all([findTags(q, 20), folderMode() === "all" ? loadFolders().catch(() => null) : Promise.resolve(null), findPerformers({ q, perPage: 12, sort: "scenes_count" }).catch(() => ({ performers: [] }))]);
       if (!alive) return;
       const low = q.toLowerCase();
-      const folders = !tree ? [] : [...tree.nodes.values()].filter((n) => n.timg + n.tvid > 0 && n.name.toLowerCase().includes(low)).slice(0, 20);
+      const folders = !tree ? [] : [...tree.nodes.values()].filter((n) => n.timg + n.tvid > 0 && n.name.toLowerCase().includes(low) && !roomHidden(n)).slice(0, 20);
       const tagList = tags.tags.filter((x) => x.id !== app.favId);
       $("[data-quick]").innerHTML =
         (perfs.performers.length ? `<h2 class="kb-h2">${t("Performers")}</h2><div class="kb-plc-perfs">${perfs.performers.map((p) => `<a class="kb-plc-perf" href="#/performer/${p.id}"><img alt="" loading="lazy" src="${esc(p.image_path || "")}"><span>${esc(p.name)}</span></a>`).join("")}</div>` : "") +

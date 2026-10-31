@@ -36,6 +36,8 @@ SHARED = [
     "app/stage.css",
     "app/admin.css",
     "app/js/api.js",
+    "app/js/hidden.js",
+    "app/js/hiddensync.js",
     "app/js/ui.js",
     "app/js/scale.js",
     "app/js/advfilter.js",
