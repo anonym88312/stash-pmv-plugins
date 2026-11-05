@@ -2721,4 +2721,7 @@ export default {
   "Saved as the default tag filter": "Đã lưu làm bộ lọc thẻ mặc định",
   "Default tag filter removed": "Đã bỏ bộ lọc thẻ mặc định",
   "Nothing by the file hash – these are found by the title “{q}”. Check that it is the same scene.": "Không tìm thấy theo hash của tệp – đây là kết quả theo tiêu đề “{q}”. Hãy kiểm tra xem có đúng cảnh đó không.",
+  "This file has no phash yet – StashDB can't find or check it by its picture. Make one now (a task, a few seconds to a minute).": "Tệp này chưa có phash – StashDB không thể tìm hay kiểm tra nó theo hình ảnh. Tạo ngay (một tác vụ, vài giây đến một phút).",
+  "Generate pHash": "Tạo pHash",
+  "Making the pHash – see Tasks. It's used once the task is done.": "Đang tạo pHash – xem Tác vụ. Nó được dùng khi tác vụ xong.",
 };

@@ -2785,4 +2785,7 @@ export default {
   "Saved as the default tag filter": "已保存为默认标签筛选",
   "Default tag filter removed": "已移除默认标签筛选",
   "Nothing by the file hash – these are found by the title “{q}”. Check that it is the same scene.": "按文件哈希未找到 – 以下是按标题“{q}”找到的结果，请确认是同一场景。",
+  "This file has no phash yet – StashDB can't find or check it by its picture. Make one now (a task, a few seconds to a minute).": "此文件还没有 phash – StashDB 无法按画面查找或核对。立即生成（一个任务，几秒到一分钟）。",
+  "Generate pHash": "生成 pHash",
+  "Making the pHash – see Tasks. It's used once the task is done.": "正在生成 pHash – 见任务。任务完成后即会使用。",
 };

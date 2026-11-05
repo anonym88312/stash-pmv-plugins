@@ -2726,4 +2726,7 @@ export default {
   "Saved as the default tag filter": "Zapisano jako domyślny filtr tagów",
   "Default tag filter removed": "Usunięto domyślny filtr tagów",
   "Nothing by the file hash – these are found by the title “{q}”. Check that it is the same scene.": "Nic po haszu pliku – te wyniki znaleziono po tytule „{q}”. Sprawdź, czy to ta sama scena.",
+  "This file has no phash yet – StashDB can't find or check it by its picture. Make one now (a task, a few seconds to a minute).": "Ten plik nie ma jeszcze phash – StashDB nie znajdzie ani nie sprawdzi go po obrazie. Utwórz teraz (zadanie, od kilku sekund do minuty).",
+  "Generate pHash": "Utwórz pHash",
+  "Making the pHash – see Tasks. It's used once the task is done.": "Tworzenie pHash – zobacz Zadania. Zostanie użyty po zakończeniu zadania.",
 };
