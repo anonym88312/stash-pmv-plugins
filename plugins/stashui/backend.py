@@ -2089,6 +2089,17 @@ def box_of(stash, endpoint):
     return box
 
 
+def box_http_error(e):
+    """The answer to a stash-box / TPDB HTTP error: kind (auth / ratelimit / blocked), the status, and for 429 the wait the box asks for."""
+    out = {"kind": "auth" if e.code in (401, 403) else "ratelimit" if e.code == 429 else "blocked", "message": f"HTTP {e.code}", "status": e.code}
+    if e.code == 429:
+        try:
+            out["retry_after"] = float(e.headers.get("Retry-After"))
+        except (TypeError, ValueError, AttributeError):
+            pass
+    return out
+
+
 def box_gql(stash, args):
     """One GraphQL question to a stash-box set up in Stash, with the API key Stash has for it (the key stays here). Questions only –
     nothing that changes data on the box. The answer says what went wrong in "kind" (the page shows it): timeout / network / auth /
@@ -2109,7 +2120,7 @@ def box_gql(stash, args):
         with urllib.request.urlopen(req, timeout=timeout) as res:
             raw = res.read()
     except urllib.error.HTTPError as e:
-        return {"kind": "auth" if e.code in (401, 403) else "blocked", "message": f"HTTP {e.code}"}
+        return box_http_error(e)
     except (socket.timeout, TimeoutError):
         return {"kind": "timeout", "message": "timeout"}
     except urllib.error.URLError as e:
@@ -2141,7 +2152,7 @@ def box_rest(stash, args):
         with urllib.request.urlopen(req, timeout=timeout) as res:
             raw = res.read()
     except urllib.error.HTTPError as e:
-        return {"kind": "auth" if e.code in (401, 403) else "blocked", "message": f"HTTP {e.code}"}
+        return box_http_error(e)
     except (socket.timeout, TimeoutError):
         return {"kind": "timeout", "message": "timeout"}
     except urllib.error.URLError as e:

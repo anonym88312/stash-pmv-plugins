@@ -7,6 +7,18 @@
 
 export const CHANGES = [
   {
+    v: "3.141.0",
+    date: "2026-11-05",
+    items: [
+      ["ui", "Discover → Overview is stashDiscover 2.6.14 now (it was 2.5.5). New in it: an ignore list for scenes and performers (the button on a card, “Manage ignored” under Discover → Settings, export and import), importing a scene or a performer from the stash-box into your library with a preview of the fields, selecting many cards at once, search results that are ranked by how well their title matches (weak ones are folded away), a retry when a box answers “too many requests”, and more. The new texts are translated into the languages of Stash UI. Backend changed – use “Reload plugins” in Stash after updating.", "“发现”→“总览”现已升级为 stashDiscover 2.6.14（之前为 2.5.5）。新增：场景与演员的忽略列表（卡片上的按钮、“发现”→“设置”中的“管理忽略项”、导出与导入）、把 stash-box 上的场景或演员预览字段后导入你的库、一次选择多张卡片、按标题匹配度排序的搜索结果（匹配度低的折叠起来）、源回复“请求过多”时自动重试等。新增文字已翻译成 Stash UI 支持的各语言。后端有改动——更新后请在 Stash 中点“重新加载插件”。", "discover::.ssd-dp-toolbar"],
+      ["ui", "Discover → search for a resource (Jackett): a “Sort” row above the results – Best match (the default), Seeders, Size or Date. Pull request by Fixik071.", "“发现”→搜索资源（Jackett）：结果上方新增“排序”一行——最佳匹配（默认）、做种数、大小、日期。（Fixik071 的拉取请求）"],
+      ["ui", "Scene edit → “Fill in from the internet”: the search box now starts with the title cleaned of the file extension, quality words (1080p, 4K …), a release group and a one-word studio in front; and when the file hash finds nothing, the box is asked by that title too (a note says so – check that it is the same scene). Pull request by Fixik071.", "场景编辑 →“从互联网填写”：搜索框现在以清理后的标题开头（去掉扩展名、画质词如 1080p、4K、发布组以及前面的单词工作室名）；当文件哈希找不到结果时，会再按该标题向源查询一次（会有说明——请确认是同一场景）。（Fixik071 的拉取请求）"],
+      ["ui", "A “To StashDB” button on the scene page and on the performer page: it sends the scene or performer to a stash-box as a draft (Stash's own “Submit to stash-box”), after a question. Nothing is published – you check the draft on the box's site and submit it there. It needs a StashDB account that is allowed to edit. Pull request by Fixik071.", "场景页和演员页新增“To StashDB”按钮：确认后把场景或演员作为草稿发送到 stash-box（即 Stash 自带的“提交到 stash-box”）。不会发布任何内容——请到该站点检查草稿并在那里提交。需要有编辑权限的 StashDB 账号。（Fixik071 的拉取请求）", "scene/@scene::[data-draft]"],
+      ["ui", "Scene page: a “Generate pHash” button appears when a file of the scene has no phash yet. It makes the phash for that one scene (a task, see Tasks), so StashDB can match the scene by its picture. Pull request by Fixik071.", "场景页：当场景的文件还没有 phash 时会出现“生成 pHash”按钮，只为这一个场景生成（一个任务，见“任务”页），这样 StashDB 就能按画面匹配该场景。（Fixik071 的拉取请求）"],
+      ["ui", "Scene tagger: a checkbox “One match – save it right away”. With it on, “Look up this page” saves every scene whose file matches exactly one result straight away (with the ticked fields); scenes with several results or none stay for you. Pull request by Fixik071.", "场景标记器：新增复选框“只有一个匹配就立即保存”。开启后，“查找本页”会立刻保存文件恰好匹配一个结果的场景（使用已勾选的字段）；有多个结果或没有结果的场景仍留给你处理。（Fixik071 的拉取请求）", "tagger::[data-o=auto]"],
+    ],
+  },
+  {
     v: "3.140.3",
     date: "2026-11-05",
     items: [
