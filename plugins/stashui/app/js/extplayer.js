@@ -33,9 +33,16 @@ const intent = (info, pkg) => {
   return `intent://${uri(m[2] || info.stream)}#Intent;scheme=${m[1] || "http"};package=${pkg};action=android.intent.action.VIEW;type=video/*;S.title=${uri(info.title)};i.position=${Math.round(info.position * 1000)};end`;
 };
 
+// mpv-handler link: "subfile" is only added when there is a caption (an empty value makes mpv-handler reject the link)
+const mpvLink = (i) => {
+  const q = [`v_title=${b64(i.title)}`, `startat=${Math.floor(i.position)}`];
+  if (i.caption) q.unshift(`subfile=${b64(i.caption)}`);
+  return `mpv-handler://play/${b64(i.stream)}/?${q.join("&")}`;
+};
+
 // id, name, the systems it's offered on, and how its link is made from info { stream, caption, title, position (s) }
 export const PLAYERS = [
-  { id: "mpv", name: "mpv", on: ["windows", "linux"], url: (i) => `mpv-handler://play/${b64(i.stream)}/?subfile=${b64(i.caption)}&v_title=${b64(i.title)}&startat=${Math.floor(i.position)}`, hint: "Needs mpv-handler (github.com/akiirui/mpv-handler)" },
+  { id: "mpv", name: "mpv", on: ["windows", "linux"], url: mpvLink, hint: "Needs mpv-handler (github.com/akiirui/mpv-handler)" },
   { id: "mpvmac", name: "mpv", on: ["mac"], url: (i) => `mpvplay://${uri(i.stream)}`, hint: "Needs the mpv-handler for macOS (mpvplay://)" },
   { id: "mpvios", name: "mpv", on: ["ios"], url: (i) => `mpv://${uri(i.stream)}` },
   { id: "vlc", name: "VLC", on: ["windows", "linux", "mac"], url: (i) => `vlc://${i.stream}`, hint: "Needs vlc-protocol on Windows and Linux (github.com/stefansundin/vlc-protocol)" },
