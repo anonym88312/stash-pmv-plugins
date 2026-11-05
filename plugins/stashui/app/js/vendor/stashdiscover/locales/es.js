@@ -505,4 +505,9 @@ export default {
   "Follow the selected performers": "Seguir a las artistas seleccionadas",
   "Sort by": "Ordenar por",
   "Import in progress — wait for it to finish": "Importación en curso — espera a que termine",
+  "Connection test": "Prueba de conexión",
+  "Test again": "Probar de nuevo",
+  "Testing…": "Probando…",
+  "Test": "Probar",
+  "Check the connections (Jackett, qBittorrent, stash-boxes)": "Comprobar las conexiones (Jackett, qBittorrent, stash-boxes)",
 };

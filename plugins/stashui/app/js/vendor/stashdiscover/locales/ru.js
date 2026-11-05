@@ -508,4 +508,9 @@ export default {
   "Follow the selected performers": "Подписаться на выбранных исполнителей",
   "Sort by": "Сортировка",
   "Import in progress — wait for it to finish": "Идёт импорт — дождитесь завершения",
+  "Connection test": "Проверка соединений",
+  "Test again": "Проверить снова",
+  "Testing…": "Проверка…",
+  "Test": "Проверить",
+  "Check the connections (Jackett, qBittorrent, stash-boxes)": "Проверить соединения (Jackett, qBittorrent, stash-box)",
 };

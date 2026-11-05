@@ -508,4 +508,9 @@ export default {
   "Follow the selected performers": "Theo dõi các diễn viên đã chọn",
   "Sort by": "Sắp xếp theo",
   "Import in progress — wait for it to finish": "Đang nhập — hãy đợi hoàn tất",
+  "Connection test": "Kiểm tra kết nối",
+  "Test again": "Kiểm tra lại",
+  "Testing…": "Đang kiểm tra…",
+  "Test": "Kiểm tra",
+  "Check the connections (Jackett, qBittorrent, stash-boxes)": "Kiểm tra các kết nối (Jackett, qBittorrent, stash-box)",
 };

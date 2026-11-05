@@ -78,7 +78,7 @@ Called through Stash's `runPluginOperation` (interface: raw):
                "folder": "Clips"|""}      output: {"job"}
 
 * mode "box_gql": one GraphQL question (queries only) to a stash-box set up in Stash, with the API key Stash has for it –
-  for the Discover overview (stashDiscover by ufousox007). Modes "ssd_search" (Jackett) and "ssd_push" (qBittorrent) are its
+  for the Discover overview (stashDiscover by ufousox007). Modes "ssd_search" (Jackett), "ssd_push" (qBittorrent) and "ssd_test" (connection test) are its
   resource search and download hand-over, set up under Discover → Settings.
       args:   {"mode": "box_gql", "endpoint": "<stash-box>", "query": "...", "variables": {}, "timeout": 15}
       output: {"data"} | {"errors"} | {"kind": "timeout|network|auth|blocked|parse", "message"}
@@ -2284,6 +2284,117 @@ def ssd_search(stash, args):
     return {"mode": "search", "query": query, "count": len(results), "shown": len(shown), "truncated": len(results) > SSD_SEARCH_LIMIT, "results": shown}
 
 
+def ssd_test(stash, args):
+    """Connection test of the Discover settings (stashDiscover's "Test" button): Jackett (Torznab caps), qBittorrent (login, version,
+    default save path) and the stash-boxes set up in Stash (key present, linked performers – no request to the boxes). Each line says
+    ok / not ok, what happened and, if not ok, what to do."""
+    cfg = ssd_settings(stash)
+    items = []
+
+    jack = {"key": "jackett", "label": "Jackett", "ok": False, "detail": "", "hint": ""}
+    url = str(cfg.get("jackettUrl") or "").strip().rstrip("/")
+    key = str(cfg.get("jackettApiKey") or "").strip()
+    if not url or not key:
+        jack["detail"] = "URL or API key is missing"
+    elif not re.match(r"^https?://", url, re.I):
+        jack["detail"] = "The URL has to start with http:// or https://"
+    else:
+        if not url.endswith("/torznab"):
+            url = url + "/torznab" if "/api/v2." in url else url + "/api/v2.0/indexers/all/results/torznab"
+        host = urllib.parse.urlparse(url).netloc
+        status, body, _ = ssd_http(f"{url}{'&' if '?' in url else '?'}t=caps&apikey={urllib.parse.quote(key)}", timeout=15)
+        if status == 200:
+            jack["ok"] = True
+            jack["detail"] = f"{host} reachable"
+            try:
+                import xml.etree.ElementTree as ET
+                srv = ET.fromstring(body).find("server")
+                if srv is not None and srv.get("title"):
+                    jack["detail"] = f"{host} · {srv.get('title')}"
+            except Exception:  # noqa: BLE001
+                jack["hint"] = "The answer is not Torznab XML – check that the URL points at Jackett's Torznab endpoint"
+        elif status in (401, 403):
+            jack["detail"] = f"API key rejected (HTTP {status})"
+            jack["hint"] = "Use the API key from the top right of the Jackett dashboard; a Prowlarr key does not work"
+        elif status == 0:
+            jack["detail"] = f"Can't reach {host}"
+            jack["hint"] = body[:150]
+        else:
+            jack["detail"] = f"HTTP {status}"
+            jack["hint"] = body[:150]
+    items.append(jack)
+
+    qb = {"key": "qbittorrent", "label": "qBittorrent", "ok": False, "detail": "", "hint": ""}
+    base = str(cfg.get("downloaderUrl") or "").strip().rstrip("/")
+    if not base:
+        qb["detail"] = "URL is missing"
+    elif not re.match(r"^https?://", base, re.I):
+        qb["detail"] = "The URL has to start with http:// or https://"
+    else:
+        host = urllib.parse.urlparse(base).netloc
+        status, body, headers = ssd_http(base + "/api/v2/auth/login", "POST", {"username": str(cfg.get("downloaderUsername") or ""), "password": str(cfg.get("downloaderPassword") or "")}, timeout=15)
+        if status == 403:
+            qb["detail"] = "Login refused (HTTP 403)"
+            qb["hint"] = "After repeated failed logins qBittorrent bans the address for a while – log in once in its web page to clear it"
+        elif status == 0:
+            qb["detail"] = f"Can't reach {host}"
+            qb["hint"] = body[:150]
+        elif not (status == 204 or (status == 200 and body.strip() == "Ok.")):
+            qb["detail"] = f"Login failed (HTTP {status})"
+            qb["hint"] = body[:150] or "Check the user name and the password"
+        else:
+            cookie = ssd_session_cookie(headers)
+            if not cookie:
+                qb["detail"] = "Logged in, but no session cookie came back"
+                qb["hint"] = "Check that the web page address is complete (with the port) and that no reverse proxy drops Set-Cookie"
+            else:
+                st2, body2, _ = ssd_http(base + "/api/v2/app/version", headers={"Cookie": cookie}, timeout=10)
+                if st2 != 200:
+                    qb["detail"] = f"Session rejected (HTTP {st2})"
+                    qb["hint"] = "Login worked but the next request was refused – often a reverse proxy that doesn't pass cookies on"
+                else:
+                    qb["ok"] = True
+                    qb["detail"] = f"{host} · qBittorrent {body2.strip() or '?'}"
+                    st3, body3, _ = ssd_http(base + "/api/v2/app/preferences", headers={"Cookie": cookie}, timeout=10)
+                    if st3 == 200:
+                        try:
+                            sp = str((json.loads(body3) or {}).get("save_path") or "")
+                            if sp:
+                                qb["hint"] = f"Default save path {sp}"
+                        except (ValueError, AttributeError):
+                            pass
+    items.append(qb)
+
+    try:
+        boxes = stash.gql("query { configuration { general { stashBoxes { endpoint name api_key } } } }")["configuration"]["general"].get("stashBoxes") or []
+    except Exception as e:  # noqa: BLE001
+        boxes = None
+        items.append({"key": "stashbox", "label": "stash-box", "ok": False, "detail": f"Could not read Stash's settings: {e}", "hint": ""})
+    if boxes is not None and not boxes:
+        items.append({"key": "stashbox", "label": "stash-box", "ok": False, "detail": "No stash-box is set up in Stash", "hint": "Settings → Metadata Providers → add one and enter its API key"})
+    elif boxes:
+        counts = {}
+        try:
+            for pf in stash.gql("query { findPerformers(filter: {per_page: -1}) { performers { stash_ids { endpoint } } } }")["findPerformers"]["performers"] or []:
+                for sid in pf.get("stash_ids") or []:
+                    ep = str(sid.get("endpoint") or "").rstrip("/").lower()
+                    counts[ep] = counts.get(ep, 0) + 1
+        except Exception:  # noqa: BLE001
+            counts = None
+        for b in boxes:
+            ep = str(b.get("endpoint") or "")
+            has_key = bool(str(b.get("api_key") or "").strip())
+            n = None if counts is None else counts.get(ep.rstrip("/").lower(), 0)
+            item = {"key": "stashbox:" + ep, "label": b.get("name") or urllib.parse.urlparse(ep).netloc or ep, "ok": has_key and bool(n), "hint": ""}
+            item["detail"] = ("API key set" if has_key else "API key missing") + ("" if n is None else f" · {n} performers of your library carry this box's ID")
+            if not has_key:
+                item["hint"] = "Enter the API key in Stash (Settings → Metadata Providers)"
+            elif n == 0:
+                item["hint"] = "No performer is linked to this box yet, so Discover has nothing to show from it"
+            items.append(item)
+    return {"ok": all(i["ok"] for i in items), "items": items}
+
+
 def ssd_session_cookie(headers):
     """qBittorrent up to 5.1 sends SID=..., 5.2 and later QBT_SID_<port>=... (maybe in several Set-Cookie lines)."""
     lines = []
@@ -2392,6 +2503,8 @@ def main():
             out = ssd_search(Stash(data.get("server_connection")), args)
         elif mode == "ssd_push":
             out = ssd_push(Stash(data.get("server_connection")), args)
+        elif mode == "ssd_test":
+            out = ssd_test(Stash(data.get("server_connection")), args)
         elif mode == "phone_status":
             out = phone_status(Stash(data.get("server_connection")), args)
         elif mode == "phone_start":

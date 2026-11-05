@@ -508,4 +508,9 @@ export default {
   "Follow the selected performers": "選択した出演者をフォロー",
   "Sort by": "並べ替え",
   "Import in progress — wait for it to finish": "インポート中です — 完了までお待ちください",
+  "Connection test": "接続テスト",
+  "Test again": "もう一度テスト",
+  "Testing…": "テスト中…",
+  "Test": "テスト",
+  "Check the connections (Jackett, qBittorrent, stash-boxes)": "接続を確認（Jackett、qBittorrent、stash-box）",
 };

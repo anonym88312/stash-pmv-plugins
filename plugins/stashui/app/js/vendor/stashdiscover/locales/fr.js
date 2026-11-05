@@ -498,4 +498,9 @@ export default {
   "Follow the selected performers": "Suivre les interprètes sélectionnées",
   "Sort by": "Trier par",
   "Import in progress — wait for it to finish": "Import en cours — attendez la fin",
+  "Connection test": "Test de connexion",
+  "Test again": "Tester à nouveau",
+  "Testing…": "Test en cours…",
+  "Test": "Tester",
+  "Check the connections (Jackett, qBittorrent, stash-boxes)": "Vérifier les connexions (Jackett, qBittorrent, stash-boxes)",
 };

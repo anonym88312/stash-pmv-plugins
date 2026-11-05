@@ -500,4 +500,9 @@ export default {
   "Follow the selected performers": "Ausgewählten Darstellern folgen",
   "Sort by": "Sortieren nach",
   "Import in progress — wait for it to finish": "Import läuft — bitte bis zum Ende warten",
+  "Connection test": "Verbindungstest",
+  "Test again": "Erneut testen",
+  "Testing…": "Test läuft…",
+  "Test": "Testen",
+  "Check the connections (Jackett, qBittorrent, stash-boxes)": "Verbindungen prüfen (Jackett, qBittorrent, Stash-Boxen)",
 };

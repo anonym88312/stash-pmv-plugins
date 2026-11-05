@@ -25,6 +25,9 @@ function stylesheet() {
   }
 }
 
+// his dialogs that sit on the body: the scene window, the import dialogs, the pop-ups of the Discover page
+const OVERLAYS = ".ssd-modal-overlay, .ssd-imp-overlay, .ssd-dp-modal-overlay";
+
 const domain = (host) => String(host || "").split(".").slice(-2).join(".");
 
 // his core (window.SSD) with the connections to Stash UI set; `withPage` also loads the Overview page module and the stylesheets
@@ -90,13 +93,13 @@ function watchPictures(root, SSD) {
   scan(root);
   // pictures in the scene window (it sits on the body, not in the page)
   const mo2 = new MutationObserver((list) => {
-    for (const m of list) m.addedNodes.forEach((n) => n.nodeType === 1 && (n.matches(".ssd-modal-overlay") || n.querySelector(".ssd-modal-overlay")) && (scan(n), mo.observe(n, opts)));
+    for (const m of list) m.addedNodes.forEach((n) => n.nodeType === 1 && (n.matches(OVERLAYS) || n.querySelector(OVERLAYS)) && (scan(n), mo.observe(n, opts)));
   });
   mo2.observe(document.body, { childList: true });
   return () => {
     mo.disconnect();
     mo2.disconnect();
-    document.querySelectorAll(".ssd-modal-overlay, .ssd-performer-card, .hover-popover-content").forEach((n) => n.remove());
+    document.querySelectorAll(OVERLAYS + ", .ssd-performer-card, .hover-popover-content, .ssd-test-overlay").forEach((n) => n.remove());
   };
 }
 

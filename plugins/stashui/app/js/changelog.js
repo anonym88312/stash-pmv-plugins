@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.141.1",
+    date: "2026-11-05",
+    items: [
+      ["ui", "Discover → Settings has a “Test” button for the connections: one line each for Jackett, qBittorrent and every stash-box set up in Stash – reachable or not, what went wrong, what to do. It sends no request to the stash-boxes themselves. The pop-ups of the Discover page (import preview, performer window) now get their pictures from the stash-box, too. Backend changed – use “Reload plugins” in Stash after updating.", "“发现”→“设置”新增“测试”按钮，用来检查连接：Jackett、qBittorrent 以及 Stash 中配置的每个 stash-box 各一行——能否连通、出了什么问题、该怎么办。它不会向 stash-box 本身发送请求。发现页的弹窗（导入预览、演员窗口）现在也会通过 stash-box 加载图片。后端有改动——更新后请在 Stash 中点“重新加载插件”。", "discover::[data-ssd-test]"],
+    ],
+  },
+  {
     v: "3.141.0",
     date: "2026-11-05",
     items: [

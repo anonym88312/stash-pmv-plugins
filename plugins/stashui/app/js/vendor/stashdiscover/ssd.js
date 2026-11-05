@@ -10,7 +10,8 @@
  *  - the REST list of ThePornDB (tpdbGet) is asked through the backend (mode box_rest) instead of the page; the backend answers HTTP 429 as
  *    kind "ratelimit" (+ retry_after), so the plugin's own throttle and retry (boxGateTake / retryWaitFor) work on top of it as in the original
  *  - the resource search has a "Sort" row (Best match / Seeders / Size / Date) above the results (renderSearchResults; pull request by Fixik071)
- *  - not part of this file: the Stash settings-page test button, the lazy loading of discover.js (Stash UI imports it itself)
+ *  - the connection test (openConnectionTest, backend mode ssd_test) is a dialog opened from Discover → Settings instead of a button on Stash's plugin settings page
+ *  - not part of this file: the lazy loading of discover.js (Stash UI imports it itself)
  *  - more languages: tc(zh, en) looks the English text up in window.__ssdStrings (our translations, locales/<lang>.js) when the language
  *    isn't zh – see trEn() below; the [zh, en] tables that were read with isZh() (boxErrText, panelTitle, genderText) go through tc(),
  *    and the region names follow the language (regionName)
@@ -7432,6 +7433,88 @@
     });
   }
 
+  // ─── Stash UI: connection test (the original has it as a button on Stash's plugin settings page) ───
+  // Opens a dialog with one line per connection (Jackett, qBittorrent, every stash-box set up in Stash): the backend's mode ssd_test.
+  function openConnectionTest() {
+    var overlay = document.createElement("div");
+    overlay.className = "ssd-test-overlay";
+    var panel = document.createElement("div");
+    panel.className = "ssd-test-panel";
+    panel.setAttribute("role", "dialog");
+    var title = document.createElement("div");
+    title.className = "ssd-test-title";
+    title.textContent = tc("连接测试", "Connection test");
+    var list = document.createElement("div");
+    list.className = "ssd-test-list";
+    var foot = document.createElement("div");
+    foot.className = "ssd-test-foot";
+    var again = document.createElement("button");
+    again.type = "button";
+    again.className = "ssd-dp-btn ghost";
+    again.textContent = tc("重新测试", "Test again");
+    var closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "ssd-dp-btn";
+    closeBtn.textContent = tc("关闭", "Close");
+    foot.appendChild(again);
+    foot.appendChild(closeBtn);
+    panel.appendChild(title);
+    panel.appendChild(list);
+    panel.appendChild(foot);
+    overlay.appendChild(panel);
+
+    function onKey(e) { if (e.key === "Escape") close(); }
+    function close() {
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+    }
+    closeBtn.onclick = close;
+    document.addEventListener("keydown", onKey);
+    bindOverlayClose(overlay, close);
+
+    function row(it) {
+      var r = document.createElement("div");
+      r.className = "ssd-test-row " + (it.ok ? "is-ok" : "is-bad");
+      var mark = document.createElement("span");
+      mark.className = "ssd-test-mark";
+      mark.textContent = it.ok ? "✓" : "✗";
+      var body = document.createElement("div");
+      body.className = "ssd-test-body";
+      [["ssd-test-name", it.label], ["ssd-test-detail", it.detail], ["ssd-test-hint", it.hint]].forEach(function (p) {
+        if (!p[1]) return;
+        var d = document.createElement("div");
+        d.className = p[0];
+        d.textContent = String(p[1]);
+        body.appendChild(d);
+      });
+      r.appendChild(mark);
+      r.appendChild(body);
+      return r;
+    }
+
+    function run() {
+      again.disabled = true;
+      list.innerHTML = "";
+      var wait = document.createElement("div");
+      wait.className = "ssd-test-wait";
+      wait.textContent = tc("测试中…", "Testing…");
+      list.appendChild(wait);
+      ssdBackend({ mode: "ssd_test" }).then(function (r) {
+        list.innerHTML = "";
+        ((r && r.items) || []).forEach(function (it) { list.appendChild(row(it)); });
+      }).catch(function (e) {
+        list.innerHTML = "";
+        var err = document.createElement("div");
+        err.className = "ssd-test-err";
+        err.textContent = String((e && e.message) || e);
+        list.appendChild(err);
+      }).then(function () { again.disabled = false; });
+    }
+    again.onclick = run;
+    document.body.appendChild(overlay);
+    run();
+  }
+
   // ─── Resource search / push ──────────────────────────────────────────────
   // The original calls its own plugin's runPluginOperation (stdout of the plugin = answer, no log detour). Stash UI's backend
   // answers the same way: modes ssd_search (Jackett) and ssd_push (downloader). Errors come back as a rejected promise.
@@ -8562,6 +8645,8 @@
     guardScrollChain: guardScrollChain,
     // 点遮罩关闭 + 防误触（七个弹层共用）
     bindOverlayClose: bindOverlayClose,
+    // Stash UI: the connection test dialog
+    openConnectionTest: openConnectionTest,
   };
 
   var DISCOVER_CACHE_KEY = "SSD:discoverOn";

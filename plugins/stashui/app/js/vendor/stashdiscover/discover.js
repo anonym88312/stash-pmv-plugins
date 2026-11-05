@@ -4853,6 +4853,15 @@
         row.appendChild(inp);
         secR.appendChild(row);
       });
+      // Stash UI: the connection test (backend mode ssd_test)
+      var trow = el("div", "ssd-dp-setrow");
+      trow.appendChild(el("span", "ssd-dp-setname", tc("检查连接（Jackett、qBittorrent、stash-box）", "Check the connections (Jackett, qBittorrent, stash-boxes)")));
+      var tbtn = el("button", "ssd-dp-btn ghost sm", tc("测试", "Test"));
+      tbtn.type = "button";
+      tbtn.setAttribute("data-ssd-test", "1");
+      tbtn.addEventListener("click", function () { SSD.openConnectionTest(); });
+      trow.appendChild(tbtn);
+      secR.appendChild(trow);
     });
     wrap.appendChild(secR);
 

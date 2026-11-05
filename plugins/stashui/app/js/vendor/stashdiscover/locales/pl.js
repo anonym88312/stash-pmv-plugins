@@ -506,4 +506,9 @@ export default {
   "Follow the selected performers": "Obserwuj zaznaczonych wykonawców",
   "Sort by": "Sortuj wg",
   "Import in progress — wait for it to finish": "Trwa import — poczekaj na zakończenie",
+  "Connection test": "Test połączeń",
+  "Test again": "Testuj ponownie",
+  "Testing…": "Testowanie…",
+  "Test": "Testuj",
+  "Check the connections (Jackett, qBittorrent, stash-boxes)": "Sprawdź połączenia (Jackett, qBittorrent, stash-boxy)",
 };
