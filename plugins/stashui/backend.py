@@ -1120,6 +1120,25 @@ def clip_cut(stash, args):
         n = int(float(n or 0))
         return n - n % 2 if n >= 2 else fallback
 
+    if args.get("join"):
+        # One ffmpeg run puts the parts together (the same job as the Editor). Encoding every part on its own and joining the files
+        # afterwards let the sound drift: each part's audio ends a little after its picture (AAC frames), ~45 ms per part.
+        ffmpeg = find_ffmpeg(stash)
+        gw, gh, gfps = video_geometry(ffmpeg, video)
+        w, h = even(args.get("ref_w") or gw, 0), even(args.get("ref_h") or gh, 0)
+        if not (w and h):
+            raise ValueError("can't tell the size of the video")
+        audio = has_audio(ffmpeg, video)
+        items = [{"path": video, "start": c["start"], "end": c["end"], "speed": 1.0, "audio": audio, **({"crop": c["crop"]} if "crop" in c else {})} for c in clips]
+        espec = {"job": job, "ffmpeg": ffmpeg, "items": items, "w": w, "h": h, "fps": int(round(max(10, min(60, gfps or 30)))), "fade": 0.0, "keep": True,
+                 "out": unique(os.path.join(folder, f"{base} - clips.mp4"))}
+        path = os.path.join(CUT_DIR, f"stashui-edit-{job}.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(espec, f)
+        flags = (0x08000000 | 0x00000200) if os.name == "nt" else 0
+        subprocess.Popen([sys.executable, os.path.abspath(__file__), "--editjob", path], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags)
+        return {"job": job}
+
     spec = {"job": job, "video": video, "ffmpeg": find_ffmpeg(stash), "clips": clips, "precise": bool(args.get("precise")) or any("crop" in c for c in clips),
             "join": bool(args.get("join")), "folder": folder, "base": base, "ext": ".mp4",
             "upscale": bool(args.get("upscale")), "ref_w": even(args.get("ref_w")), "ref_h": even(args.get("ref_h"))}
@@ -1444,6 +1463,16 @@ def has_audio(ffmpeg, path):
     return " Audio:" in (r.stderr or "")
 
 
+def video_geometry(ffmpeg, path):
+    """(width, height, fps) of the first video stream, read from `ffmpeg -i` (0s where it can't be told)."""
+    import re as _re
+    r = subprocess.run([ffmpeg, "-hide_banner", "-i", path], capture_output=True, text=True, creationflags=0x08000000 if os.name == "nt" else 0)
+    line = next((l for l in (r.stderr or "").splitlines() if " Video:" in l), "")
+    m = _re.search(r"[ ,](\d{2,5})x(\d{2,5})[ ,\[]", line)
+    f = _re.search(r"([\d.]+) fps", line)
+    return (int(m.group(1)) if m else 0), (int(m.group(2)) if m else 0), (float(f.group(1)) if f else 0.0)
+
+
 def atempo_chain(sp):
     out = []
     while sp > 2.0:
@@ -1520,7 +1549,9 @@ def edit_job(spec_path):
                 out_dur = span / spd
                 total += out_dur
                 cmd += ["-ss", f"{it['start']:.3f}", "-t", f"{span:.3f}", "-i", it["path"]]
-                v = f"[{i}:v:0]scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,setpts=PTS-STARTPTS"
+                cr = it.get("crop")  # (clips from "Cut clips" with a zoomed-in area: cut that area out first)
+                cf = "crop=trunc(iw*{w:.5f}/2)*2:trunc(ih*{h:.5f}/2)*2:trunc(iw*{x:.5f}/2)*2:trunc(ih*{y:.5f}/2)*2,".format(**cr) if cr else ""
+                v = f"[{i}:v:0]{cf}scale={w}:{h}:force_original_aspect_ratio=decrease:flags=lanczos,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps={fps},format=yuv420p,setpts=PTS-STARTPTS"
                 if spd != 1:
                     v += f",setpts=PTS/{spd:.4f}"
                 f_d = min(fade, out_dur / 2) if fade > 0 else 0

@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.140.3",
+    date: "2026-11-05",
+    items: [
+      ["ui", "Fix: when several clips are joined into one video (Cut clips → “Join all clips into one video”, and the same option for clips from markers), the sound slowly drifted away from the picture – about 45 ms more with every clip, so 1-second clips were more than a second off after 30 of them. The clips are put together in one go now, like in the Editor, and picture and sound stay together. Joining is always “Exact” (re-encoded) now. Needs “Reload plugins” in Stash. Clips that are not joined were never affected.", "修复：把多个片段合并成一个视频时（剪辑片段 →“合并所有片段为一个视频”，以及标记生成片段的同一选项），声音会慢慢与画面错开——每个片段约多出 45 毫秒，所以 1 秒的片段在 30 个之后已偏差一秒多。现在像编辑器一样一次性合并，画面和声音保持同步。合并现在始终使用“精确”模式（重新编码）。需要在 Stash 中“重新加载插件”。不合并的片段一直不受影响。"],
+    ],
+  },
+  {
     v: "3.140.2",
     date: "2026-11-04",
     items: [
