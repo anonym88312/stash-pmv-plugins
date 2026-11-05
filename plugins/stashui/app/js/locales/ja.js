@@ -2731,4 +2731,8 @@ export default {
   "This file has no phash yet – StashDB can't find or check it by its picture. Make one now (a task, a few seconds to a minute).": "このファイルにはまだ phash がありません – StashDB は画像で検索・確認できません。今すぐ作成します（タスク、数秒〜1分）。",
   "Generate pHash": "pHash を作成",
   "Making the pHash – see Tasks. It's used once the task is done.": "pHash を作成中 – タスクを参照してください。タスク完了後に使われます。",
+  "Only for “Look up this page”: a scene its file matches exactly one result for is saved right away with the ticked fields – scenes with several results or none wait for you": "「このページを検索」専用：シーンのファイルで結果がちょうど 1 件見つかった場合、チェックした項目ですぐに保存します – 複数件・0 件のシーンはそのまま残ります",
+  "One match – save it right away": "1 件一致ならすぐ保存",
+  "Saved right away: {n}": "すぐに保存：{n}",
+  "No scene had exactly one match": "ちょうど 1 件一致したシーンはありませんでした",
 };

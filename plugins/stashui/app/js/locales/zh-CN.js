@@ -2788,4 +2788,8 @@ export default {
   "This file has no phash yet – StashDB can't find or check it by its picture. Make one now (a task, a few seconds to a minute).": "此文件还没有 phash – StashDB 无法按画面查找或核对。立即生成（一个任务，几秒到一分钟）。",
   "Generate pHash": "生成 pHash",
   "Making the pHash – see Tasks. It's used once the task is done.": "正在生成 pHash – 见任务。任务完成后即会使用。",
+  "Only for “Look up this page”: a scene its file matches exactly one result for is saved right away with the ticked fields – scenes with several results or none wait for you": "仅用于“查找本页”：场景文件恰好匹配到一个结果时，立即按勾选的字段保存 – 有多个或没有结果的场景留给你处理",
+  "One match – save it right away": "只有一个匹配 – 立即保存",
+  "Saved right away: {n}": "已立即保存：{n}",
+  "No scene had exactly one match": "没有场景恰好只有一个匹配",
 };

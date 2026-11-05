@@ -2764,4 +2764,8 @@ export default {
   "This file has no phash yet – StashDB can't find or check it by its picture. Make one now (a task, a few seconds to a minute).": "У цього файлу ще немає phash – StashDB не зможе знайти чи перевірити його за зображенням. Зробити зараз (завдання, від кількох секунд до хвилини).",
   "Generate pHash": "Зробити pHash",
   "Making the pHash – see Tasks. It's used once the task is done.": "pHash створюється – див. Завдання. Його буде використано, коли завдання завершиться.",
+  "Only for “Look up this page”: a scene its file matches exactly one result for is saved right away with the ticked fields – scenes with several results or none wait for you": "Лише для «Знайти на цій сторінці»: якщо за файлом сцени знайдено рівно один результат, він одразу зберігається з позначеними полями – сцени з кількома результатами або без них чекають на вас",
+  "One match – save it right away": "Один збіг – одразу зберегти",
+  "Saved right away: {n}": "Збережено одразу: {n}",
+  "No scene had exactly one match": "Жодна сцена не мала рівно одного збігу",
 };

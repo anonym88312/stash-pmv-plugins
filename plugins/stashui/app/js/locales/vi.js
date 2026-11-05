@@ -2724,4 +2724,8 @@ export default {
   "This file has no phash yet – StashDB can't find or check it by its picture. Make one now (a task, a few seconds to a minute).": "Tệp này chưa có phash – StashDB không thể tìm hay kiểm tra nó theo hình ảnh. Tạo ngay (một tác vụ, vài giây đến một phút).",
   "Generate pHash": "Tạo pHash",
   "Making the pHash – see Tasks. It's used once the task is done.": "Đang tạo pHash – xem Tác vụ. Nó được dùng khi tác vụ xong.",
+  "Only for “Look up this page”: a scene its file matches exactly one result for is saved right away with the ticked fields – scenes with several results or none wait for you": "Chỉ cho “Tra cứu trang này”: nếu tệp của một cảnh khớp đúng một kết quả, nó được lưu ngay với các trường đã chọn – cảnh có nhiều hoặc không có kết quả sẽ chờ bạn",
+  "One match – save it right away": "Một kết quả khớp – lưu ngay",
+  "Saved right away: {n}": "Đã lưu ngay: {n}",
+  "No scene had exactly one match": "Không cảnh nào có đúng một kết quả khớp",
 };

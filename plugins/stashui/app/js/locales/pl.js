@@ -2729,4 +2729,8 @@ export default {
   "This file has no phash yet – StashDB can't find or check it by its picture. Make one now (a task, a few seconds to a minute).": "Ten plik nie ma jeszcze phash – StashDB nie znajdzie ani nie sprawdzi go po obrazie. Utwórz teraz (zadanie, od kilku sekund do minuty).",
   "Generate pHash": "Utwórz pHash",
   "Making the pHash – see Tasks. It's used once the task is done.": "Tworzenie pHash – zobacz Zadania. Zostanie użyty po zakończeniu zadania.",
+  "Only for “Look up this page”: a scene its file matches exactly one result for is saved right away with the ticked fields – scenes with several results or none wait for you": "Tylko dla „Wyszukaj tę stronę”: jeśli plik sceny pasuje do dokładnie jednego wyniku, zostaje on od razu zapisany z zaznaczonymi polami – sceny z kilkoma wynikami lub bez nich czekają na ciebie",
+  "One match – save it right away": "Jedno dopasowanie – zapisz od razu",
+  "Saved right away: {n}": "Zapisano od razu: {n}",
+  "No scene had exactly one match": "Żadna scena nie miała dokładnie jednego dopasowania",
 };
