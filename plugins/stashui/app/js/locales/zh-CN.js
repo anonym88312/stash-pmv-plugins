@@ -2806,4 +2806,7 @@ export default {
   "Draft sent to {box}": "草稿已发送到 {box}",
   "Open draft": "打开草稿",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "你的 {box} 账号只有只读权限 – 不能发送草稿。请在 {box} 申请编辑权限。",
+  "Crop / zoom in on this piece": "裁剪 / 放大此片段",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "——在画面上拖动方框；只有该部分会进入新视频",
+  "This piece shows only a part of the picture": "此片段只显示画面的一部分",
 };

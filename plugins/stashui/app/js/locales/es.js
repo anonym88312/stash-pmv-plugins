@@ -2725,4 +2725,7 @@ export default {
   "Draft sent to {box}": "Borrador enviado a {box}",
   "Open draft": "Abrir borrador",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "Tu cuenta de {box} solo puede leer: no puede enviar borradores. Pide permiso de edición en {box}.",
+  "Crop / zoom in on this piece": "Recortar / acercar este fragmento",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "– arrastra el marco sobre la imagen; solo esa parte del fragmento pasa al vídeo nuevo",
+  "This piece shows only a part of the picture": "Este fragmento muestra solo una parte de la imagen",
 };

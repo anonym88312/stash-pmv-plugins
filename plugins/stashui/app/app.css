@@ -2234,6 +2234,10 @@ html.kb-glass .kb-qtag { border-color: var(--glass-edge); background: var(--glas
 .kb-ed-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .kb-ed-view { display: flex; flex-direction: column; gap: 4px; }
 .kb-ed-view video { width: 100%; max-height: 46vh; border-radius: 10px; background: #000; }
+.kb-ed-screen { position: relative; overflow: hidden; border-radius: 10px; background: #000; }
+.kb-ed-screen video { display: block; }
+.kb-ed-screen .kb-crop { bottom: 46px; } /* (the browser's own controls stay reachable) */
+.kb-ed-crop { margin-top: 10px; }
 .kb-ed-list { display: flex; flex-direction: column; gap: 8px; }
 .kb-ed-seg { display: flex; align-items: center; gap: 12px; padding: 8px; border: 1px solid var(--bg-3); border-radius: 12px; background: var(--bg-2); }
 .kb-ed-seg.is-sel { border-color: var(--pink); }

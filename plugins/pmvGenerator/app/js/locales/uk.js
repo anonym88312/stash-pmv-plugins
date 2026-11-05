@@ -2782,4 +2782,7 @@ export default {
   "Draft sent to {box}": "Чернетку надіслано в {box}",
   "Open draft": "Відкрити чернетку",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "Ваш акаунт {box} має лише право читання – чернетки надсилати не можна. Попросіть права на редагування на {box}.",
+  "Crop / zoom in on this piece": "Обрізати / наблизити цей фрагмент",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "– перетягніть рамку на зображенні; у нове відео потрапить лише ця частина фрагмента",
+  "This piece shows only a part of the picture": "Цей фрагмент показує лише частину зображення",
 };

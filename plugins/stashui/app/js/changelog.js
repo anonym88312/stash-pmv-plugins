@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.141.2",
+    date: "2026-11-05",
+    items: [
+      ["ui", "Editor: each piece can be cropped / zoomed in. Pick a piece, tick “Crop / zoom in on this piece” under its timeline and drag the frame on the picture (free, 16:9, 9:16, 1:1, 4:5, “Preview the zoom” shows the result). Only that part of the piece goes into the new video, fitted into its size – the size “Like the first piece” follows the shape of the first piece's crop. Backend changed – use “Reload plugins” in Stash after updating.", "编辑器：每个片段都可以裁剪 / 放大。选中一个片段，在其时间轴下勾选“裁剪 / 放大此片段”，再在画面上拖动方框（自由、16:9、9:16、1:1、4:5，“Preview the zoom”可预览效果）。只有该部分会进入新视频，并适配其尺寸——尺寸“和第一个片段一样”会跟随第一个片段裁剪后的形状。后端有改动——更新后请在 Stash 中点“重新加载插件”。", "editor::[data-cropon]"],
+    ],
+  },
+  {
     v: "3.141.1",
     date: "2026-11-05",
     items: [

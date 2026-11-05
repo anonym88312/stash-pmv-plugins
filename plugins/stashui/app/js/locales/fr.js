@@ -2689,4 +2689,7 @@ export default {
   "Draft sent to {box}": "Brouillon envoyé à {box}",
   "Open draft": "Ouvrir le brouillon",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "Votre compte {box} est en lecture seule – il ne peut pas envoyer de brouillons. Demandez l’accès en édition sur {box}.",
+  "Crop / zoom in on this piece": "Recadrer / zoomer sur ce passage",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "– faites glisser le cadre sur l'image ; seule cette partie du passage va dans la nouvelle vidéo",
+  "This piece shows only a part of the picture": "Ce passage n'affiche qu'une partie de l'image",
 };

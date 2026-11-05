@@ -1496,7 +1496,14 @@ def edit_render(stash, args):
         if not (a >= 0 and b > a + 0.1):
             raise ValueError("a piece ends before it starts")
         sp = max(0.25, min(4.0, float(c.get("speed") or 1.0)))
-        items.append({"path": video, "start": a, "end": b, "speed": sp, "audio": has_audio(ffmpeg, video)})
+        item = {"path": video, "start": a, "end": b, "speed": sp, "audio": has_audio(ffmpeg, video)}
+        cr = c.get("crop")
+        if cr:  # a part of the picture of this piece (fractions of the width / height) – the part is fitted into the size of the new video
+            x0, y0, w0, h0 = (max(0.0, min(1.0, float(cr.get(k)))) for k in ("x", "y", "w", "h"))
+            if w0 < 0.02 or h0 < 0.02 or x0 + w0 > 1.0005 or y0 + h0 > 1.0005:
+                raise ValueError("the cropped area doesn't fit into the picture")
+            item["crop"] = {"x": x0, "y": y0, "w": min(w0, 1 - x0), "h": min(h0, 1 - y0)}
+        items.append(item)
     if not items or len(items) > 600:
         raise ValueError("no pieces (or more than 600)")
 

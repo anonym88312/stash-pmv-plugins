@@ -2747,4 +2747,7 @@ export default {
   "Draft sent to {box}": "Szkic wysłany do {box}",
   "Open draft": "Otwórz szkic",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "Twoje konto {box} ma tylko prawo odczytu – nie może wysyłać szkiców. Poproś o prawa edycji na {box}.",
+  "Crop / zoom in on this piece": "Przytnij / przybliż ten fragment",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "– przeciągnij ramkę na obrazie; do nowego wideo trafia tylko ta część fragmentu",
+  "This piece shows only a part of the picture": "Ten fragment pokazuje tylko część obrazu",
 };

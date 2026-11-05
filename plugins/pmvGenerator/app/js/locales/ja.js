@@ -2749,4 +2749,7 @@ export default {
   "Draft sent to {box}": "{box} に下書きを送りました",
   "Open draft": "下書きを開く",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "{box} のアカウントは閲覧のみです – 下書きを送れません。{box} で編集権限を申請してください。",
+  "Crop / zoom in on this piece": "このパートをクロップ / ズームイン",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "— 映像上の枠をドラッグします。その部分だけが新しい動画に入ります",
+  "This piece shows only a part of the picture": "このパートは映像の一部だけを表示します",
 };

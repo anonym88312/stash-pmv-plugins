@@ -2742,4 +2742,7 @@ export default {
   "Draft sent to {box}": "Đã gửi bản nháp lên {box}",
   "Open draft": "Mở bản nháp",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "Tài khoản {box} của bạn chỉ có quyền đọc – không gửi được bản nháp. Hãy xin quyền chỉnh sửa trên {box}.",
+  "Crop / zoom in on this piece": "Cắt / phóng to đoạn này",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "– kéo khung trên hình; chỉ phần đó của đoạn được đưa vào video mới",
+  "This piece shows only a part of the picture": "Đoạn này chỉ hiển thị một phần của hình",
 };

@@ -2784,4 +2784,7 @@ export default {
   "Draft sent to {box}": "Черновик отправлен в {box}",
   "Open draft": "Открыть черновик",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "У вашего аккаунта {box} только право чтения – черновики отправлять нельзя. Попросите права на редактирование на {box}.",
+  "Crop / zoom in on this piece": "Обрезать / приблизить этот фрагмент",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "– перетащите рамку на картинке; в новое видео попадёт только эта часть фрагмента",
+  "This piece shows only a part of the picture": "Этот фрагмент показывает только часть картинки",
 };

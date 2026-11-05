@@ -10,6 +10,7 @@ import { parseTime } from "../audiox.js";
 import { intoStash } from "./clipcut.js";
 import { applyClipsDir } from "../clipsdir.js";
 import { createTrim } from "../trimbar.js";
+import { createCropper } from "../cropbox.js";
 
 const ft = (sec) => {
   sec = Math.max(0, Number(sec) || 0);
@@ -45,7 +46,7 @@ export async function render(main) {
   let busy = false;
   let alive = true;
   let playAll = false;
-  const saveDraft = () => store.set("editorDraft", items.map(({ scene, start, end, speed }) => ({ scene, start, end, speed })));
+  const saveDraft = () => store.set("editorDraft", items.map(({ scene, start, end, speed, crop }) => ({ scene, start, end, speed, crop })));
   const saveOpts = () => store.set("editorOpts", o);
 
   main.innerHTML = `
@@ -59,10 +60,17 @@ export async function render(main) {
         <div class="kb-ed-found" data-found><p class="kb-hint">${t("Search for a scene, then add it – the whole video or a piece of it.")}</p></div>
       </section>
       <section class="kb-ed-main">
-        <div class="kb-ed-view"><video data-video controls playsinline preload="metadata"></video><div class="kb-ed-viewbar"><span data-now class="kb-hint"></span></div></div>
+        <div class="kb-ed-view"><div class="kb-ed-screen"><video data-video controls playsinline preload="metadata"></video></div><div class="kb-ed-viewbar"><span data-now class="kb-hint"></span></div></div>
         <div class="kb-ed-trim" data-trimwrap hidden>
           <div class="kb-ed-trimhead"><b data-trimname></b><span class="kb-hint">${t("Drag the ends on the timeline to trim this piece – or type the times below.")}</span></div>
           <div data-trimhost></div>
+          <div class="kb-crop-sec kb-ed-crop">
+            <label class="kb-cut-opt"><input type="checkbox" data-cropon><span><b>${t("Crop / zoom in on this piece")}</b> ${t("– drag the frame on the picture; only that part of the piece goes into the new video")}</span></label>
+            <div class="kb-crop-tools" data-croptools hidden>
+              <div class="kb-crop-asp" data-asps>${[["0", "Free"], ["video", "Like the video"], ["1.7778", "16:9"], ["0.5625", "9:16"], ["1", "1:1"], ["0.8", "4:5"]].map(([v, l]) => `<button type="button" class="kb-chip" data-asp="${v}">${/^\d/.test(l) ? l : t(l)}</button>`).join("")}</div>
+              <div class="kb-crop-row"><button type="button" class="kb-btn is-ghost" data-zoomprev>${icon("search")}${t("Preview the zoom")}</button><button type="button" class="kb-btn is-ghost" data-cropreset>${t("Whole picture")}</button><span class="kb-hint" data-cropinfo></span></div>
+            </div>
+          </div>
         </div>
         <div class="kb-ed-list" data-list></div>
         <div class="kb-ed-out">
@@ -100,7 +108,7 @@ export async function render(main) {
             <label>${t("From")} <input class="kb-field" data-in value="${ft(it.start)}" size="7"></label><button class="kb-btn is-ghost" data-here="in" title="${esc(t("Take the time of the preview"))}">${t("Here")}</button>
             <label>${t("to")} <input class="kb-field" data-out value="${ft(it.end)}" size="7"></label><button class="kb-btn is-ghost" data-here="out" title="${esc(t("Take the time of the preview"))}">${t("Here")}</button>
             <label>${t("Speed")} <select class="kb-field" data-speed>${SPEEDS.map((s) => `<option value="${s}"${s === it.speed ? " selected" : ""}>${s}×</option>`).join("")}</select></label>
-            <small data-len>${lenText(it)}</small>
+            <small data-len>${lenText(it)}</small><span data-cropbadge>${cropBadge(it)}</span>
           </div>
         </div>
         <div class="kb-ed-acts">
@@ -115,6 +123,7 @@ export async function render(main) {
       : `<div class="kb-empty"><b>${t("No pieces yet")}</b><p>${t("Search for a scene on the left and add it. Then set where each piece starts and ends – the preview shows it.")}</p></div>`;
     syncTrim();
   }
+  const cropBadge = (it) => (it.crop ? `<em class="kb-cut-crop" title="${esc(t("This piece shows only a part of the picture"))}">${icon("crop")}${Math.round(it.crop.w * 100)} × ${Math.round(it.crop.h * 100)} %</em>` : "");
   const lenText = (it) => `${fmtDuration(Math.round(len(it)))}${it.scene.dur ? ` · ${t("of {len}", { len: fmtDuration(Math.round(it.scene.dur)) })}` : ""}`;
   // While a handle is dragged only what changed is updated (rebuilding the list would drop the focus and the drag)
   function syncRow(i) {
@@ -124,6 +133,7 @@ export async function render(main) {
     row.querySelector("[data-in]").value = ft(it.start);
     row.querySelector("[data-out]").value = ft(it.end);
     row.querySelector("[data-len]").textContent = lenText(it);
+    row.querySelector("[data-cropbadge]").innerHTML = cropBadge(it);
     sub();
   }
 
@@ -149,9 +159,94 @@ export async function render(main) {
         },
       });
     }
+    syncCrop();
     trim.setSource({ duration: it.scene.dur || (watching === sel ? video.duration || 0 : 0), fps: it.scene.fps, sprite: it.scene.sprite || null, src: it.scene.stream });
     trim.set(it.start, it.end);
   }
+
+  // ---- crop / zoom in on the chosen piece ----
+  // One cropper sits on the preview video; it shows the frame of the chosen piece (if it has one). The part is cut out of the piece
+  // and fitted into the size of the new video (black bars where the shapes differ).
+  let cropper = null;
+  let loadingCrop = false;
+  const cropOn = $("[data-cropon]");
+  const cropInfo = () => {
+    const it = items[sel];
+    if (!it || !it.crop) return ($("[data-cropinfo]").textContent = "");
+    const w = it.scene.w || video.videoWidth || 0;
+    const h = it.scene.h || video.videoHeight || 0;
+    $("[data-cropinfo]").textContent = w ? t("Result: {w} × {h} pixels", { w: Math.round(it.crop.w * w), h: Math.round(it.crop.h * h) }) : "";
+  };
+  function ensureCropper() {
+    if (!cropper) {
+      cropper = createCropper(video);
+      cropper.onChange((r) => {
+        const it = items[sel];
+        if (loadingCrop || !it || !it.crop) return;
+        it.crop = r;
+        cropInfo();
+        syncRow(sel);
+        saveDraft();
+      });
+    }
+    return cropper;
+  }
+  function syncCrop() {
+    const it = items[sel];
+    const on = !!(it && it.crop);
+    cropOn.checked = on;
+    $("[data-croptools]").hidden = !on;
+    $("[data-zoomprev]").classList.remove("is-on");
+    main.querySelectorAll("[data-asp]").forEach((q) => q.classList.toggle("is-on", q.dataset.asp === "0"));
+    if (on) {
+      loadingCrop = true;
+      const c = ensureCropper();
+      c.zoom(false);
+      c.setAspect(0);
+      c.set(it.crop, true);
+      c.show(true);
+      loadingCrop = false;
+      cropInfo();
+    } else if (cropper) {
+      cropper.zoom(false);
+      cropper.show(false);
+      cropInfo();
+    }
+  }
+  cropOn.onchange = () => {
+    const it = items[sel];
+    if (!it) return (cropOn.checked = false);
+    if (cropOn.checked) {
+      loadingCrop = true;
+      const c = ensureCropper();
+      c.set({}, true);
+      it.crop = c.get();
+      loadingCrop = false;
+    } else delete it.crop;
+    syncCrop();
+    syncRow(sel);
+    saveDraft();
+  };
+  $("[data-asps]").onclick = (e) => {
+    const b = e.target.closest("[data-asp]");
+    if (!b || !cropper) return;
+    cropper.zoom(false);
+    $("[data-zoomprev]").classList.remove("is-on");
+    main.querySelectorAll("[data-asp]").forEach((q) => q.classList.toggle("is-on", q === b));
+    cropper.setAspect(b.dataset.asp === "video" ? "video" : Number(b.dataset.asp));
+  };
+  $("[data-zoomprev]").onclick = (e) => {
+    if (!cropper) return;
+    const on = !cropper.zoomed;
+    cropper.zoom(on);
+    e.currentTarget.classList.toggle("is-on", on);
+  };
+  $("[data-cropreset]").onclick = () => {
+    if (!cropper) return;
+    cropper.zoom(false);
+    $("[data-zoomprev]").classList.remove("is-on");
+    cropper.set({ x: 0, y: 0, w: 1, h: 1 });
+  };
 
   // ---- preview ----
   let watching = -1; // the piece the preview shows
@@ -313,8 +408,9 @@ export async function render(main) {
   const sizeOf = () => {
     if (o.size !== "auto") return o.size.split("x").map(Number);
     const f = items[0].scene;
+    const c = items[0].crop || { w: 1, h: 1 }; // (a cropped first piece sets the shape)
     const ev = (n) => n - (n % 2);
-    return [ev(f.w || 1280), ev(f.h || 720)];
+    return [ev((f.w || 1280) * c.w), ev((f.h || 720) * c.h)];
   };
   $("[data-render]").onclick = async () => {
     if (busy) return;
@@ -332,7 +428,7 @@ export async function render(main) {
       const [w, h] = sizeOf();
       const r = await runBackend({
         mode: "edit_render",
-        items: items.map((it) => ({ scene_id: it.scene.id, start: it.start, end: it.end, speed: it.speed })),
+        items: items.map((it) => ({ scene_id: it.scene.id, start: it.start, end: it.end, speed: it.speed, crop: it.crop })),
         name: o.name || t("Edit"),
         w,
         h,
@@ -373,6 +469,7 @@ export async function render(main) {
   if (items.length) show(0, false);
   return () => {
     alive = false;
+    cropper && cropper.destroy();
     trim && trim.destroy();
     video.pause();
     video.removeAttribute("src");

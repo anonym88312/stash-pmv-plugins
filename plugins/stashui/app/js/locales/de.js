@@ -2703,4 +2703,7 @@ export default {
   "Draft sent to {box}": "Entwurf an {box} gesendet",
   "Open draft": "Entwurf öffnen",
   "Your {box} account may only read – it can't send drafts. Ask for edit access on {box}.": "Dein {box}-Konto darf nur lesen – es kann keine Entwürfe senden. Bitte auf {box} um Bearbeitungsrechte.",
+  "Crop / zoom in on this piece": "Dieses Stück zuschneiden / hineinzoomen",
+  "– drag the frame on the picture; only that part of the piece goes into the new video": "– Rahmen auf dem Bild ziehen; nur dieser Teil des Stücks kommt ins neue Video",
+  "This piece shows only a part of the picture": "Dieses Stück zeigt nur einen Teil des Bildes",
 };
