@@ -2950,4 +2950,6 @@ export default {
   "Trace": "Trace",
   "Wall of pictures": "Стіна із зображень",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Прямі кути й жодних проміжків між мініатюрами – вони стоять упритул, як стіна із зображень. У вигляді карток не використовується.",
+  "Tight, square thumbnails": "Щільні кутасті мініатюри",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "Прибирає проміжки між мініатюрами та заокруглені кути – усе стоїть щільно й з прямими краями. У вигляді карток не використовується.",
 };

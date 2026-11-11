@@ -2974,4 +2974,6 @@ export default {
   "Troubleshooting mode is active - all customizations are disabled": "故障排查模式已开启 – 所有自定义内容均已关闭",
   "Wall of pictures": "图片墙",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "缩略图为直角且彼此之间没有间隙——像一面图片墙。卡片视图不适用。",
+  "Tight, square thumbnails": "紧凑的直角缩略图",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "去掉缩略图之间的间隙和圆角，所有内容紧密排列、边角分明。卡片视图不适用。",
 };

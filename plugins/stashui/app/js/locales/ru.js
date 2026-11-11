@@ -2952,4 +2952,6 @@ export default {
   "Display links on performer grid cards": "Показывать ссылки на карточках исполнителей",
   "Wall of pictures": "Стена из картинок",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Прямые углы и никаких промежутков между миниатюрами – они стоят вплотную, как стена из картинок. В виде карточек не используется.",
+  "Tight, square thumbnails": "Плотные квадратные миниатюры",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "Убирает промежутки между миниатюрами и скруглённые углы – всё стоит плотно и с прямыми краями. В виде карточек не используется.",
 };

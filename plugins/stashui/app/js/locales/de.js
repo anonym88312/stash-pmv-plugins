@@ -2876,4 +2876,6 @@ export default {
   "Troubleshooting mode is active - all customizations are disabled": "Fehlersuchmodus ist aktiv – alle Anpassungen sind ausgeschaltet",
   "Wall of pictures": "Bilderwand",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Eckige Ecken und kein Abstand zwischen den Vorschaubildern – sie sitzen dicht wie eine Wand aus Bildern. Nicht in der Kartenansicht.",
+  "Tight, square thumbnails": "Dicht gepackte, eckige Vorschaubilder",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "Entfernt die Lücken zwischen den Vorschaubildern und die runden Ecken – alles sitzt dicht und kantig. Nicht in der Kartenansicht.",
 };

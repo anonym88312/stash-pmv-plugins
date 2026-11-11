@@ -2895,4 +2895,6 @@ export default {
   "Trace": "Trace",
   "Wall of pictures": "Muro de imágenes",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Esquinas rectas y sin espacio entre las miniaturas: quedan juntas como un muro de imágenes. No se usa en la vista de tarjetas.",
+  "Tight, square thumbnails": "Miniaturas juntas y cuadradas",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "Quita los huecos entre las miniaturas y las esquinas redondeadas: todo queda junto y con bordes rectos. No se usa en la vista de tarjetas.",
 };

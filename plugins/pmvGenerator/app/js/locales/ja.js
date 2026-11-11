@@ -2918,4 +2918,6 @@ export default {
   "GraphQL playground": "GraphQL プレイグラウンド",
   "Wall of pictures": "画像の壁",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "サムネイルを角丸なし・隙間なしで並べ、画像の壁のように見せます。カード表示では使われません。",
+  "Tight, square thumbnails": "隙間なし・角ばったサムネイル",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "サムネイル間の隙間と角丸をなくし、すべてを隙間なく角ばった見た目にします。カード表示では使われません。",
 };

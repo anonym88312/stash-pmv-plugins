@@ -2863,4 +2863,6 @@ export default {
   "Trace": "Trace",
   "Wall of pictures": "Mur d'images",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Coins carrés et aucun espace entre les vignettes – elles se touchent comme un mur d'images. Sans effet dans la vue en cartes.",
+  "Tight, square thumbnails": "Vignettes serrées et carrées",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "Supprime les espaces entre les vignettes et les coins arrondis : tout est serré et à angles droits. Sans effet dans la vue en cartes.",
 };

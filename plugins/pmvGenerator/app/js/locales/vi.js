@@ -2910,4 +2910,6 @@ export default {
   "Display links on performer grid cards": "Hiện liên kết trên thẻ diễn viên",
   "Wall of pictures": "Bức tường hình ảnh",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Ảnh thu nhỏ vuông góc và không có khoảng cách – xếp sát nhau như một bức tường hình ảnh. Không dùng ở dạng thẻ.",
+  "Tight, square thumbnails": "Ảnh thu nhỏ sát nhau, vuông góc",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "Bỏ khoảng cách giữa các ảnh thu nhỏ và các góc bo tròn, mọi thứ xếp sát nhau và vuông góc. Không dùng ở dạng thẻ.",
 };

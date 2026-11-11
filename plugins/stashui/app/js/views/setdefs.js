@@ -36,6 +36,7 @@ export const SECTIONS = [
   { id: "look", group: "look", title: "Appearance", intro: "Colors, liquid glass, animations, the name and icon in the browser tab.", items: [
     { k: "block", id: "theme", block: "theme", title: "Colors", terms: ["Liquid glass", "Background picture", "Colors"] },
     { k: "switch", id: "fx", title: "Effects and animations", hint: "Button shine and ripples, tilting cards with a moving light, a wipe on page changes and a glow behind the mouse. Off by itself when your system asks for less motion.", src: L("fx", true) },
+    { k: "switch", id: "tileWall", title: "Tight, square thumbnails", hint: "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.", later: true, src: L("tileWall", false) },
     { k: "text", id: "pageTitle", title: "Page title", hint: "The name in the browser tab. Empty = “Stash UI”.", src: L("pageTitle", ""), placeholder: "Stash UI", max: 60 },
     { k: "block", id: "favicon", block: "favicon", title: "Tab icon", hint: "A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser." },
   ], classic: [
@@ -58,7 +59,6 @@ export const SECTIONS = [
   { id: "lists", alias: "wall grid thumbnail size hover preview", group: "browse", title: "Lists and thumbnails", intro: "How the lists of scenes, images, performers … look and what the thumbnails do.", items: [
     { k: "range", id: "rowHeight", title: "Thumbnail size", hint: "How tall a row in the lists is.", src: L("rowHeight", 250), min: 130, max: 480, step: 10 },
     { k: "select", id: "cardFormat", title: "Thumbnail shape", hint: "Each as its picture is – or all as posters (portrait) or all as scenes (landscape).", src: L("cardFormat", "auto"), options: [["auto", "As the picture is"], ["poster", "Posters (portrait)"], ["scene", "Scenes (landscape)"]] },
-    { k: "switch", id: "tileWall", title: "Wall of pictures", hint: "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.", later: true, src: L("tileWall", false) },
     { k: "select", id: "previewMode", title: "Hover previews", hint: "Whether a thumbnail plays a short clip when you point at it.", src: L("previewMode", "on"), options: [["on", "Always"], ["auto", "Always, and all in view play by themselves"], ["off", "Never"], ["poster", "Not with posters"]] },
     { k: "switch", id: "previewSound", title: "Sound in previews", hint: "Hover previews play with sound (at the player's volume). Stash only puts sound into previews when “Preview audio” is on under Previews – regenerate them after switching it on.", src: L("previewSound", true) },
   ], classic: [

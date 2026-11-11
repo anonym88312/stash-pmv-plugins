@@ -2915,4 +2915,6 @@ export default {
   "Disable auto-rotate of fullscreen media on mobile": "Wyłącz automatyczne obracanie multimediów na pełnym ekranie na telefonie",
   "Wall of pictures": "Ściana obrazów",
   "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Kwadratowe rogi i brak odstępów między miniaturami – układają się jak ściana obrazów. Nie dotyczy widoku kart.",
+  "Tight, square thumbnails": "Ściśnięte, kanciaste miniatury",
+  "Removes the gaps between the thumbnails and the rounded corners, so everything sits tight and square-edged. Not used in the card view.": "Usuwa odstępy między miniaturami i zaokrąglone rogi – wszystko przylega ciasno i ma ostre krawędzie. Nie dotyczy widoku kart.",
 };
