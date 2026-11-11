@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.146.0",
+    date: "2026-11-11",
+    items: [
+      ["ui", "The zipper: a handle at the right edge of the lists (scenes, images, galleries, markers …). Pull it and the list scrolls – the further you pull, the faster; let go and it springs back and slows down. While you scroll fast the thumbnails move: Hourglass (small in the middle, big at the top and bottom), Zoom out (the whole wall shrinks), Drum (the rows tilt like on a roller), Blur – or Off. Settings → Lists and thumbnails: switch it on or off, animation, top speed, left or right side. Not with “reduced motion” in your system.", "拉链：列表（场景、图片、图库、标记……）右侧边缘的一个拉柄。拉动它列表就会滚动——拉得越远越快；松手后它弹回，列表逐渐减速。快速滚动时缩略图会动起来：沙漏（中间小、上下大）、缩小（整面墙缩小）、滚筒（行像在滚轴上倾斜）、模糊——或关闭。设置 → 列表与缩略图：开关、动画、最高速度、左右位置。系统开启“减少动态效果”时不使用动画。", "settings/lists::[data-sid=\"lists.zipperFx\"]"],
+    ],
+  },
+  {
     v: "3.145.1",
     date: "2026-11-11",
     items: [

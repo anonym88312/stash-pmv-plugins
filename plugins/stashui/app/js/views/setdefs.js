@@ -61,6 +61,10 @@ export const SECTIONS = [
     { k: "select", id: "cardFormat", title: "Thumbnail shape", hint: "Each as its picture is – or all as posters (portrait) or all as scenes (landscape).", src: L("cardFormat", "auto"), options: [["auto", "As the picture is"], ["poster", "Posters (portrait)"], ["scene", "Scenes (landscape)"]] },
     { k: "select", id: "previewMode", title: "Hover previews", hint: "Whether a thumbnail plays a short clip when you point at it.", src: L("previewMode", "on"), options: [["on", "Always"], ["auto", "Always, and all in view play by themselves"], ["off", "Never"], ["poster", "Not with posters"]] },
     { k: "switch", id: "previewSound", title: "Sound in previews", hint: "Hover previews play with sound (at the player's volume). Stash only puts sound into previews when “Preview audio” is on under Previews – regenerate them after switching it on.", src: L("previewSound", true) },
+    { k: "switch", id: "zipperOn", title: "Zipper for fast scrolling", hint: "A handle at the edge of the lists: pull it to scroll fast – the further you pull, the faster. Let go and it springs back.", src: L("zipperOn", true) },
+    { k: "select", id: "zipperFx", title: "Zipper: animation", hint: "How the thumbnails move while you scroll fast. Off when your system asks for less motion.", src: L("zipperFx", "hourglass"), options: [["hourglass", "Hourglass"], ["zoom", "Zoom out"], ["drum", "Drum"], ["blur", "Blur"], ["none", "Off"]] },
+    { k: "select", id: "zipperSpeed", title: "Zipper: top speed", hint: "How fast it scrolls when the handle is pulled all the way.", src: L("zipperSpeed", "normal"), options: [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"], ["turbo", "Very fast"]] },
+    { k: "select", id: "zipperSide", title: "Zipper: side", hint: "Which edge of the screen the handle sits on.", src: L("zipperSide", "right"), options: [["right", "Right"], ["left", "Left"]] },
   ], classic: [
     "interface.soundOnPreview",
     { k: "number", id: "previewVolume", title: "Preview volume", hint: "Volume of the preview when hovering over a scene. Set to 0 to mute.", src: U("previewVolume", 0), min: 0, max: 100, unit: "%" },

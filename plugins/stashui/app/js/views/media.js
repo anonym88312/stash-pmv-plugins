@@ -412,6 +412,7 @@ export function mediaBrowser(host, opts) {
     };
     hang = new Hang(box, {
       rowHeight: rowH(),
+      zipper: true,
       cards: cardsOn,
       fetchPage: async (page) => {
         await ensureTiers(); // (the badge on the cards, and the tier filter)

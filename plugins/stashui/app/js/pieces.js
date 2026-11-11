@@ -315,9 +315,12 @@ export class Hang {
     this.ro.observe(el);
     this.bind();
     this.more();
+    if (opts.zipper) import("./zipper.js").then((m) => { if (!this.dead) this.zip = m.attachZipper(this); }).catch(() => {}); // the handle for fast scrolling
   }
 
   destroy() {
+    this.dead = true;
+    if (this.zip) this.zip.destroy();
     closeScPop();
     window.removeEventListener("scroll", closeScPop, true);
     this.io.disconnect();
