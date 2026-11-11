@@ -58,6 +58,7 @@ export const SECTIONS = [
   { id: "lists", alias: "wall grid thumbnail size hover preview", group: "browse", title: "Lists and thumbnails", intro: "How the lists of scenes, images, performers … look and what the thumbnails do.", items: [
     { k: "range", id: "rowHeight", title: "Thumbnail size", hint: "How tall a row in the lists is.", src: L("rowHeight", 250), min: 130, max: 480, step: 10 },
     { k: "select", id: "cardFormat", title: "Thumbnail shape", hint: "Each as its picture is – or all as posters (portrait) or all as scenes (landscape).", src: L("cardFormat", "auto"), options: [["auto", "As the picture is"], ["poster", "Posters (portrait)"], ["scene", "Scenes (landscape)"]] },
+    { k: "switch", id: "tileWall", title: "Wall of pictures", hint: "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.", later: true, src: L("tileWall", false) },
     { k: "select", id: "previewMode", title: "Hover previews", hint: "Whether a thumbnail plays a short clip when you point at it.", src: L("previewMode", "on"), options: [["on", "Always"], ["auto", "Always, and all in view play by themselves"], ["off", "Never"], ["poster", "Not with posters"]] },
     { k: "switch", id: "previewSound", title: "Sound in previews", hint: "Hover previews play with sound (at the player's volume). Stash only puts sound into previews when “Preview audio” is on under Previews – regenerate them after switching it on.", src: L("previewSound", true) },
   ], classic: [

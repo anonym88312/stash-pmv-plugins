@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.145.0",
+    date: "2026-11-11",
+    items: [
+      ["ui", "Wall of pictures: Settings → Lists and thumbnails has a switch that makes the thumbnails in the lists square-cornered and puts them right next to each other with no space – the scenes, images and galleries then look like one wall of pictures. It applies to the tile view (not the card view) and takes effect when a list is loaded again.", "图片墙：设置 → 列表与缩略图 里新增一个开关，让列表中的缩略图变成直角并且彼此紧挨、没有间隙——场景、图片和图库看起来就像一面图片墙。适用于磁贴视图（卡片视图不适用），重新加载列表后生效。", "settings/lists::[data-sid=\"lists.tileWall\"]"],
+    ],
+  },
+  {
     v: "3.144.0",
     date: "2026-11-11",
     items: [

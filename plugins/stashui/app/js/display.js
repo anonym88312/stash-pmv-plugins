@@ -21,6 +21,7 @@ export function applyDisplay() {
   r.style.setProperty("--studio-h", (STUDIO_SIZES[store.get("studioSize", "m")] || 26) + "px");
   const pos = store.get("studioPos", "bl");
   r.dataset.studioPos = STUDIO_POS.includes(pos) ? pos : "bl";
+  r.classList.toggle("kb-wall", tileWall());
   r.classList.toggle("kb-nsfw", !!store.get("nsfw", false));
   r.classList.toggle("kb-nsfw-all", store.get("nsfwScope", "cards") === "all"); // also the player and the viewer
   r.classList.toggle("kb-nsfw-hover", !!store.get("nsfwHover", false)); // a thumbnail shows clear while the mouse is on it
@@ -98,6 +99,7 @@ export function toggleNsfw(force) {
 
 // Thumbnails: null = each as its picture is; else the width / height every thumbnail gets
 export const cardFormat = () => (CARD_FORMATS.includes(store.get("cardFormat", "auto")) ? store.get("cardFormat", "auto") : "auto");
+export const tileWall = () => !!store.get("tileWall", false); // square thumbnails without gaps, like a wall of pictures
 export const cardAspect = () => ({ poster: 2 / 3, scene: 16 / 9 }[cardFormat()] || null);
 // Do hover previews play?
 export function previewsOn() {

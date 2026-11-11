@@ -2913,4 +2913,6 @@ export default {
   "Trace": "Trace",
   "Troubleshooting mode is active - all customizations are disabled": "Tryb rozwiązywania problemów jest aktywny – wszystkie dostosowania są wyłączone",
   "Disable auto-rotate of fullscreen media on mobile": "Wyłącz automatyczne obracanie multimediów na pełnym ekranie na telefonie",
+  "Wall of pictures": "Ściana obrazów",
+  "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Kwadratowe rogi i brak odstępów między miniaturami – układają się jak ściana obrazów. Nie dotyczy widoku kart.",
 };

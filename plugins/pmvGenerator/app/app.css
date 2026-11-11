@@ -2389,3 +2389,9 @@ html.kb-glass .kb-studiorow-img { background: rgba(255, 255, 255, .08); }
 html.kb-glass .kb-md code, html.kb-glass .kb-md th { background: rgba(255, 255, 255, .1); }
 html.kb-glass .kb-md pre { background: rgba(0, 0, 0, .25); }
 .kb-scard-details code { padding: 0 .3em; border-radius: 3px; background: var(--bg-2); font-size: .92em; }
+
+/* Wall of pictures (Settings → Lists and thumbnails): square thumbnails, no gaps */
+html.kb-wall .kb-rows:not(.is-cards) .kb-row { gap: 0; margin-bottom: 0; }
+html.kb-wall.kb-glass.kb-fx .kb-rows:not(.is-cards) .kb-piece, html.kb-wall .kb-rows:not(.is-cards) .kb-piece { border-radius: 0; }
+html.kb-wall .kb-rows:not(.is-cards) .kb-piece:hover, html.kb-wall.kb-glass.kb-fx .kb-rows:not(.is-cards) .kb-piece:hover { box-shadow: inset 0 0 0 3px var(--pink); }
+html.kb-wall .kb-rows:not(.is-cards) .kb-piece.is-picked { box-shadow: inset 0 0 0 4px var(--pink); }

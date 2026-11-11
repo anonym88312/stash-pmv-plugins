@@ -2948,4 +2948,6 @@ export default {
   "library": "Бібліотека",
   "plugins": "Плагіни",
   "Trace": "Trace",
+  "Wall of pictures": "Стіна із зображень",
+  "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Прямі кути й жодних проміжків між мініатюрами – вони стоять упритул, як стіна із зображень. У вигляді карток не використовується.",
 };

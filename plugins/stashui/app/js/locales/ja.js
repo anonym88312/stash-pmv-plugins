@@ -2916,4 +2916,6 @@ export default {
   "Row": "行",
   "Display links on performer grid cards": "パフォーマーのグリッドカードにリンクを表示",
   "GraphQL playground": "GraphQL プレイグラウンド",
+  "Wall of pictures": "画像の壁",
+  "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "サムネイルを角丸なし・隙間なしで並べ、画像の壁のように見せます。カード表示では使われません。",
 };

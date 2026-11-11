@@ -2908,4 +2908,6 @@ export default {
   "Troubleshooting mode": "Chế độ khắc phục sự cố",
   "Troubleshooting mode is active - all customizations are disabled": "Chế độ khắc phục sự cố đang bật – mọi tùy chỉnh đã tắt",
   "Display links on performer grid cards": "Hiện liên kết trên thẻ diễn viên",
+  "Wall of pictures": "Bức tường hình ảnh",
+  "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Ảnh thu nhỏ vuông góc và không có khoảng cách – xếp sát nhau như một bức tường hình ảnh. Không dùng ở dạng thẻ.",
 };

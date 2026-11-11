@@ -2893,4 +2893,6 @@ export default {
   "library": "Biblioteca",
   "plugins": "Complementos",
   "Trace": "Trace",
+  "Wall of pictures": "Muro de imágenes",
+  "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Esquinas rectas y sin espacio entre las miniaturas: quedan juntas como un muro de imágenes. No se usa en la vista de tarjetas.",
 };

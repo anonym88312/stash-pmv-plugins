@@ -2950,4 +2950,6 @@ export default {
   "Troubleshooting mode": "Режим диагностики",
   "Troubleshooting mode is active - all customizations are disabled": "Режим диагностики включён – все настройки отключены",
   "Display links on performer grid cards": "Показывать ссылки на карточках исполнителей",
+  "Wall of pictures": "Стена из картинок",
+  "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Прямые углы и никаких промежутков между миниатюрами – они стоят вплотную, как стена из картинок. В виде карточек не используется.",
 };

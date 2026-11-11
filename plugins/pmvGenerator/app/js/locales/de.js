@@ -2874,4 +2874,6 @@ export default {
   "Trace": "Trace",
   "Troubleshooting mode": "Fehlersuchmodus",
   "Troubleshooting mode is active - all customizations are disabled": "Fehlersuchmodus ist aktiv – alle Anpassungen sind ausgeschaltet",
+  "Wall of pictures": "Bilderwand",
+  "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Eckige Ecken und kein Abstand zwischen den Vorschaubildern – sie sitzen dicht wie eine Wand aus Bildern. Nicht in der Kartenansicht.",
 };

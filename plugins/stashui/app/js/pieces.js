@@ -5,7 +5,7 @@ import { t, locale } from "./i18n.js";
 import { tierNow } from "./tiers.js";
 import { tierBadge } from "./versusx.js";
 import { critOf } from "./ratingx.js";
-import { cardAspect, previewsOn, nsfwKeeps } from "./display.js";
+import { cardAspect, previewsOn, nsfwKeeps, tileWall } from "./display.js";
 import { cardText } from "./markdown.js";
 
 // Stash files animated GIFs as video files (codec "gif") but serves the GIF itself: those are images
@@ -412,7 +412,7 @@ export class Hang {
     const W = this.el.clientWidth;
     if (!W) return;
     const H = this.rowH;
-    const G = this.gap;
+    const G = tileWall() ? 0 : this.gap;
     const rows = [];
     let row = [];
     let sum = 0;

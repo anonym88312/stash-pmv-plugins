@@ -2861,4 +2861,6 @@ export default {
   "library": "Bibliothèque",
   "plugins": "Plugins",
   "Trace": "Trace",
+  "Wall of pictures": "Mur d'images",
+  "Square corners and no space between the thumbnails – they sit together like a wall of pictures. Not used in the card view.": "Coins carrés et aucun espace entre les vignettes – elles se touchent comme un mur d'images. Sans effet dans la vue en cartes.",
 };
