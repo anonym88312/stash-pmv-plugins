@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.143.0",
+    date: "2026-11-11",
+    items: [
+      ["ui", "Discover → Overview is stashDiscover 2.7.5 now (it was 2.6.14), updated at the request of its author. New in it: pushing downloads to Motrix as well as qBittorrent (Discover → Settings → Downloader), sending StashDB scenes to Whisparr v3 with a quality profile of your choice (URL and API key in the same place), a clearer connection test (Jackett, downloader, Whisparr, stash-boxes – a connection you haven’t set up shows a dash instead of a tick), the “co-starred” counts per scene, a limit of 96 and paging for the co-starred and trending lists, a check that a scene is already in your library before it is imported, search-term fallbacks that no longer pile up, a custom drop-down in the settings, and many small fixes. The new texts are translated into the languages of Stash UI. Backend changed – use “Reload plugins” in Stash after updating.", "“发现”→“总览”现已升级为 stashDiscover 2.7.5（之前为 2.6.14），应其作者的请求更新。新增：除 qBittorrent 外还可把下载推送到 Motrix（发现 → 设置 → 下载器）、把 StashDB 场景连同你选择的质量档案发送到 Whisparr v3（URL 和 API Key 在同一处设置）、更清晰的连接测试（Jackett、下载器、Whisparr、stash-box——未设置的连接显示短横线而不是勾）、每个场景的“共同出演”计数、共同出演与热门列表上限 96 并可翻页、导入前检查场景是否已在库中、不再累积的搜索备选词、设置页自定义下拉，以及许多小修复。新增文字已翻译成 Stash UI 支持的各语言。后端有改动——更新后请在 Stash 中点“重新加载插件”。", "discover::.ssd-dp-toolbar"],
+    ],
+  },
+  {
     v: "3.142.0",
     date: "2026-11-11",
     items: [

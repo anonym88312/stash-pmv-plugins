@@ -1,4 +1,4 @@
-/* stashDiscover – shared core ("SSD"), taken from the plugin stashDiscover 2.6.14 by ufousox007
+/* stashDiscover – shared core ("SSD"), taken from the plugin stashDiscover 2.7.5 by ufousox007
  * https://github.com/k6cc/stash-jav-tools/tree/main/stashDiscover  (used in Stash UI with the author's permission)
  *
  * Changes for Stash UI (everything else is the original code):
@@ -6,7 +6,9 @@
  *  - stash-box requests (callBoxGQL) go through Stash UI's plugin backend (mode box_gql), which holds the API key –
  *    the key never reaches the page
  *  - plugin settings (Jackett, downloader, windows …) live in the stashui plugin config (key "ssd")
- *  - Jackett search / downloader push (runPluginOp) call the backend modes ssd_search / ssd_push
+ *  - Jackett search / downloader push (qBittorrent, Motrix) / Whisparr (runPluginOp) call the backend modes ssd_search / ssd_push /
+ *    ssd_whisparr_status / ssd_whisparr_push / ssd_whisparr_profiles
+ *  - not taken: the rewriting of stash-box endpoints after a network error (boxEp…) – the backend asks the box itself and follows redirects
  *  - the REST list of ThePornDB (tpdbGet) is asked through the backend (mode box_rest) instead of the page; the backend answers HTTP 429 as
  *    kind "ratelimit" (+ retry_after), so the plugin's own throttle and retry (boxGateTake / retryWaitFor) work on top of it as in the original
  *  - the resource search has a "Sort" row (Best match / Seeders / Size / Date) above the results (renderSearchResults; pull request by Fixik071)
@@ -25,7 +27,7 @@
   window.__ssdLoaded = true;
 
   var PLUGIN_ID = "stashDiscover";
-  var PLUGIN_VERSION = "2.6.14";
+  var PLUGIN_VERSION = "2.7.5";
   // DOM event fired after a discover-page scene is saved to the library;
   // discover.js listens and drops the card from its results
   var SCENE_SAVED_EVENT = "ssd:scene-saved";
@@ -39,6 +41,7 @@
     "stashdb.org": "StashDB",
     "theporndb.net": "TPDB",
     "pmvstash.org": "PMVStash",
+    "fansdb.cc": "FansDB",
   };
 
   // ─── i18n (Stash UI sets window.__ssdLocale; the original read it from Stash's Intl) ───
@@ -253,6 +256,8 @@
           throw e;
         }
         ctx.attempt++;
+        console.warn("[ssd] 429 " + boxHostOf(endpoint) + " retry " + ctx.attempt +
+          "/" + BOX_MAX_RETRIES + " in " + wait + "ms");
         return sleepMs(wait).then(loop);
       });
     }
@@ -968,7 +973,9 @@
   function brandNameForEndpoint(endpoint, fallback) {
     var host = "";
     try { host = new URL(endpoint).host; } catch (e) { host = String(endpoint || ""); }
-    return BRAND_MAP[host] || fallback || host;
+    // www. 写法也要命中，否则界面上显示的是裸主机名
+    var bare = host.replace(/^www\./i, "");
+    return BRAND_MAP[host] || BRAND_MAP[bare] || fallback || host;
   }
 
   // ─── Data loading ─────────────────────────────────────────────────────────
@@ -2052,8 +2059,8 @@
 
     } else if (vs === "net-fail") {
       body.appendChild(panelDesc(tc(
-        "网络请求失败，没有取到任何场景。检查网络或代理后重试。",
-        "The request failed and no scenes could be fetched. Check your connection or proxy, then retry.")));
+        "请求失败，没取到场景。检查网络或代理后重试。",
+        "Request failed — no scenes fetched. Check your connection or proxy, then retry.")));
       var failed = failedSources();
       if (failed.length) {
         var list = document.createElement("div");
@@ -2072,8 +2079,8 @@
 
     } else if (vs === "no-box") {
       body.appendChild(panelDesc(tc(
-        "本插件从已配置的 stash-box 读取场景。请在 设置 → 元数据提供者 中添加至少一个实例，然后重试。",
-        "Scenes are read from configured stash-boxes. Add at least one in Settings → Metadata Providers, then retry.")));
+        "未配置 stash-box：请在 设置 → 元数据提供者 添加一个实例，然后重试。",
+        "No stash-box configured — add one in Settings → Metadata Providers, then retry.")));
       var retryBtn2 = makePanelBtn(tc("重试", "Retry"), "primary");
       retryBtn2.onclick = retryLoad;
       actions.appendChild(retryBtn2);
@@ -2083,8 +2090,8 @@
 
     } else if (vs === "no-ids") {
       body.appendChild(panelDesc(tc(
-        "本插件按 stash-box 编号查询场景。在演员编辑面板的「Stash IDs」区点「添加Stash编号」，为下列源各填入一个编号；写入后会自动重新查询。",
-        "Scenes are queried by stash-box ID. Open the performer edit panel, click \"Add Stash ID\" in the \"Stash IDs\" section and fill in one ID for each source below — the tab re-queries automatically once it is saved.")));
+        "场景按 stash-box 编号查询。在演员编辑面板「Stash IDs」里为下列源各填一个编号，保存后自动重新查询。",
+        "Scenes are queried by stash-box ID. Fill in one ID per source in the performer's \"Stash IDs\" section — it re-queries once saved.")));
       var boxList = document.createElement("div");
       boxList.className = "ssd-src-list";
       (_state.allBoxes || []).forEach(function (b) {
@@ -2096,8 +2103,8 @@
           "Edit panel opened — waiting for an ID to be saved…"), true, false));
       }
       if (_state.editWatchMissing) {
-        body.appendChild(panelNote(tc("没找到编辑按钮，请手动点开页面右上角的编辑（铅笔）图标。",
-          "Edit button not found — open the edit (pencil) icon at the top right manually."), false, true));
+        body.appendChild(panelNote(tc("找不到编辑按钮，请手动点右上角的铅笔图标。",
+          "Edit button not found — click the pencil icon at the top right."), false, true));
       }
 
       var findBtn = findEntryBtn("lg", "primary");
@@ -2444,8 +2451,8 @@
     } else if (_state.findState === "fail") {
       wrap.appendChild(panelNote(tc("搜索失败：", "Search failed: ") + (_state.findMessage || ""), false, true));
     } else if (_state.findState === "empty") {
-      wrap.appendChild(panelNote(tc("在源上没找到同名演员。可换一个名字或别名再试，也可以手动在编辑面板里填编号。",
-        "No performer with that name on the sources. Try another name or alias, or fill the ID in the edit panel yourself."), false, false));
+      wrap.appendChild(panelNote(tc("源上没找到同名演员，换个名字或别名再试。",
+        "No performer with that name on the sources — try another name or alias."), false, false));
     } else if (_state.findResults.length) {
       var list = document.createElement("div");
       list.className = "ssd-find-list";
@@ -2898,10 +2905,14 @@
   // ─── 场景详情弹窗的动作按钮（用户 2026-10-30）────────────────────────────
   // 原来这三颗用旧版 .ssd-btn 三件套（4px 圆角 + text-shadow + 写死的 --ssd-*
   // 色），跟「演员详情弹层」「已忽略管理」不是一套。现在统一走 .ssd-dp-btn：
-  // primary 实心（加入库）/ 描边（在源站打开）/ tonal 淡底（搜索资源），
-  // 忽略仍是 solid 中性实心（见上方 ssdBanButton）——四颗各自可分辨，
+  // primary 实心（加入库）/ 描边（在源站打开）/ tonal 淡底（搜索、Whisparr），
+  // 忽略仍是 solid 中性实心（见上方 ssdBanButton）——各自可分辨，
   // 又都是同一套圆角、字号、间距与主题 token。
   // 文案单独一层 span：状态切换（准备中… / 搜索中…）只改字，不会把图标抹掉。
+  // 文案要短（用户 2026-11-09）：窄屏一行要放三颗，「搜索资源」「发送到
+  // Whisparr」会被挤到贴边，改成「找资源」「Whisparr」，完整说明放 title。
+  // 「找资源」而不是「搜索」：搜索区自己有个「搜索」小按钮（重搜当前词），
+  // 两个同名按钮并排会分不清；「找资源」也跟结果区的「未找到资源」对得上。
   var ACT_ADD_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" ' +
     'stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
@@ -2909,6 +2920,12 @@
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/>' +
     '<path d="M16.5 16.5L21 21"/></svg>';
+  // 发送到 Whisparr：向上的箭头 + 托盘，和「加入库」的加号区分开
+  var ACT_SEND_SVG =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M12 16V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/>' +
+    '<path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>';
 
   function ssdActButton(o) {
     var btn = document.createElement("button");
@@ -2938,6 +2955,17 @@
     var t = btn.querySelector("[data-ssd-lbl]");
     if (t) t.textContent = txt;
     else btn.textContent = txt;
+  }
+
+  // 窄屏每行放几颗由可见按钮数决定（4 颗 2×2，5 颗 3+2），这里只把数目写到
+  // 行上，分列规则在 CSS。Whisparr 按钮会被状态查询隐藏，隐藏后要重算一次。
+  function syncActCols(row) {
+    if (!row) return;
+    var n = 0;
+    for (var i = 0; i < row.children.length; i++) {
+      if (row.children[i].style.display !== "none") n++;
+    }
+    row.setAttribute("data-n", String(n));
   }
 
   // ─── Actions: Link (append) / Overwrite (source wins) ─────────────────────
@@ -3157,8 +3185,8 @@
     var body = document.createElement("div");
     body.className = "ssd-panel-body";
     body.appendChild(panelDesc(tc(
-      "忽略后「最新 / 关注 / 工作室」都不再查询这位演员，本页也不再出结果。点「恢复显示」立即生效。",
-      "Ignored performers are excluded from Discover queries and listings. Restore to bring them back immediately.")));
+      "忽略后「最新 / 关注 / 工作室」都不再查这位演员，点「恢复显示」立即生效。",
+      "Ignored performers are skipped across Discover; Restore brings them back immediately.")));
     panel.appendChild(body);
 
     var actions = document.createElement("div");
@@ -3373,8 +3401,10 @@
                      "Selected " + already + " scenes are already ignored"), { duration: 4000 });
         return;
       }
-      showModalNotice(tc("忽略失败：浏览器存储写不进去（可能已满）",
-        "Ignore failed: browser storage rejected the write"), "error");
+      // 这里是演员页的批量忽略，没有场景弹窗 → 弹窗内的提示条没有宿主，
+      // 必须走底部 toast，否则这句错误会静默消失（同上一分支）。
+      SSD.toast(tc("忽略失败：浏览器存储写不进去（可能已满）",
+        "Ignore failed: browser storage rejected the write"), { duration: 6000 });
       return;
     }
     var msg = tc("已忽略 " + keys.length + " 部场景", keys.length + " scenes ignored") +
@@ -3420,8 +3450,8 @@
       if (ck && codeSet[ck]) { skip++; return tick(); }
       planSceneImport(item, sc).then(function (draft) {
         return submitSceneImport(draft, pickFromPrefs(draft));
-      }).then(function () {
-        ok++;
+      }).then(function (created) {
+        if (created && created.existed) skip++; else ok++;
         var i = _state.cachedMissing.indexOf(item);
         if (i !== -1) _state.cachedMissing.splice(i, 1);
         tick();
@@ -3821,8 +3851,8 @@
       if (_state.preferredFallback) {
         var fbChip = makeChip(tc(_state.preferredBoxLabel + " 无编号 · 已改查其他源",
           _state.preferredBoxLabel + " has no ID · queried other sources"), "muted");
-        fbChip.title = tc("该演员在首选源没有编号，插件改为查询其他有编号的源。可在 设置 → 插件 → stashDiscover 中调整「首选源」。",
-          "This performer has no ID on the preferred source, so the other sources that do have one were queried. Change it in Settings → Plugins → stashDiscover.");
+        fbChip.title = tc("首选源没有编号，改查其他有编号的源。可在插件设置里改「首选源」。",
+          "No ID on the preferred source, so sources that have one were queried. Change it in the plugin settings.");
         fallbackGroup.appendChild(fbChip);
         if (findEntryVisible("content")) fallbackGroup.appendChild(findEntryBtn("sm", "secondary"));
       }
@@ -4087,7 +4117,7 @@
   // ── List view — 1:1 native .table-list.scene-table (scene list table) ──
   // Structure captured from the native scenes page list mode; themes apply
   // automatically via native class names. No select-col (no bulk operations).
-  function buildSceneTable(pageItems) {
+  function buildSceneTable(pageItems, opts) {
     var wrap = document.createElement("div");
     wrap.className = "table-list scene-table ssd-scene-table";
 
@@ -4122,7 +4152,7 @@
 
     var tbody = document.createElement("tbody");
     pageItems.forEach(function (item) {
-      tbody.appendChild(buildSceneRow(item));
+      tbody.appendChild(buildSceneRow(item, opts));
     });
     table.appendChild(tbody);
 
@@ -4255,7 +4285,7 @@
     });
   }
 
-  function buildSceneRow(item) {
+  function buildSceneRow(item, opts) {
     var sc = item.scene;
     var tr = document.createElement("tr");
 
@@ -4289,13 +4319,32 @@
     titleSpan.textContent = sc.title || sc.code || tc("无标题", "Untitled");
     titleLink.appendChild(titleSpan);
     titleTd.appendChild(titleLink);
-    // 列表模式同款标记：行里没有封面角标的位置，文字尾巴上补一个（同上，只在
-    // 「临时查看已忽略」时出现）
+    // 徽章统一降到标题下一行（用户 2026-11-06）：这一列原本只放一行标题，
+    // 下面的高度其实是空的；挂在文字尾巴上会挤掉标题的省略号，还随标题长短
+    // 左右横跳。一行排开、与标题同一条左基线，窄屏真放不下才换行。
+    var rowBadges = [];
+    if (item.owned) rowBadges.push(["ssd-row-owned", tc("在库中", "In library")]);
+    if (opts && opts.inlib && item.hasLocalPerformer) {
+      rowBadges.push(["ssd-row-inlib", tc("库内演员", "Known")]);
+    }
     if (_state.showIgnored && isItemIgnored(item)) {
-      var ignTag = document.createElement("span");
-      ignTag.className = "ssd-row-ignored";
-      ignTag.textContent = tc("已忽略", "Ignored");
-      titleTd.appendChild(ignTag);
+      rowBadges.push(["ssd-row-ignored", tc("已忽略", "Ignored")]);
+    }
+    if (rowBadges.length) {
+      var badgeRow = document.createElement("div");
+      badgeRow.className = "ssd-row-badges";
+      rowBadges.forEach(function (b) {
+        var bsp = document.createElement("span");
+        bsp.className = b[0];
+        bsp.textContent = b[1];
+        if (b[0] === "ssd-row-owned") {
+          bsp.title = tc("这部片已在你的本地库中", "This scene is already in your library");
+        } else if (b[0] === "ssd-row-inlib") {
+          bsp.title = tc("这部片里有你库内的演员", "Features a performer in your library");
+        }
+        badgeRow.appendChild(bsp);
+      });
+      titleTd.appendChild(badgeRow);
     }
     tr.appendChild(titleTd);
 
@@ -4684,8 +4733,8 @@
   var _searchAlts = [];         // 当前场景的备选搜索词（0 结果时给一键换词）
   var _searchCands = [];        // 主词 + 备选，用于判断某次搜索词属于哪种自动判定
   var _searchBarCtx = null;     // { item, btn }：备选按钮重搜时要用
-  var _searchSection = null;    // 当前结果区，备选按钮往这里加
   var _searchCurQuery = "";     // 最近一次实际下发的搜索词
+  var _searchBusy = false;      // 搜索是同步 op：连点会排队发两次请求，直接挡掉
 
   // 翻页的目标序列：不从调用方传列表，而是从触发卡片反查同一容器里的兄弟节点 ——
   // .ssd-scene-card 与 .ssd-scene-table 的 tr 都挂了 __ssdItem，所以演员页 / 工作室页 /
@@ -4918,6 +4967,10 @@
       title: tc("预览字段后写入本地库", "Preview fields, then add to the library"),
       on: function () { handleSaveScene(item, saveBtn); },
     });
+    // 已在库的直接定态：热门榜现在是完整榜单（保留名次），点进去不该还挂着
+    // 一个可点的「加入库」（用户 2026-11-06）。item.owned 只由热门数据集给，
+    // 其它视图的数据集本身已按「未拥有」过滤，所以这里不发额外查询。
+    if (item.owned) markActOwned(saveBtn);
     btnRow.appendChild(saveBtn);
 
     var openBtn = ssdActButton({
@@ -4932,13 +4985,30 @@
     var searchBtn = ssdActButton({
       tone: "tonal",
       icon: ACT_FIND_SVG,
-      label: tc("搜索资源", "Search Resources"),
+      label: tc("找资源", "Find"),
       title: tc("用番号/标题在 Jackett 里搜资源", "Search Jackett by code/title"),
       on: function () { handleSearchResources(item, searchBtn); },
     });
     btnRow.appendChild(searchBtn);
 
-    // 忽略（§C8）：主按钮区最右，二次点击确认。图标 + 文字并存 —— 三个大按钮
+    // Whisparr（用户 2026-11-09）：只对 stashdb 源出现 —— Whisparr 拿 stash_id
+    // 去反查 TPDB 元数据，javstash 的 ID 它不认，加进去只是空壳记录。
+    // 是否真的显示还要看配置：后端没填 URL/Key 时 status 返回 configured:false，
+    // 挂载后自己摘掉，前端不需要读 yml。
+    var whisperBtn = null;
+    if (isStashdbEndpoint(item.endpoint)) {
+      whisperBtn = ssdActButton({
+        tone: "tonal",
+        icon: ACT_SEND_SVG,
+        label: tc("Whisparr", "Whisparr"),
+        title: tc("让 Whisparr 搜索并下载这条场景",
+                 "Let Whisparr search for and download this scene"),
+        on: function () { handlePushWhisparr(item, whisperBtn); },
+      });
+      btnRow.appendChild(whisperBtn);
+    }
+
+    // 忽略（§C8）：主按钮区最右，二次点击确认。图标 + 文字并存 —— 几颗大按钮
     // 旁边一个纯图标认不出来；arm 态把文字换成「确认忽略？」才不至于误按。
     // 外观与「演员详情弹层」的忽略按钮同源（用户 2026-10-30）。
     var banBtn = ssdBanButton({
@@ -4948,6 +5018,8 @@
       onConfirm: function () { toggleIgnoreScene(item); },
     });
     btnRow.appendChild(banBtn);
+    // 窄屏分列要看实际有几颗（stashdb 源多一颗 Whisparr），数目交给 CSS
+    syncActCols(btnRow);
 
     actionSection.appendChild(btnRow);
     body.appendChild(actionSection);
@@ -5004,6 +5076,81 @@
     bindModalNavLayout();
     placeModalNav(overlay);
     guardScrollChain(overlay);
+    if (whisperBtn) refreshWhisparrState(item.scene, whisperBtn, _modalSeq);
+  }
+
+  // ─── Whisparr ─────────────────────────────────────────────────────────────
+  // 状态查询独立于渲染：查到就禁用按钮，查不到/失败就保持可点（真推的时候
+  // 再报错），绝不因为一次查询把弹窗卡住。
+  function isStashdbEndpoint(ep) {
+    return String(ep || "").toLowerCase().indexOf("stashdb.org") >= 0;
+  }
+
+  function refreshWhisparrState(scene, btn, seq) {
+    var sid = (scene || {}).id;
+    function hide() {
+      btn.style.display = "none";
+      syncActCols(btn.parentNode);
+    }
+    if (!sid) { hide(); return; }
+    runPluginOp({ mode: "whisparr_status", stash_id: sid }).then(function (r) {
+      if (seq !== _modalSeq) return;       // 已经翻到别的场景了
+      if (!r || r.configured === false) { hide(); return; }
+      if (r.exists) markWhisparrDone(btn);
+    }).catch(function () { /* 查询失败不影响手动推送 */ });
+  }
+
+  function markWhisparrDone(btn) {
+    btn.disabled = true;
+    btn.classList.add("ok");
+    setActLabel(btn, tc("已发送", "Sent"));
+  }
+
+  // 推送要用的质量档案 = 发现页-设置里选的那个（值是档案 id）。读不到就留空，
+  // 后端按「Any → id 最小」回退。演员详情「发现」tab 同源，读的是同一份 prefs。
+  function whisparrProfilePref() {
+    try {
+      var p = JSON.parse(localStorage.getItem(DP_PREFS_KEY) || "null") || {};
+      return p.whisparrProfile ? String(p.whisparrProfile) : "";
+    } catch (_) { return ""; }
+  }
+
+  // 提示条宿主：结果盒渲染后用它，搜索还没跑过时就落到搜索区（建弹窗时就有）。
+  function noticeHost() {
+    return document.querySelector("[data-ssd-search-results]")
+      || document.querySelector("[data-ssd-search]");
+  }
+
+  function handlePushWhisparr(item, btn) {
+    var scene = (item && item.scene) || {};
+    if (!scene.id || !btn || btn.disabled) return;
+    btn.disabled = true;
+    setActLabel(btn, tc("发送中…", "Sending…"));
+    runPluginOp({
+      mode: "whisparr_push",
+      stash_id: scene.id,
+      title: scene.title || "",
+      year: (scene.date || "").slice(0, 4),
+      profile: whisparrProfilePref(),
+    }).then(function (r) {
+      markWhisparrDone(btn);
+      // 档案名放底部 toast，不进按钮：按钮上只留「已发送」，长档案名会顶出边框
+      if (r && r.message) {
+        dpToast(r.message, { duration: (r && r.fallback) ? 6000 : 4000, title: r.message });
+      }
+    }).catch(function (e) {
+      btn.disabled = false;
+      setActLabel(btn, tc("发送失败", "Failed"));
+      btn.classList.add("err");
+      // 推送结果一律走底部 toast：搜索区在弹窗最下方、多数时候还没展开，
+      // 提示条插进去用户根本看不到（成功提示本来也是 toast，两边保持一致）
+      dpToast((e && e.message) || tc("发送失败", "Send failed"),
+        { duration: 6000, title: (e && e.message) || tc("发送失败", "Send failed") });
+      setTimeout(function () {
+        setActLabel(btn, tc("Whisparr", "Whisparr"));
+        btn.classList.remove("err");
+      }, 3000);
+    });
   }
 
   // 翻条箭头停位（用户 2026-11-01）：封面里已经有一套圆形图集箭头，翻条再压在
@@ -5816,12 +5963,15 @@
   // the stash-box performer page; click anywhere else (or scroll) → dismiss.
 
   var _performerCardEl = null;
+  var _performerCardHost = null;   // 挂 scroll 监听的滚动容器，hide 时按原样摘掉
 
   function hidePerformerCard() {
     if (_performerCardEl) { _performerCardEl.remove(); _performerCardEl = null; }
     document.removeEventListener("click", hidePerformerCard);
-    var modalEl = document.querySelector(".ssd-modal");
-    if (modalEl) modalEl.removeEventListener("scroll", hidePerformerCard);
+    if (_performerCardHost) {
+      _performerCardHost.removeEventListener("scroll", hidePerformerCard);
+      _performerCardHost = null;
+    }
   }
 
   function showPerformerCard(pill, item, performer) {
@@ -5891,11 +6041,17 @@
     card.style.top = top + "px";
 
     _performerCardEl = card;
-    // Dismiss on outside click / modal scroll (the card is fixed-positioned
-    // and would drift if the modal scrolls under it)
+    // 卡片 fixed 定位，名字所在的内容一滚它就留在原地、和名字脱开，所以滚动
+    // 即关。监听要挂在真正滚动的容器上：场景弹窗里是 .ssd-modal-body，
+    // .ssd-modal 自己 overflow:hidden，永远不会派发 scroll（用户 2026-11-11
+    // 反馈「翻页不关闭、头像框定在原地」就是这个）。
     document.addEventListener("click", hidePerformerCard);
-    var modalEl = document.querySelector(".ssd-modal");
-    if (modalEl) modalEl.addEventListener("scroll", hidePerformerCard);
+    // 滚动容器就是 .ssd-modal-body（.ssd-modal 自己 overflow:hidden，不派发
+    // scroll）。取不到只可能是 DOM 结构变了 —— 留日志，别换别的元素顶上：
+    // 挂上去一样不滚，还会让"已挂监听"看起来成立。
+    _performerCardHost = document.querySelector(".ssd-modal .ssd-modal-body");
+    if (_performerCardHost) _performerCardHost.addEventListener("scroll", hidePerformerCard);
+    else console.warn("[SSD] performer card: .ssd-modal-body missing, scroll will not dismiss");
 
     // Age + country are fetched on demand (async, backfilled when ready)
     fetchPerformerAgeCountry(item, performer, lp).then(function (info) {
@@ -5971,9 +6127,8 @@
     var sc = item.scene || {};
     var name = sc.title || sc.code || String(sc.id);
     if (!r.ok) {
-      // 写失败必须说出来（§3.2）：不能让 UI 显示"已忽略"而实际没落库
-      showModalNotice(tc("忽略失败：浏览器存储写不进去（可能已满）",
-                         "Ignore failed: browser storage rejected the write"), "error");
+      // 写失败必须说出来（§3.2）：不能让 UI 显示"已忽略"而实际没落库。
+      // 只走 toast —— 弹窗里那一栏是空的（没搜过），插进去看不见。
       SSD.toast(tc("忽略失败：记录只保留在本次会话", "Ignore failed: kept in memory only"),
         { duration: 6000 });
       return;
@@ -6091,6 +6246,32 @@
     });
   }
 
+  // 入库后把这条从各列表里摘掉 —— 发现页条目靠事件（那边重算 datasets），
+  // 演员页「发现」tab 直接 splice 缓存数组再重绘。
+  function dropSceneFromLists(item) {
+    if (!item) return;
+    if (item._dp) {
+      // 发现页那两处监听挂在 window 上，非冒泡事件传不过去
+      // （表现为「入库成功但卡片还挂着」）
+      document.dispatchEvent(new CustomEvent(SCENE_SAVED_EVENT, { detail: { item: item }, bubbles: true }));
+    } else {
+      var idx = _state.cachedMissing.indexOf(item);
+      if (idx !== -1) _state.cachedMissing.splice(idx, 1);
+      setTimeout(function () { if (_modalEl) renderTabContent(); }, 1500);
+    }
+  }
+
+  // 「已在库」终态：按钮文案统一叫「在库中」并禁用（用户 2026-11-06）。
+  // 与导入成功的按钮同款（ssd-btn-success），区别只在不可再点。
+  function markActOwned(btn) {
+    if (!btn) return;
+    btn.disabled = true;
+    setActLabel(btn, tc("在库中", "In Library"));
+    btn.title = tc("这条场景已在你的本地库中", "This scene is already in your library");
+    btn.classList.remove("err");
+    btn.classList.add("ssd-btn-success");
+  }
+
   function handleSaveScene(item, btn) {
     var sc = _state.modalDetail ? _state.modalDetail.scene : item.scene;
     // 只记住文案层，图标留着（按钮已换成 ssd-dp-btn：图标 + 文案两层）
@@ -6098,14 +6279,27 @@
     var label = lbl ? lbl.textContent : btn.textContent;
     btn.disabled = true;
     setActLabel(btn, tc("准备中…", "Preparing…"));
-    planSceneImport(item, sc).then(function (draft) {
-      if (btn.isConnected) { btn.disabled = false; setActLabel(btn, label); }
-      openSceneImportDialog(draft, btn);
+    function restore() { if (btn.isConnected) { btn.disabled = false; setActLabel(btn, label); } }
+    // 点「加入库」先判一次重（用户 2026-11-06）：已在库就整段预览都不必开，
+    // 直接把按钮定成「已在库」并把卡片摘掉。提交侧的判重仍然保留 —— 那是兜底。
+    findExistingSceneId(item.endpoint, sc).then(function (existingId) {
+      if (existingId) {
+        markActOwned(btn);
+        SSD.toast(tc("该场景已在库中，未重复创建", "Already in library — nothing created"));
+        dropSceneFromLists(item);
+        return;
+      }
+      return planSceneImport(item, sc).then(function (draft) {
+        restore();
+        openSceneImportDialog(draft, btn);
+      });
     }).catch(function (e) {
       console.error("[SSD] import plan failed:", e);
-      if (btn.isConnected) { btn.disabled = false; setActLabel(btn, label); }
-      showModalNotice(tc("读取本地库失败：", "Could not read the library: ") +
-        (e && e.message ? e.message : String(e)), "error");
+      restore();
+      // 同「找资源」：这一幕还没渲染结果区，提示条落进去看不见 → 走 toast
+      var msg = tc("读取本地库失败：", "Could not read the library: ") +
+        (e && e.message ? e.message : String(e));
+      dpToast(msg, { duration: 6000, title: msg });
     });
   }
 
@@ -6320,8 +6514,8 @@
       var amb = document.createElement("div");
       amb.className = "ssd-imp-note";
       amb.textContent = tc(
-        "其中 " + draft.perf.ambiguous + " 位库里有重名但无法确定是不是同一人，按新建处理（选「只关联已有」时这几位跳过，事后可在演员页合并）",
-        draft.perf.ambiguous + " with a same-name local record could not be confirmed — created as new (skipped when linking existing only); merge later if needed");
+        "其中 " + draft.perf.ambiguous + " 位有同名档案但无法确认是同一人，按新建处理（「只关联已有」时跳过，可事后合并）",
+        draft.perf.ambiguous + " with same-name local records that could not be confirmed — created as new (skipped in link-only mode); merge later if needed");
       list.appendChild(amb);
     }
 
@@ -6410,8 +6604,8 @@
       label: tc("封面", "Cover"),
       checked: prefs.cover,
       value: draft.covers.length
-        ? tc(draft.covers.length + " 个候选，失败只丢封面",
-             draft.covers.length + " candidate(s), cover only on failure")
+        ? tc(draft.covers.length + " 个候选 · 失败只丢封面",
+             draft.covers.length + " candidate(s) · cover only on failure")
         : tc("没有候选图", "no candidate"),
     });
     list.appendChild(coverRow.row);
@@ -6458,6 +6652,10 @@
       submitSceneImport(draft, pick, function (t) { ok.textContent = t; })
         .then(function (created) {
           closeImportDialog();
+          // 判重命中：没建任何东西，按钮也别报「已加入」（那条记录本来就在）
+          if (created && created.existed) {
+            SSD.toast(tc("该场景已在库中，未重复创建", "Already in library — nothing created"));
+          }
           afterSceneImported(draft.item, btn, created);
         })
         .catch(function (e) {
@@ -6479,8 +6677,128 @@
     });
   }
 
+  // 入库前判重（用户 2026-11-06 论坛反馈）：同一个 box 场景被点两次「加入库」
+  // 会建出两条本地记录。卡片在「热门」这类不按已拥有过滤的视图里不会消失，
+  // 关掉弹窗再点一次就是一次全新的 sceneCreate —— 原来单条入库这条路径上
+  // 没有任何判重（批量入库只在两个页面各自按番号跳过，且都漏了 stash_id）。
+  // 两路一起查：stash_id 是权威键，番号兜住「早先手动加的、没写 stash_id」的记录。
+  function findExistingSceneId(endpoint, sc) {
+    var ep = String(endpoint || "").toLowerCase();
+    var sid = String((sc && sc.id) || "");
+    var code = String((sc && sc.code) || "").trim();
+    if (!sid && !code) return Promise.resolve(null);
+    return callGQL(
+      "query($ep:String!,$sid:String!,$code:String!){" +
+        "bySid:findScenes(scene_filter:{stash_id_endpoint:{endpoint:$ep,stash_id:$sid,modifier:EQUALS}},filter:{per_page:1}){scenes{id}} " +
+        "byCode:findScenes(scene_filter:{code:{value:$code,modifier:EQUALS}},filter:{per_page:1}){scenes{id}}}",
+      { ep: ep, sid: sid, code: code }
+    ).then(function (d) {
+      var bySid = (((d || {}).bySid || {}).scenes || [])[0];
+      // 番号是空串时不吃 byCode 的结果（EQUALS "" 的语义各版本不保证）
+      var byCode = code ? ((((d || {}).byCode || {}).scenes) || [])[0] : null;
+      return (bySid && bySid.id) || (byCode && byCode.id) || null;
+    }).catch(function () {
+      // 查不动就放行：宁可多建一条，也不要因为判重失败把入库整条挡死
+      return null;
+    });
+  }
+
   // 提交：演员建档在前（场景要引用它们的 id），标签/工作室按三态，最后 sceneCreate
   function submitSceneImport(draft, pick, onProgress) {
+    var sc = draft.scene;
+    return findExistingSceneId(draft.endpoint, sc).then(function (existingId) {
+      // 已在库：一个字段都不写，直接把已有场景交回去（调用方按 existed 标「已在库」）
+      if (existingId) return { id: existingId, code: sc.code, existed: true };
+      return doSceneImport(draft, pick, onProgress);
+    });
+  }
+
+  // ─── 封面后台补写（用户 2026-11-06）───────────────────────────────────────
+  // 场景落地即视为入库成功；封面属于「有更好」，放后台队列里串行补。
+  // 为什么不等：sceneUpdate(cover_image) 是 Stash 服务端同步下载外链图，
+  // 实测一张 2.0s（javstash 直链）、候选最多 3 张；批量 30 条就是 +60s，
+  // 而本地 GQL 通道（callGQL）没有超时也没有 abort —— 一张挂死的图能把整批
+  // 扣在半路，批量期间选择条又是全禁用的，没有逃生口。
+  //   · 并发 1 + 场景间 120ms：Stash 侧是 SQLite 写 + 下载，打并发只会互相拖
+  //   · 单候选 10s 上限：超时说明这台主机在黑洞，直接放弃该条剩余候选
+  //     （换下一张大概率还是同一台主机，再等 10s 没意义）
+  //   · 队列排空后汇总一次；全部成功就不打扰（成功不需要通知）
+  var COVER_TRY_MS = 10000;
+  var COVER_GAP_MS = 120;
+  var _coverQ = [];
+  var _coverBusy = false;
+  var _coverStat = { ok: 0, fail: 0 };
+  var _coverTimer = 0;
+
+  // callGQL 不支持 AbortController，只能在外层赛跑：超时后底层请求仍在跑，
+  // 结果丢掉即可（同一个场景的同一张封面，晚到的成功不会有副作用）。
+  function withTimeout(p, ms) {
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var t = setTimeout(function () {
+        settled = true;
+        reject(new Error("timeout"));
+      }, ms);
+      p.then(function (v) {
+        if (settled) return;
+        settled = true; clearTimeout(t); resolve(v);
+      }, function (e) {
+        if (settled) return;
+        settled = true; clearTimeout(t); reject(e);
+      });
+    });
+  }
+
+  function queueCover(sceneId, urls) {
+    if (!sceneId || !urls || !urls.length) return;
+    _coverQ.push({ id: sceneId, urls: urls.slice() });
+    pumpCover();
+  }
+
+  function pumpCover() {
+    if (_coverBusy) return;
+    var job = _coverQ.shift();
+    if (!job) { flushCoverStat(); return; }
+    _coverBusy = true;
+    coverTryAt(job, 0);
+  }
+
+  function coverTryAt(job, i) {
+    if (i >= job.urls.length) return coverSettled(false);
+    var req;
+    try {
+      req = callGQL(
+        "mutation($input:SceneUpdateInput!){sceneUpdate(input:$input){id}}",
+        { input: { id: job.id, cover_image: job.urls[i] } }
+      );
+    } catch (e) {
+      return coverTryAt(job, i + 1);
+    }
+    withTimeout(req, COVER_TRY_MS).then(function () {
+      coverSettled(true);
+    }, function (e) {
+      var msg = (e && e.message) || String(e);
+      console.warn("[SSD] cover not set (scene " + job.id + ", candidate " + (i + 1) + "):", msg);
+      if (msg === "timeout") return coverSettled(false);
+      coverTryAt(job, i + 1);
+    });
+  }
+
+  function coverSettled(ok) {
+    if (ok) _coverStat.ok++; else _coverStat.fail++;
+    _coverBusy = false;
+    clearTimeout(_coverTimer);
+    _coverTimer = setTimeout(pumpCover, COVER_GAP_MS);
+  }
+
+  function flushCoverStat() {
+    var st = _coverStat;
+    _coverStat = { ok: 0, fail: 0 };
+    if (!st.fail) return;
+    SSD.toast(tc(st.fail + " 条封面未保存", st.fail + " cover(s) not saved"), { duration: 6000 });
+  }
+
+  function doSceneImport(draft, pick, onProgress) {
     var endpoint = draft.endpoint;
     var sc = draft.scene;
 
@@ -6537,8 +6855,8 @@
       if (pick.director) input.director = pick.director;
 
       // 封面不塞进 sceneCreate：Stash 会同步下载外链图，TPDB 的 CDN 连不上时
-      // 整条入库直接失败（实测 "processing cover image: ... EOF"）。场景先落地，
-      // 封面单独补，失败只丢封面 —— 候选链逐个试，外站直链各有防盗链规则。
+      // 整条入库直接失败（实测 "processing cover image: ... EOF"）。
+      // 也不在入库链里等它补完（用户 2026-11-06）：见 queueCover 上方注释。
       var coverList = pick.cover ? draft.covers : [];
 
       return callGQL(
@@ -6547,17 +6865,8 @@
       ).then(function (data) {
         var created = data && data.sceneCreate;
         if (!created || !created.id) throw new Error(tc("创建返回空结果", "Create returned empty result"));
-        function tryCover(i) {
-          if (i >= coverList.length) return created;
-          return callGQL(
-            "mutation($input:SceneUpdateInput!){sceneUpdate(input:$input){id}}",
-            { input: { id: created.id, cover_image: coverList[i] } }
-          ).catch(function (e) {
-            console.warn("[SSD] cover not set (candidate " + (i + 1) + "):", (e && e.message) || e);
-            return tryCover(i + 1);
-          });
-        }
-        return tryCover(0);
+        queueCover(created.id, coverList);
+        return created;
       });
     }).then(function (created) {
       // 手动入库成功 → 该场景的忽略记录没意义了（§3 最后一条）
@@ -6595,20 +6904,10 @@
 
   function afterSceneImported(item, btn, created) {
     if (!created || !created.id) return;
-    if (btn && btn.isConnected) {
-      btn.textContent = tc("已加入 ✓", "Added ✓");
-      btn.classList.add("ssd-btn-success");
-    }
-    if (item._dp) {
-      // Discover page owns this item — let it drop the card and re-render
-      // bubbles 必须开：发现页那两处监听挂在 window 上，document 上派发的
-      // 非冒泡事件根本传不过去（表现为「入库成功但卡片还挂着」）
-      document.dispatchEvent(new CustomEvent(SCENE_SAVED_EVENT, { detail: { item: item }, bubbles: true }));
-    } else {
-      var idx = _state.cachedMissing.indexOf(item);
-      if (idx !== -1) _state.cachedMissing.splice(idx, 1);
-      setTimeout(function () { if (_modalEl) renderTabContent(); }, 1500);
-    }
+    // setActLabel 而不是 textContent：按钮是「图标层 + 文案层」两段，
+    // 直接改 textContent 会把图标一并抹掉
+    if (btn && btn.isConnected) { markActOwned(btn); if (item) item.owned = true; }
+    dropSceneFromLists(item);
   }
 
 
@@ -6963,7 +7262,7 @@
         state.classList.add("is-link");
       } else {
         state.textContent = plan.how === "ambiguous"
-          ? tc("库里有重名但无法确定是不是同一人，将新建一条档案（事后可合并）",
+          ? tc("库里有重名，无法确认是否同一人，将新建一条（可事后合并）",
               "Same-name records exist but cannot be confirmed — a new record will be created")
           : tc("将新建一条演员档案", "A new performer record will be created");
       }
@@ -7276,7 +7575,10 @@
     var sc = _state.modalDetail ? _state.modalDetail.scene : item.scene;
     var pick = searchQueryFor(sc);
     if (!pick) {
-      showModalNotice(tc("无法构建搜索词（无番号、日期或标题）", "Cannot build search query (no code, date or title)"), "error");
+      // 这一步还没建搜索栏，提示条没有可落的位置（搜索区是空的、还在弹窗最下面）
+      dpToast(tc("无法构建搜索词（无番号、日期或标题）",
+        "Cannot build search query (no code, date or title)"),
+        { duration: 6000, title: tc("无法构建搜索词", "Cannot build search query") });
       return;
     }
 
@@ -7333,6 +7635,8 @@
     var goBtn = document.createElement("button");
     goBtn.type = "button";
     goBtn.className = "ssd-dp-btn primary";
+    // 搜索中由 doSearchResources 统一禁用（防连点排队发两次同步请求）
+    goBtn.setAttribute("data-ssd-search-go", "");
     // 文案单独一层，和弹窗其他动作按钮同一套结构（图标不随状态被抹掉）
     goBtn.innerHTML = '<span class="ssd-dp-bico">' + ACT_FIND_SVG + "</span>";
     var goTx = document.createElement("span");
@@ -7362,13 +7666,22 @@
     return document.querySelector(".ssd-modal .ssd-modal-body");
   }
 
-  // Smooth-scroll the modal to its bottom so the search status/results are
-  // visible (the search section sits at the end of the modal).
-  function scrollModalToBottom() {
+  // 把节点推进可视区：已经在视野里就完全不动，不贴顶、也不是悬浮层 ——
+  // 加载中那行就是搜索框下面一行普通文案（用户 2026-11-09：不要「贴到视口
+  // 顶部」的效果），这里只在它落到视口外时滚最小的一段。
+  // 不用 scrollIntoView：外层 modal 是 fixed，它会把整页一起滚，实测滚不到位
+  // （2026-11-09 真机验证 loading 仍在视口外）；直接改滚动容器的 scrollTop。
+  function revealIfNeeded(node) {
     var body = modalBody();
-    if (!body) return;
-    try { body.scrollTo({ top: body.scrollHeight, behavior: "smooth" }); }
-    catch (e) { body.scrollTop = body.scrollHeight; }
+    if (!body || !node) return;
+    var nb = node.getBoundingClientRect();
+    var bb = body.getBoundingClientRect();
+    if (nb.top >= bb.top && nb.bottom <= bb.bottom) return;
+    var top = body.scrollTop;
+    if (nb.bottom > bb.bottom) top += nb.bottom - bb.bottom + 12;
+    else if (nb.top < bb.top) top -= bb.top - nb.top + 12;
+    try { body.scrollTo({ top: top, behavior: "smooth" }); }
+    catch (e) { body.scrollTop = top; }
   }
 
   // 结果渲染出来比那行「搜索中…」高一个数量级，滚动位置却还停在旧底部，
@@ -7376,19 +7689,40 @@
   function scrollResultsToTop(section) {
     var body = modalBody();
     if (!body || !section) return;
-    var anchor = section.querySelector(".ssd-search-header") || section;
+    // 抬头紧跟结果列表，就在 renderSearchResults 里建好，直接量它
+    var anchor = section.querySelector(".ssd-search-header");
+    if (!anchor) return;
     var delta = anchor.getBoundingClientRect().top - body.getBoundingClientRect().top;
     var top = body.scrollTop + delta - 8;
     try { body.scrollTo({ top: top, behavior: "smooth" }); }
     catch (e) { body.scrollTop = top; }
   }
 
+  // 结果盒统一入口：调用方可能传外层 [data-ssd-search]（动作按钮），也可能直接
+  // 传结果盒（备选按钮回调）—— 两种都要归一到同一个节点，否则「换个搜索词再试」
+  // 这类行会挂到不同的父节点上，清不干净、越攒越多。
+  function searchBox(node) {
+    if (!node) return null;
+    if (node.hasAttribute("data-ssd-search-results")) return node;
+    var box = node.querySelector("[data-ssd-search-results]");
+    if (!box) {
+      box = document.createElement("div");
+      box.setAttribute("data-ssd-search-results", "");
+      node.appendChild(box);
+    }
+    return box;
+  }
+
   function doSearchResources(section, item, btn, query, kind) {
-    if (!query) return;
+    if (!query || _searchBusy) return;
+    var box = searchBox(section);
+    if (!box) return;
+    // 结果盒一定在搜索区里（searchBox 只在区里建）—— 直接取，不再两级退回
+    var outer = box.closest("[data-ssd-search]");
 
     // 搜索来源标签：让用户知道这词是按番号 / 日期+演员 / 标题生成的。
     // kind 为空（用户自己改过的词）就清空，不假装知道。
-    var chip = section.querySelector("[data-ssd-search-src]");
+    var chip = outer.querySelector("[data-ssd-search-src]");
     if (chip) {
       var lbl = kind && SEARCH_KIND_LABEL[kind] ? SEARCH_KIND_LABEL[kind]() : "";
       chip.textContent = lbl ? tc("按" + lbl, lbl) : "";
@@ -7396,40 +7730,53 @@
       chip.title = query;
     }
 
-    var results = section.querySelector("[data-ssd-search-results]");
-    if (!results) {
-      results = document.createElement("div");
-      results.setAttribute("data-ssd-search-results", "");
-      section.appendChild(results);
-    }
-    results.innerHTML = "";
+    // 输入框与实际下发的词保持一致：点备选按钮也走这里（以前在按钮回调里填，
+    // 万一被 busy 挡掉，输入框会留下一个根本没搜过的词）
+    var input = outer.querySelector("[data-ssd-search-input]");
+    if (input && input.value !== query) input.value = query;
 
-    btn.disabled = true;
-    setActLabel(btn, tc("搜索中...", "Searching..."));
+    // 备选行现在住在结果盒里（清 box 就没了），这句只是防御：万一以后又有谁
+    // 把它挂到外层，也不会重新攒成一片。
+    var stale = outer.querySelectorAll(".ssd-search-alts");
+    for (var i = 0; i < stale.length; i++) stale[i].remove();
+
+    box.innerHTML = "";
+
+    _searchBusy = true;
+    var go = outer.querySelector("[data-ssd-search-go]");
+    if (go) go.disabled = true;
+    if (btn) {
+      btn.disabled = true;
+      setActLabel(btn, tc("搜索中...", "Searching..."));
+    }
     var loading = document.createElement("div");
     loading.className = "ssd-search-loading";
     loading.textContent = tc("正在通过 Jackett 搜索: ", "Searching via Jackett: ") + query;
-    results.appendChild(loading);
-    scrollModalToBottom();
+    box.appendChild(loading);
+    revealIfNeeded(loading);
+
+    function done() {
+      _searchBusy = false;
+      if (go) go.disabled = false;
+      if (btn) {
+        btn.disabled = false;
+        setActLabel(btn, tc("找资源", "Find"));
+      }
+    }
 
     runPluginOp({ mode: "search", query: query }).then(function (result) {
-      btn.disabled = false;
-      setActLabel(btn, tc("搜索资源", "Search Resources"));
-      // 结果渲染完由 renderSearchPage 统一把抬头对齐到可视区（见 scrollResultsToTop）
-      // 排序要用实际下发的搜索词；后端老版本没回 query 时用本次的兜底
-      var payload = result || {};
-      if (!payload.query) payload.query = query;
-      _searchSection = section;
-      renderSearchResults(results, payload);
+      done();
+      // 后端 do_search 一定回 query（同一份插件包里，不存在版本对不上的后端），
+      // 抬头排序直接用它
+      renderSearchResults(box, result || {});
     }).catch(function (e) {
       console.error("[SSD] search error:", e);
-      btn.disabled = false;
-      setActLabel(btn, tc("搜索资源", "Search Resources"));
-      results.innerHTML = "";
+      done();
+      box.innerHTML = "";
       var err = document.createElement("div");
       err.className = "ssd-search-error";
       err.textContent = tc("搜索失败: ", "Search failed: ") + (e.message || String(e));
-      results.appendChild(err);
+      box.appendChild(err);
     });
   }
 
@@ -7474,10 +7821,11 @@
 
     function row(it) {
       var r = document.createElement("div");
-      r.className = "ssd-test-row " + (it.ok ? "is-ok" : "is-bad");
+      var st = it.state || (it.ok ? "ok" : "bad"); // three states: ok / bad / skip (an optional connection that isn't set up)
+      r.className = "ssd-test-row is-" + st;
       var mark = document.createElement("span");
       mark.className = "ssd-test-mark";
-      mark.textContent = it.ok ? "✓" : "✗";
+      mark.textContent = st === "skip" ? "–" : st === "ok" ? "✓" : "✗";
       var body = document.createElement("div");
       body.className = "ssd-test-body";
       [["ssd-test-name", it.label], ["ssd-test-detail", it.detail], ["ssd-test-hint", it.hint]].forEach(function (p) {
@@ -7518,11 +7866,13 @@
   // ─── Resource search / push ──────────────────────────────────────────────
   // The original calls its own plugin's runPluginOperation (stdout of the plugin = answer, no log detour). Stash UI's backend
   // answers the same way: modes ssd_search (Jackett) and ssd_push (downloader). Errors come back as a rejected promise.
+  var BACKEND_MODES = { search: "ssd_search", push_download: "ssd_push", whisparr_status: "ssd_whisparr_status", whisparr_push: "ssd_whisparr_push", whisparr_profiles: "ssd_whisparr_profiles" };
   function runPluginOp(args) {
-    args = args || {};
-    return ssdBackend(args.mode === "push_download"
-      ? { mode: "ssd_push", magnet: args.magnet || "" }
-      : { mode: "ssd_search", query: args.query || "" });
+    var a = {};
+    var src = args || {};
+    Object.keys(src).forEach(function (k) { a[k] = src[k]; });
+    a.mode = BACKEND_MODES[src.mode] || "ssd_search";
+    return ssdBackend(a);
   }
 
   // callGQL 把 GraphQL errors 数组整个 JSON.stringify 后抛出，直接显示会是一坨
@@ -7550,7 +7900,7 @@
     }
     if (/^error running plugin: exit status \d+/.test(s) || /exit status \d+/.test(s)) {
       return tc(
-        "插件后端执行出错，具体原因在 Stash 日志里（搜索 stashDiscover 的 stderr）",
+        "插件后端出错，原因见 Stash 日志（搜 stashDiscover 的 stderr）",
         "Plugin backend exited with an error — see the plugin stderr in the Stash log"
       ) + "：" + s;
     }
@@ -7636,10 +7986,14 @@
   // 0 结果时给一键换词：自动判定可能恰好撞上「种子还没出」，而换一种形态
   // （标题 / 日期+演员 / 番号）经常能搜到。只给按钮、不自动重试 —— 搜索是
   // 同步 op，反代 60s 会切，翻倍请求不可控，而且用户往往想自己看看词。
-  function renderSearchAlts() {
-    var section = _searchSection;
+  // section 是结果盒：调用方传进来，不再读全局 —— 混用容器就是「多行备选」
+  // 的源头（用户 2026-11-09）。
+  function renderSearchAlts(section) {
     var ctx = _searchBarCtx;
     if (!section || !ctx) return;
+    // 幂等：同一份结果只留一行
+    var old = section.querySelector(".ssd-search-alts");
+    if (old) old.remove();
     var rest = (_searchCands || []).filter(function (c) { return c.q && c.q !== _searchCurQuery; });
     if (!rest.length) return;
     var row = document.createElement("div");
@@ -7652,8 +8006,6 @@
       b.textContent = SEARCH_KIND_LABEL[alt.kind] ? SEARCH_KIND_LABEL[alt.kind]() : alt.kind;
       b.title = alt.q;
       b.onclick = function () {
-        var input = section.querySelector("[data-ssd-search-input]");
-        if (input) input.value = alt.q;
         doSearchResources(section, ctx.item, ctx.btn, alt.q, alt.kind);
       };
       row.appendChild(b);
@@ -7730,7 +8082,7 @@
       empty.className = "ssd-search-empty";
       empty.textContent = tc("未找到资源", "No resources found");
       section.appendChild(empty);
-      renderSearchAlts();
+      renderSearchAlts(section);
       return;
     }
 
@@ -7927,9 +8279,9 @@
     return row;
   }
 
+  // 弹窗内的提示条只存在于「找资源」区里，找资源 / 推送下载这类就地反馈用它。
   function showModalNotice(text, type) {
-    var host = document.querySelector("[data-ssd-search-results]")
-      || document.querySelector("[data-ssd-search]");
+    var host = noticeHost();
     if (!host) return;
     var notice = document.createElement("div");
     notice.className = "ssd-notice ssd-notice-" + (type || "info");
@@ -7986,6 +8338,9 @@
   var IGNORE_MAX_PER_KIND = 3000;  // 场景 / 演员各自条数上限
   var IGNORE_MAX_CHARS = 1000000;  // 整包字符预算（配额约 5.24M，留足余量）
   var IGNORE_SNAPSHOT_P = 4;       // 场景快照只留前 4 位演员名（管理页搜索用）
+  var IGNORE_SNAPSHOT_A = 12;      // 演员快照只留前 12 个别名（同上）
+  // 超出上面两个上限时，额外记一个总数（pn / an），管理页据此在末尾挂「+N」徽章 ——
+  // 只存名字不存总数的话，用户根本看不出被截掉了多少（用户 2026-11-07）
   var _ignoreMemo = null;
 
   function ignoreKey(endpoint, id) {
@@ -8091,12 +8446,13 @@
     var k = ignoreKey(ep, sc.id);
     if (!st.scenes[k]) {
       var imgs = (item.images && item.images.length ? item.images : (sc.images || []));
-      var names = [];
+      var allNames = [];
       (sc.performers || []).forEach(function (p) {
         var pf = p && p.performer;
-        if (pf && pf.name && names.length < IGNORE_SNAPSHOT_P) names.push(pf.name);
+        if (pf && pf.name) allNames.push(pf.name);
       });
-      st.scenes[k] = {
+      var names = allNames.slice(0, IGNORE_SNAPSHOT_P);
+      var snap = {
         at: Date.now(),
         title: ignClip(sc.title, IGN_TEXT_CAP.title),
         date: ignClip(sc.release_date, IGN_TEXT_CAP.date),
@@ -8106,6 +8462,9 @@
         p: names.map(function (nm) { return ignClip(nm, IGN_TEXT_CAP.alias); })
           .filter(function (nm) { return !!nm; }),
       };
+      // 演员总数只在被截断时存（约 +8 字符/条），管理页用它算「+N」
+      if (allNames.length > names.length) snap.pn = allNames.length;
+      st.scenes[k] = snap;
     }
     var r = ignoreWrite();
     r.key = k;
@@ -8121,8 +8480,11 @@
     if (!st.performers[k]) {
       var snap = { at: Date.now(), name: ignClip(o.name, IGN_TEXT_CAP.name), image: o.image || "" };
       // 别名只在不额外请求时带（管理页搜索用，约 +10 字符/条）
-      var als = ignClipList(o.aliases, 12, IGN_TEXT_CAP.alias);
-      if (als && als.length) snap.alias_list = als;
+      var als = ignClipList(o.aliases, IGNORE_SNAPSHOT_A, IGN_TEXT_CAP.alias);
+      if (als && als.length) {
+        snap.alias_list = als;
+        if ((o.aliases || []).length > als.length) snap.an = (o.aliases || []).length;
+      }
       // 管理页卡片要显示国旗/年龄/性别（用户 2026-10-29）。这三个字段本来就在
       // stash-box 的 performer 对象里，忽略时顺手存下，约 +20 字符/条；不存的话
       // 管理页只能再发一次请求，而「零请求」正是这一页的立身之本。
@@ -8198,7 +8560,8 @@
               if (pf.birth_date) { cur.birthdate = String(pf.birth_date).slice(0, 10); wrote = true; }
               if (pf.gender) { cur.gender = String(pf.gender).slice(0, 24); wrote = true; }
               if (!(cur.alias_list && cur.alias_list.length) && pf.aliases && pf.aliases.length) {
-                cur.alias_list = pf.aliases.slice(0, 12);
+                cur.alias_list = pf.aliases.slice(0, IGNORE_SNAPSHOT_A);
+                if (pf.aliases.length > cur.alias_list.length) cur.an = pf.aliases.length;
                 wrote = true;
               }
               if (!wrote) return;
@@ -8304,11 +8667,16 @@
               ? v.p.slice(0, IGNORE_SNAPSHOT_P).map(function (x) { return ignClip(x, IGN_TEXT_CAP.alias); })
                   .filter(function (x) { return !!x; })
               : [];
+            // 被截断时的演员总数（旧文件没有这个字段，正常跳过）
+            if (Number(v.pn) > rec.p.length) rec.pn = Number(v.pn);
           } else {
             rec.name = ignClip(v.name, IGN_TEXT_CAP.name);
             rec.image = String(v.image || "");
-            var als = ignClipList(v.alias_list, 12, IGN_TEXT_CAP.alias);
-            if (als && als.length) rec.alias_list = als;
+            var als = ignClipList(v.alias_list, IGNORE_SNAPSHOT_A, IGN_TEXT_CAP.alias);
+            if (als && als.length) {
+              rec.alias_list = als;
+              if (Number(v.an) > als.length) rec.an = Number(v.an);
+            }
             // 卡片用的零开销标签，导入时一并带过来（老文件没有这些字段，跳过）
             if (v.country) rec.country = String(v.country).slice(0, 4);
             if (v.birthdate) rec.birthdate = String(v.birthdate).slice(0, 10);
@@ -8569,6 +8937,8 @@
     savePluginSettings: savePluginSettings,
     // Stash UI: the Discover tab of a performer / studio page
     mountEntityTab: mountEntityTab,
+    // 插件操作（自动带 lang）。发现页设置要拉 Whisparr 档案列表，复用它
+    runPluginOp: runPluginOp,
     // internal URL builder (respects sub-path deployments — see appUrl)
     appUrl: appUrl,
     callBoxGQL: callBoxGQL,
@@ -8662,6 +9032,24 @@
   var DP_NOTIFY_KEY = "SSD:dp:notify"; // "0" = muted (P6 settings UI writes it)
   var DP_PREFS_KEY = "SSD:dp:prefs"; // discover page prefs (active source lives here)
   var DP_POLL_MIN_MS = 6 * 3600 * 1000;
+  // 已读过期与 discover.js 的 readTtlMs() 同口径：回看窗口 + 7 天，窗口不限
+  // 时给 10 年。轮询直接 parse read.v1、不走页面的 readStore()，所以判定要在
+  // 这里再做一次，否则窗口内读过的会被当成已读一直扣减（用户 2026-11-06）。
+  var DP_READ_TTL_MIN_MS = 7 * 24 * 3600 * 1000;
+  var DP_LOOKBACK_DEFAULT = 30;
+  function dpReadTtlMs() {
+    var days = DP_LOOKBACK_DEFAULT;
+    try {
+      var p = JSON.parse(localStorage.getItem(DP_PREFS_KEY) || "null") || {};
+      var v = parseInt(p.recentDays, 10);
+      if (!isNaN(v) && v >= 0) days = v;
+    } catch (_) {}
+    if (!days) return 3650 * 24 * 3600 * 1000;
+    return Math.max(DP_READ_TTL_MIN_MS, (days + 7) * 24 * 3600 * 1000);
+  }
+  // unread.v1 的计数口径版本（与 discover.js emitUnread 里写的 v 同步）。
+  // 口径变了缓存还是旧数字时，启动那次轮询要绕过 6h 节流立刻重算。
+  var DP_UNREAD_V = 2;
 
   function dpCachedUnread() {
     try {
@@ -8688,7 +9076,7 @@
   }
 
   function dpWriteUnread(n) {
-    try { localStorage.setItem(DP_UNREAD_KEY, JSON.stringify({ n: n, at: Date.now() })); } catch (_) {}
+    try { localStorage.setItem(DP_UNREAD_KEY, JSON.stringify({ n: n, at: Date.now(), v: DP_UNREAD_V })); } catch (_) {}
     try { window.dispatchEvent(new CustomEvent("ssd:unread-changed", { detail: n })); } catch (_) {}
   }
 
@@ -8703,7 +9091,11 @@
       if (notifyMuted()) return Promise.resolve(0); // §6.4: muted → skip poll, hide badge
       var last = 0;
       try { last = ((JSON.parse(localStorage.getItem(DP_POLL_KEY) || "null") || {}).lastAt) || 0; } catch (_) {}
-      proceed = force || !last || Date.now() - last >= DP_POLL_MIN_MS;
+      // 缓存里的值是旧口径算的（比如那会儿过期已读还在当已读）→ 不受 6h 节流
+      // 限制，启动就重算一次，否则角标会一直顶着个错数字。
+      var cachedV = 0;
+      try { cachedV = ((JSON.parse(localStorage.getItem(DP_UNREAD_KEY) || "null") || {}).v) || 0; } catch (_) {}
+      proceed = force || !last || Date.now() - last >= DP_POLL_MIN_MS || cachedV !== DP_UNREAD_V;
     } catch (_) {}
     if (!proceed) return Promise.resolve(dpCachedUnread());
 
@@ -8812,6 +9204,11 @@
     }).then(function (results) {
       var marks = {};
       try { marks = ((JSON.parse(localStorage.getItem(DP_READ_KEY) || "null") || {}).marks) || {}; } catch (_) {}
+      var marksAt = Date.now(), readTtl = dpReadTtlMs();
+      function readFresh(key) {
+        var at = marks[key];
+        return !!at && (marksAt - at) <= readTtl;
+      }
       // skipPrev / today 已在查询前算好：续页判定和计数必须同一口径。
       var today = pollToday;
       // 忽略记录（§5.1 第 2 处）：页面看不见了但红点还在数 = 最典型的"忽略了还提醒"
@@ -8830,7 +9227,7 @@
           if (skipPrev && sc.release_date && sc.release_date > today) return;
           var sceneKey = r.ep + ":" + String(sc.id || "").toLowerCase();
           if (ignScenes[sceneKey]) return;
-          if (marks[sceneKey]) return;
+          if (readFresh(sceneKey)) return;
           // 关注页的管线会剔除「本地已拥有」的场景（stash_id 键 + code 键）。
           // 角标不剔除的话就是「角标 2、关注页一片空白」（用户 2026-11-02）。
           if (snap) {
@@ -8869,7 +9266,7 @@
   // 编译进 CSS（Dark rgb(32,43,51) / Light 另一份同值产物），盖上去反而会在切
   // 主题后停在旧色（用户 2026-10-30 指出）。
   function syncStickyEnv() {
-    var nav = document.querySelector("nav.top-nav") || document.querySelector("nav.navbar");
+    var nav = document.querySelector("nav.top-nav");
     if (!nav) return;
     var r = nav.getBoundingClientRect();
     // 高度 0 = 脚本比 SPA 先就绪，还没布局。这时不要写，免得把上次量到的

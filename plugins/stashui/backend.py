@@ -78,7 +78,7 @@ Called through Stash's `runPluginOperation` (interface: raw):
                "folder": "Clips"|""}      output: {"job"}
 
 * mode "box_gql": one GraphQL question (queries only) to a stash-box set up in Stash, with the API key Stash has for it –
-  for the Discover overview (stashDiscover by ufousox007). Modes "ssd_search" (Jackett), "ssd_push" (qBittorrent) and "ssd_test" (connection test) are its
+  for the Discover overview (stashDiscover by ufousox007). Modes "ssd_search" (Jackett), "ssd_push" (qBittorrent / Motrix), "ssd_whisparr_*" (Whisparr) and "ssd_test" (connection test) are its
   resource search and download hand-over, set up under Discover → Settings.
       args:   {"mode": "box_gql", "endpoint": "<stash-box>", "query": "...", "variables": {}, "timeout": 15}
       output: {"data"} | {"errors"} | {"kind": "timeout|network|auth|blocked|parse", "message"}
@@ -2331,46 +2331,8 @@ def ssd_test(stash, args):
             jack["hint"] = body[:150]
     items.append(jack)
 
-    qb = {"key": "qbittorrent", "label": "qBittorrent", "ok": False, "detail": "", "hint": ""}
-    base = str(cfg.get("downloaderUrl") or "").strip().rstrip("/")
-    if not base:
-        qb["detail"] = "URL is missing"
-    elif not re.match(r"^https?://", base, re.I):
-        qb["detail"] = "The URL has to start with http:// or https://"
-    else:
-        host = urllib.parse.urlparse(base).netloc
-        status, body, headers = ssd_http(base + "/api/v2/auth/login", "POST", {"username": str(cfg.get("downloaderUsername") or ""), "password": str(cfg.get("downloaderPassword") or "")}, timeout=15)
-        if status == 403:
-            qb["detail"] = "Login refused (HTTP 403)"
-            qb["hint"] = "After repeated failed logins qBittorrent bans the address for a while – log in once in its web page to clear it"
-        elif status == 0:
-            qb["detail"] = f"Can't reach {host}"
-            qb["hint"] = body[:150]
-        elif not (status == 204 or (status == 200 and body.strip() == "Ok.")):
-            qb["detail"] = f"Login failed (HTTP {status})"
-            qb["hint"] = body[:150] or "Check the user name and the password"
-        else:
-            cookie = ssd_session_cookie(headers)
-            if not cookie:
-                qb["detail"] = "Logged in, but no session cookie came back"
-                qb["hint"] = "Check that the web page address is complete (with the port) and that no reverse proxy drops Set-Cookie"
-            else:
-                st2, body2, _ = ssd_http(base + "/api/v2/app/version", headers={"Cookie": cookie}, timeout=10)
-                if st2 != 200:
-                    qb["detail"] = f"Session rejected (HTTP {st2})"
-                    qb["hint"] = "Login worked but the next request was refused – often a reverse proxy that doesn't pass cookies on"
-                else:
-                    qb["ok"] = True
-                    qb["detail"] = f"{host} · qBittorrent {body2.strip() or '?'}"
-                    st3, body3, _ = ssd_http(base + "/api/v2/app/preferences", headers={"Cookie": cookie}, timeout=10)
-                    if st3 == 200:
-                        try:
-                            sp = str((json.loads(body3) or {}).get("save_path") or "")
-                            if sp:
-                                qb["hint"] = f"Default save path {sp}"
-                        except (ValueError, AttributeError):
-                            pass
-    items.append(qb)
+    items.append(ssd_test_downloader(cfg))
+    items.append(ssd_test_whisparr(cfg))
 
     try:
         boxes = stash.gql("query { configuration { general { stashBoxes { endpoint name api_key } } } }")["configuration"]["general"].get("stashBoxes") or []
@@ -2418,17 +2380,26 @@ def ssd_session_cookie(headers):
     return "; ".join(pairs)
 
 
-def ssd_push(stash, args):
-    """Hand a magnet link to qBittorrent."""
-    magnet = str(args.get("magnet") or "").strip()
-    if not magnet.startswith("magnet:"):
-        raise ValueError("No magnet link provided.")
-    cfg = ssd_settings(stash)
+def ssd_post_json(url, payload, headers=None, timeout=15):
+    h = {"Content-Type": "application/json"}
+    h.update(headers or {})
+    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=h, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status, resp.read().decode("utf-8", errors="replace"), resp.headers
+    except urllib.error.HTTPError as e:
+        return e.code, (e.read().decode("utf-8", errors="replace") if e.fp else ""), (e.headers or {})
+    except Exception as e:  # noqa: BLE001
+        return 0, str(e), {}
+
+
+def ssd_downloader(cfg):
+    kind = str(cfg.get("downloaderType") or "qbittorrent").strip().lower()
     base = str(cfg.get("downloaderUrl") or "").strip().rstrip("/")
-    if not base:
-        raise ValueError("Downloader URL not configured.")
-    if not re.match(r"^https?://", base, re.I):
-        raise ValueError("The downloader URL has to start with http:// or https://")
+    return kind, base
+
+
+def ssd_push_qbittorrent(cfg, base, magnet):
     status, body, headers = ssd_http(base + "/api/v2/auth/login", "POST", {"username": str(cfg.get("downloaderUsername") or ""), "password": str(cfg.get("downloaderPassword") or "")}, timeout=15)
     if not (status == 204 or (status == 200 and body.strip() == "Ok.")):  # 5.3 answers 204 without a body
         raise RuntimeError(f"qBittorrent login failed (HTTP {status}): {body[:100]}")
@@ -2438,7 +2409,329 @@ def ssd_push(stash, args):
     status, body, _ = ssd_http(base + "/api/v2/torrents/add", "POST", {"urls": magnet}, {"Cookie": cookie}, timeout=15)
     if status != 200:
         raise RuntimeError(f"qBittorrent add failed (HTTP {status}): {body[:200]}")
-    return {"mode": "push_download", "ok": True}
+    return {"mode": "push_download", "ok": True, "message": "Pushed to downloader"}
+
+
+# Motrix: the desktop build speaks aria2 JSON-RPC (POST {base}/jsonrpc, key = Advanced → RPC), the server build speaks
+# POST {base}/rpc/<kind>/<name> with a Bearer operator token. Only the address and key the user typed in are used.
+def ssd_aria2_call(base, secret, method, params, timeout=15):
+    args = (["token:" + secret] if secret else []) + list(params)
+    status, body, _ = ssd_post_json(base + "/jsonrpc", {"jsonrpc": "2.0", "id": "stashui", "method": method, "params": args}, timeout=timeout)
+    try:
+        obj = json.loads(body)
+    except ValueError:
+        return status, None, body[:200]
+    if isinstance(obj, dict) and obj.get("error"):
+        err = obj["error"]
+        return status or 500, None, (err.get("message") or str(err)) if isinstance(err, dict) else str(err)
+    return status, (obj or {}).get("result") if isinstance(obj, dict) else None, ""
+
+
+def ssd_rpc_call(base, secret, name, args, timeout=15):
+    kind = name.split(":", 1)[0]
+    status, body, _ = ssd_post_json(f"{base}/rpc/{kind}/{name}", {"args": args}, {"Authorization": "Bearer " + secret}, timeout=timeout)
+    try:
+        obj = json.loads(body)
+    except ValueError:
+        return status, None, body[:200]
+    if isinstance(obj, dict) and obj.get("error"):
+        return status or 500, None, str(obj["error"])[:200]
+    return status, obj, ""
+
+
+def ssd_motrix_probe(base, secret):
+    """(kind, version, why): kind = "aria2" (desktop) | "web" (server) | ""."""
+    status, res, err = ssd_aria2_call(base, secret, "aria2.getVersion", [], timeout=10)
+    if status == 200 and isinstance(res, dict):
+        return "aria2", res.get("version") or "", ""
+    status, body, _ = ssd_http(base + "/rpc/auth/status", headers={"Authorization": "Bearer " + secret}, timeout=10)
+    try:
+        obj = json.loads(body)
+    except ValueError:
+        obj = {}
+    if status == 200 and isinstance(obj, dict) and obj.get("authed"):
+        return "web", "", ""
+    return "", "", (err or body[:120] or f"HTTP {status}")
+
+
+def ssd_push_motrix(cfg, base, magnet):
+    secret = str(cfg.get("downloaderPassword") or "").strip()
+    kind, _ver, why = ssd_motrix_probe(base, secret)
+    if not kind:
+        raise RuntimeError(f"Can't reach Motrix ({why}). Desktop: use http://127.0.0.1:16800 and the key from Advanced → RPC.")
+    if kind == "aria2":
+        status, res, err = ssd_aria2_call(base, secret, "aria2.addUri", [[magnet]])
+        if res:
+            return {"mode": "push_download", "ok": True, "message": "Pushed to downloader"}
+        low = (err or "").lower()
+        if "already registered" in low or "duplicate" in low:
+            return {"mode": "push_download", "ok": True, "message": "Already in downloader"}
+        raise RuntimeError(f"Motrix add failed: {err}")
+    save_dir = ""
+    _, settings, _ = ssd_rpc_call(base, secret, "query:getSettings", [{}])
+    if isinstance(settings, dict):
+        save_dir = str(((settings.get("app") or {}).get("defaultSaveDir") or "")).strip()
+    if not save_dir:
+        raise RuntimeError("Couldn't read Motrix's default download folder – set one in Motrix first.")
+    task = {"type": "bt", "payload": {"kind": "magnet", "uri": magnet}, "saveDir": save_dir}
+    status, res, err = ssd_rpc_call(base, secret, "command:createTask", [task])
+    outcome = (res or {}).get("outcome") if isinstance(res, dict) else ""
+    if outcome in ("created", "conflict"):
+        return {"mode": "push_download", "ok": True, "message": "Pushed to downloader" if outcome == "created" else "Already in downloader"}
+    raise RuntimeError(f"Motrix add failed: {err or res}")
+
+
+def ssd_push(stash, args):
+    """Hand a magnet link to the downloader: qBittorrent or Motrix."""
+    magnet = str(args.get("magnet") or "").strip()
+    if not magnet.startswith("magnet:"):
+        raise ValueError("No magnet link provided.")
+    cfg = ssd_settings(stash)
+    kind, base = ssd_downloader(cfg)
+    if not base:
+        raise ValueError("Downloader URL not configured.")
+    if not re.match(r"^https?://", base, re.I):
+        raise ValueError("The downloader URL has to start with http:// or https://")
+    if kind in ("qbittorrent", "qb", "qbit"):
+        return ssd_push_qbittorrent(cfg, base, magnet)
+    if kind in ("motrix", "motrix2", "aria2"):
+        return ssd_push_motrix(cfg, base, magnet)
+    raise ValueError(f"Unsupported downloader type: {kind}. Use qbittorrent or motrix.")
+
+
+def ssd_test_downloader(cfg):
+    kind, base = ssd_downloader(cfg)
+    if kind in ("motrix", "motrix2", "aria2"):
+        item = {"key": "motrix", "label": "Motrix", "ok": False, "detail": "", "hint": ""}
+        if not base:
+            item["detail"] = "RPC address is missing"
+            item["hint"] = "Desktop: http://127.0.0.1:16800. Server: the web page address"
+            return item
+        if not re.match(r"^https?://", base, re.I):
+            item["detail"] = "The address has to start with http:// or https://"
+            return item
+        host = urllib.parse.urlparse(base).netloc
+        k, ver, why = ssd_motrix_probe(base, str(cfg.get("downloaderPassword") or "").strip())
+        if k == "aria2":
+            item.update(ok=True, detail=f"{host} · aria2 {ver or '?'}", hint="Desktop build; downloads use Motrix's default folder")
+        elif k == "web":
+            item.update(ok=True, detail=f"{host} · server")
+            _, settings, _ = ssd_rpc_call(base, str(cfg.get("downloaderPassword") or "").strip(), "query:getSettings", [{}])
+            sd = str(((settings or {}).get("app") or {}).get("defaultSaveDir") or "") if isinstance(settings, dict) else ""
+            if sd:
+                item["hint"] = f"Default save path {sd}"
+        else:
+            item["detail"] = f"Can't reach {host}"
+            item["hint"] = str(why or "")[:150]
+        return item
+    qb = {"key": "qbittorrent", "label": "qBittorrent", "ok": False, "detail": "", "hint": ""}
+    if kind not in ("qbittorrent", "qb", "qbit"):
+        qb["detail"] = f"{kind} is not supported"
+        qb["hint"] = "Use qbittorrent or motrix"
+        return qb
+    if not base:
+        qb["detail"] = "URL is missing"
+    elif not re.match(r"^https?://", base, re.I):
+        qb["detail"] = "The URL has to start with http:// or https://"
+    else:
+        host = urllib.parse.urlparse(base).netloc
+        status, body, headers = ssd_http(base + "/api/v2/auth/login", "POST", {"username": str(cfg.get("downloaderUsername") or ""), "password": str(cfg.get("downloaderPassword") or "")}, timeout=15)
+        if status == 403:
+            qb["detail"] = "Login refused (HTTP 403)"
+            qb["hint"] = "After repeated failed logins qBittorrent bans the address for a while – log in once in its web page to clear it"
+        elif status == 0:
+            qb["detail"] = f"Can't reach {host}"
+            qb["hint"] = body[:150]
+        elif not (status == 204 or (status == 200 and body.strip() == "Ok.")):
+            qb["detail"] = f"Login failed (HTTP {status})"
+            qb["hint"] = body[:150] or "Check the user name and the password"
+        else:
+            cookie = ssd_session_cookie(headers)
+            if not cookie:
+                qb["detail"] = "Logged in, but no session cookie came back"
+                qb["hint"] = "Check that the web page address is complete (with the port) and that no reverse proxy drops Set-Cookie"
+            else:
+                st2, body2, _ = ssd_http(base + "/api/v2/app/version", headers={"Cookie": cookie}, timeout=10)
+                if st2 != 200:
+                    qb["detail"] = f"Session rejected (HTTP {st2})"
+                    qb["hint"] = "Login worked but the next request was refused – often a reverse proxy that doesn't pass cookies on"
+                else:
+                    qb["ok"] = True
+                    qb["detail"] = f"{host} · qBittorrent {body2.strip() or '?'}"
+                    st3, body3, _ = ssd_http(base + "/api/v2/app/preferences", headers={"Cookie": cookie}, timeout=10)
+                    if st3 == 200:
+                        try:
+                            sp = str((json.loads(body3) or {}).get("save_path") or "")
+                            if sp:
+                                qb["hint"] = f"Default save path {sp}"
+                        except (ValueError, AttributeError):
+                            pass
+    return qb
+
+
+# Whisparr v3: sends a scene of a StashDB box to Whisparr (it looks the scene up by its stash id). A quality profile and a root folder are
+# needed (the first root folder; the profile is the one chosen in Discover → Settings, else "Any", else the lowest id).
+def ssd_whisparr_cfg(stash):
+    cfg = ssd_settings(stash)
+    return str(cfg.get("whisparrUrl") or "").strip().rstrip("/"), str(cfg.get("whisparrApiKey") or "").strip()
+
+
+def ssd_whisparr_req(base, key, method, path, payload=None, timeout=25):
+    headers = {"X-Api-Key": key}
+    if payload is None:
+        return ssd_http(base + path, method, headers=headers, timeout=timeout)
+    return ssd_post_json(base + path, payload, headers, timeout=timeout)
+
+
+def ssd_whisparr_err(status, body):
+    detail = ""
+    try:
+        parsed = json.loads(body)
+    except ValueError:
+        parsed = None
+    if isinstance(parsed, list):
+        parts = []
+        for e in parsed[:3]:
+            if isinstance(e, dict):
+                msg = str(e.get("errorMessage") or "").strip()
+                prop = str(e.get("propertyName") or "").strip()
+                parts.append(f"{prop}: {msg}" if prop and prop.lower() != "path" and prop not in msg else msg)
+        detail = "; ".join(p for p in parts if p)
+    elif isinstance(parsed, dict):
+        detail = str(parsed.get("message") or "")
+    detail = detail or (body or "")[:160]
+    if status == 401:
+        return "Whisparr rejected the API key"
+    if status == 0:
+        return f"Can't reach Whisparr: {detail}"
+    return f"Whisparr returned {status}: {detail}"
+
+
+def ssd_whisparr_find(base, key, stash_id):
+    q = urllib.parse.quote(stash_id, safe="")
+    status, body, _ = ssd_whisparr_req(base, key, "GET", f"/api/v3/movie?stashId={q}")
+    if status != 200:
+        return None, (status, body)
+    try:
+        arr = json.loads(body)
+    except ValueError:
+        return None, (status, body)
+    return (arr[0], None) if isinstance(arr, list) and arr else (None, None)
+
+
+def ssd_whisparr_profiles_fetch(base, key):
+    status, body, _ = ssd_whisparr_req(base, key, "GET", "/api/v3/qualityprofile")
+    if status != 200:
+        return [], (status, body)
+    try:
+        arr = json.loads(body) or []
+    except ValueError:
+        return [], (status, body)
+    out = [{"id": p.get("id"), "name": str(p.get("name") or "").strip()} for p in arr if isinstance(p, dict) and p.get("id") is not None]
+    out.sort(key=lambda x: x["id"])
+    return out, None
+
+
+def ssd_whisparr_profiles(stash, args):
+    base, key = ssd_whisparr_cfg(stash)
+    if not base or not key:
+        return {"mode": "whisparr_profiles", "configured": False, "profiles": []}
+    profiles, err = ssd_whisparr_profiles_fetch(base, key)
+    if err:
+        return {"mode": "whisparr_profiles", "configured": True, "ok": False, "profiles": [], "error": ssd_whisparr_err(err[0], err[1])}
+    return {"mode": "whisparr_profiles", "configured": True, "ok": True, "profiles": profiles}
+
+
+def ssd_whisparr_status(stash, args):
+    base, key = ssd_whisparr_cfg(stash)
+    if not base or not key:
+        return {"mode": "whisparr", "configured": False}
+    stash_id = str(args.get("stash_id") or "").strip()
+    if not stash_id:
+        return {"mode": "whisparr", "configured": True, "ok": False, "message": "This scene has no stash-box ID"}
+    movie, err = ssd_whisparr_find(base, key, stash_id)
+    if err:
+        return {"mode": "whisparr", "configured": True, "ok": False, "message": ssd_whisparr_err(err[0], err[1])}
+    return {"mode": "whisparr", "configured": True, "ok": True, "exists": bool(movie), "has_file": bool((movie or {}).get("hasFile"))}
+
+
+def ssd_whisparr_push(stash, args):
+    base, key = ssd_whisparr_cfg(stash)
+    if not base or not key:
+        raise ValueError("Whisparr is not set up – enter its URL and API key in Discover → Settings.")
+    if not re.match(r"^https?://", base, re.I):
+        raise ValueError("The Whisparr URL has to start with http:// or https://")
+    stash_id = str(args.get("stash_id") or "").strip()
+    if not stash_id:
+        raise ValueError("This scene has no stash-box ID, so Whisparr can't match it.")
+    movie, err = ssd_whisparr_find(base, key, stash_id)
+    if err:
+        raise RuntimeError(ssd_whisparr_err(err[0], err[1]))
+    if movie:
+        return {"mode": "whisparr", "ok": True, "exists": True, "message": "Already in Whisparr"}
+    status, body, _ = ssd_whisparr_req(base, key, "GET", "/api/v3/rootfolder")
+    try:
+        folders = (json.loads(body) or []) if status == 200 else []
+    except ValueError:
+        folders = []
+    if not folders:
+        raise RuntimeError("No root folder in Whisparr. Add one under Settings → Media Management.")
+    root = str(folders[0].get("path") or "")
+    profiles, perr = ssd_whisparr_profiles_fetch(base, key)
+    if perr:
+        raise RuntimeError(ssd_whisparr_err(perr[0], perr[1]))
+    if not profiles:
+        raise RuntimeError("No quality profile in Whisparr.")
+    wanted = str(args.get("profile") or "").strip()
+    chosen = next((p for p in profiles if str(p["id"]) == wanted), None) if wanted else None
+    missing = wanted if (wanted and not chosen) else ""
+    if not chosen:
+        chosen = next((p for p in profiles if p["name"].lower() == "any"), None) or profiles[0]
+    payload = {"title": str(args.get("title") or "") or stash_id, "stashId": stash_id, "foreignId": stash_id, "monitored": True,
+               "qualityProfileId": chosen["id"], "rootFolderPath": root, "addOptions": {"searchForMovie": True}}
+    try:
+        if str(args.get("year") or "").strip():
+            payload["year"] = int(str(args.get("year")).strip())
+    except ValueError:
+        pass
+    status, body, _ = ssd_whisparr_req(base, key, "POST", "/api/v3/movie", payload)
+    if status in (200, 201, 202):
+        msg = f"Profile {missing} not found – sent with {chosen['name']}" if missing else f"Sent to Whisparr ({chosen['name']})"
+        return {"mode": "whisparr", "ok": True, "exists": False, "profile": chosen, "fallback": bool(missing), "message": msg}
+    if "MovieExistsValidator" in (body or ""):
+        return {"mode": "whisparr", "ok": True, "exists": True, "message": "Already in Whisparr"}
+    raise RuntimeError(ssd_whisparr_err(status, body))
+
+
+def ssd_test_whisparr(cfg):
+    item = {"key": "whisparr", "label": "Whisparr", "ok": False, "detail": "", "hint": ""}
+    base = str(cfg.get("whisparrUrl") or "").strip().rstrip("/")
+    key = str(cfg.get("whisparrApiKey") or "").strip()
+    if not base or not key:  # optional: not set up is neither a pass nor a failure ("skip" – the page draws a dash)
+        item.update(ok=True, state="skip", detail="Not set up (optional)", hint="Enter the URL and API key to get a send button on StashDB scenes")
+        return item
+    if not re.match(r"^https?://", base, re.I):
+        item["detail"] = "The URL has to start with http:// or https://"
+        return item
+    status, body, _ = ssd_whisparr_req(base, key, "GET", "/api/v3/system/status")
+    if status != 200:
+        item["detail"] = ssd_whisparr_err(status, body)
+        return item
+    try:
+        ver = str((json.loads(body) or {}).get("version") or "")
+    except ValueError:
+        ver = ""
+    item.update(ok=True, detail=f"{urllib.parse.urlparse(base).netloc} · Whisparr {ver or '?'}")
+    status, body, _ = ssd_whisparr_req(base, key, "GET", "/api/v3/rootfolder")
+    root = ""
+    if status == 200:
+        try:
+            arr = json.loads(body) or []
+            root = str(arr[0].get("path") or "") if arr else ""
+        except (ValueError, IndexError, AttributeError):
+            root = ""
+    item["hint"] = f"Root folder {root}" if root else "No root folder yet – sending will fail"
+    return item
 
 
 def main():
@@ -2510,6 +2803,12 @@ def main():
             out = ssd_search(Stash(data.get("server_connection")), args)
         elif mode == "ssd_push":
             out = ssd_push(Stash(data.get("server_connection")), args)
+        elif mode == "ssd_whisparr_profiles":
+            out = ssd_whisparr_profiles(Stash(data.get("server_connection")), args)
+        elif mode == "ssd_whisparr_status":
+            out = ssd_whisparr_status(Stash(data.get("server_connection")), args)
+        elif mode == "ssd_whisparr_push":
+            out = ssd_whisparr_push(Stash(data.get("server_connection")), args)
         elif mode == "ssd_test":
             out = ssd_test(Stash(data.get("server_connection")), args)
         elif mode == "phone_status":

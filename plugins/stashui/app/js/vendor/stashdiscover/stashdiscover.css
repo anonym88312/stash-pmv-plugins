@@ -7,7 +7,6 @@
   --ssd-primary: #0ca678;
   --ssd-primary-hover: #099268;
   --ssd-accent: #f76707;
-  --ssd-accent-hover: #e8590c;
   --ssd-secondary: #495057;
   --ssd-secondary-hover: #868e96;
   /* 演员名 pill 的兜底色（拿到 gender 时改由 .pf-* 覆盖，见 .ssd-pill-performer）。
@@ -103,8 +102,6 @@
 .ssd-btn-primary:hover:not(:disabled) { background: var(--ssd-primary-hover); }
 .ssd-btn-secondary { background: var(--ssd-secondary); color: #fff; }
 .ssd-btn-secondary:hover:not(:disabled) { background: var(--ssd-secondary-hover); }
-.ssd-btn-accent { background: var(--ssd-accent); color: #fff; }
-.ssd-btn-accent:hover:not(:disabled) { background: var(--ssd-accent-hover); }
 .ssd-btn-info { background: var(--ssd-info); color: #fff; }
 .ssd-btn-info:hover:not(:disabled) { background: var(--ssd-info-hover); }
 .ssd-btn-success { background: var(--ssd-success) !important; color: #fff; }
@@ -666,7 +663,9 @@
 .ssd-dp-page .ssd-overlay-days,
 .ssd-dp-modal-scenes .ssd-overlay-days,
 .ssd-dp-page .ssd-overlay-inlib,
-.ssd-dp-modal-scenes .ssd-overlay-inlib {
+.ssd-dp-modal-scenes .ssd-overlay-inlib,
+.ssd-dp-page .ssd-overlay-owned,
+.ssd-dp-modal-scenes .ssd-overlay-owned {
   font-size: 10.5px;
 }
 
@@ -1522,10 +1521,30 @@
     max-height: 100dvh !important;
   }
   .ssd-carousel-hero { max-height: 280px; }
-  /* 窄屏：四颗按 2×2 铺开。挤成一行会短到「搜索资源」贴边，放开又会
-     剩一颗半宽的忽略挂在末尾 —— 网格最稳，换中英文案都不破。 */
+  /* 窄屏：按可见按钮数分列（数目由 syncActCols() 写到 data-n）。4 颗（javstash）
+     走 2×2；5 颗（stashdb 多一颗 Whisparr）挤成 2 列就是 3 行，太高 —— 改 3+2：
+     6 列网格里前 3 颗各占 2 列、后 2 颗各占 3 列，两行都刚好铺满，中英文都不破。 */
   .ssd-modal-acts { display: grid; grid-template-columns: 1fr 1fr; }
   .ssd-modal-acts .ssd-dp-btn { justify-content: center; }
+  .ssd-modal-acts[data-n="5"] { grid-template-columns: repeat(6, 1fr); }
+  .ssd-modal-acts[data-n="5"] > .ssd-dp-btn {
+    grid-column: span 2;
+    min-width: 0;
+    padding: 7px 8px;
+    gap: 5px;
+    font-size: 12px;
+  }
+  .ssd-modal-acts[data-n="5"] > .ssd-dp-btn:nth-child(n+4) { grid-column: span 3; }
+}
+
+/* 极窄屏（≤359，320 宽的老机器）：三列会把「Add to Library」挤出按钮，
+   这里退回两列 —— 宁可多一行，也不要字压到边框上。 */
+@media (max-width: 359px) {
+  .ssd-modal-acts[data-n="5"] { grid-template-columns: 1fr 1fr; }
+  .ssd-modal-acts[data-n="5"] > .ssd-dp-btn,
+  .ssd-modal-acts[data-n="5"] > .ssd-dp-btn:nth-child(n+4) { grid-column: auto; }
+  /* 落到第三行的那颗单独铺满，别留半个空位 */
+  .ssd-modal-acts[data-n="5"] > .ssd-dp-btn:last-child { grid-column: span 2; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1581,6 +1600,18 @@
   width: 1.15em;
   height: 1.15em;
   color: var(--sx-acc);
+}
+
+/* 三条 meta chip 之间的间距。原先靠 HTML 拼接、没有间隙，边框直接相贴；
+   有了 gap 后 360px 屏也要放得下（文案已按窄屏缩过，见 discover.js）。
+   flex-wrap 只是兜底：360 下连 5 位数都单行，只有 ≤320 的极小屏才会折
+   —— 折行总好过把页面撑出横向滚动条 */
+.ssd-dp-chips {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  /* 4px：英文「DS JAVStash」在 360 屏（容器 299）要挤进 293px，6px 只剩 2px 余量 */
+  gap: 4px;
 }
 
 .ssd-dp-chip {
@@ -1853,6 +1884,41 @@
 .ssd-dp-sec[data-mod="performers"] .ssd-dp-sec-title svg { color: color-mix(in srgb, #a78bfa 78%, var(--sx-tx1b)); }
 
 .ssd-dp-sec-count { font-size: 12px; color: var(--sx-tx2); }
+
+/* ─── 窄屏（≤640）模块标题行 ──────────────────────────────────────────────
+   标题行是三段抢一行：标题 + 副标题 + 查看更多(70px)。文案已按窄屏瘦身
+   （见 discover.js），除「有新发布的演员」外都能并排一行。
+   640 而不是 480：英文 actors 带「· lookback 30d」时容器要 478px 才放得下，
+   481～600 实测仍折行（2026-11-08 克隆真实节点量得）。
+   处理：口径说明隐藏；副标题一律 nowrap，排不下时整块折行而不是从中间断开；
+   只有 actors 强制独占一行 —— 它的英文标题 174px 本身就吃掉了大半行宽。 */
+@media (max-width: 640px) {
+  .ssd-dp-sec-x { display: none; }
+  .ssd-dp-sec-count { white-space: nowrap; }
+  .ssd-dp-sec[data-mod="actors"] .ssd-dp-sec-count {
+    order: 3;              /* 排到「查看更多」之后 → 落到第二行 */
+    flex-basis: 100%;
+    /* 与标题文字左缘对齐，不跟标题前的图标对齐（图标 15px + 标题 gap 0.45rem，
+       实测 21px）。用 padding 而不是 margin：flex-basis:100% 再叠 margin 会撑出横向滚动 */
+    padding-left: 21px;
+  }
+  /* actors 独占一行 → 口径放得下（中文 173px / 英文 253px，可用 278~308），
+     不必再像并排模块那样藏掉 */
+  .ssd-dp-sec[data-mod="actors"] .ssd-dp-sec-x { display: inline; }
+}
+
+/* actors 副标题换行时贴近标题。不挂媒体查询：row-gap 只在换行时生效，
+   宽屏与标题同行时无影响，也就不会出现「某个宽度下没生效」的情况。
+   取值 1px 而不是 0 —— baseline 对齐会在两条 flex line 之间垫约 3px，
+   row-gap:1 实测盒间 4px（原 gap:0.7rem 时盒间 13px）。
+   副标题行高同步收到 1.3（原继承 1.5 = 18px），去掉多余的行内空白。 */
+.ssd-dp-sec[data-mod="actors"] .ssd-dp-sec-head { row-gap: 1px; }
+.ssd-dp-sec[data-mod="actors"] .ssd-dp-sec-count { line-height: 1.3; }
+
+/* 320 屏（可用 238）英文全量 253px 放不下 → 只此一档藏口径 */
+@media (max-width: 340px) {
+  .ssd-dp-sec[data-mod="actors"] .ssd-dp-sec-x { display: none; }
+}
 
 .ssd-dp-sec-more {
   margin-left: auto;
@@ -2416,6 +2482,52 @@
   font-weight: 700;
   pointer-events: none;
 }
+/* 「在库中」角标：热门榜保留完整榜单后，用来标已入库的片（用户 2026-11-06）。
+   与「库内演员」区分开 —— 那条是绿标、指「这部片里有你库内的演员」；这条用
+   固定深蓝，指「这部片本身已经在库里」。
+   底色不跟 --sx-acc 走：部分主题的「主色」本身就是近白色（kb-classic 实测
+   #EEF0F1），color-mix 出来是浅灰底 + 白字，等于看不见。这里写死深蓝压住封面。 */
+.ssd-overlay-owned {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  z-index: 9;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #1d6fa5;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+/* 列表模式（一行一个场景）没有封面角标的位置，徽章统一挂在标题下一行
+   （用户 2026-11-06）：一行排开、与标题同一条左基线，窄屏或徽章多到放不下
+   才换行。原来每个徽章各自 margin-left:6px 挂在标题尾巴上，会比标题多缩进
+   6px，还随标题长短左右横跳。 */
+.ssd-row-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.ssd-row-badges > span {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 15px;
+  white-space: nowrap;
+}
+.ssd-row-badges > .ssd-row-owned { background: #1d6fa5; }
+/* 绿标跟卡片角标同色；先给不依赖变量的兜底 —— 演员页「发现」tab 不在
+   suiteTheme 的注入作用域里，--sx-gr 为空时 color-mix 整条失效只剩白字 */
+.ssd-row-badges > .ssd-row-inlib {
+  background: #2b8a3e;
+  background: color-mix(in srgb, var(--sx-gr) 72%, black 28%);
+}
 /* 「已忽略」角标：只在演员页发现 tab 的「临时查看已忽略」里出现。
    top-left 与「预告」撞位 —— 已忽略的片多半也不该再被当预告推，但信息不丢更好，
    所以让被它挡在后面的预告角标整体下移一行，两个角标都露出来。
@@ -2436,18 +2548,8 @@
   pointer-events: none;
 }
 .ssd-overlay-ignored ~ .ssd-overlay-preview { top: 2.45rem; }
-/* 列表模式下同一个标记（行里没有封面角标，挂在标题文字尾巴上） */
-.ssd-row-ignored {
-  margin-left: 6px;
-  padding: 0 5px;
-  border-radius: 4px;
-  background: rgba(209, 77, 65, 0.94);
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 700;
-  vertical-align: 1px;
-  white-space: nowrap;
-}
+/* 列表模式下同一个标记（行里没有封面角标，挂进标题下的徽章行） */
+.ssd-row-badges > .ssd-row-ignored { background: rgba(209, 77, 65, 0.94); }
 /* ⚠️ 卡片里的 `filter: blur(30px)`（封面）/ `blur(2px)`（标题、描述、工作室链接）
    不是占位残留，是 sfwswitch（社区插件「Blur NSFW images and unblur on mouse over」）
    的效果，悬停时会解到 blur(0)。**别在这里屏蔽**：v2.5.0 曾经整卡写
@@ -2515,8 +2617,10 @@
   cursor: pointer;
 }
 .ssd-dp-cachetrim:hover { background: color-mix(in srgb, var(--ssd-warning) 26%, transparent); }
-/* 底部翻页行：只有按钮，靠右收尾（§13.5 不再重复计数） */
-.ssd-dp-pagerow.is-end { justify-content: flex-end; margin-top: 4px; }
+/* 底部翻页行：只有按钮，靠右收尾（§13.5 不再重复计数）。
+   上间距取 12px，和顶部翻页到卡片的那 12px（headrow 的 margin-bottom）一致 ——
+   原来 4px 贴着卡片太近（用户 2026-11-07） */
+.ssd-dp-pagerow.is-end { justify-content: flex-end; }
 
 /* 子 tab + 顶部翻页并成一行（§13.5）：原先三行各占一处，iPad 上白扔约 58px。
    宽度不足时 flex-wrap 自动把右侧翻页掉到第二行 —— 「不够才换行」。 */
@@ -2536,12 +2640,14 @@
   min-width: 0;
 }
 
-/* 工作室分组入口条（§8.2 进入点）*/
+/* 工作室分组入口条（§8.2 进入点）。
+   上方间距交给 headrow 的 margin-bottom（12px），这里不再叠 12px；下方留 12px
+   与卡片分开（原来 4px 贴着卡片，用户 2026-11-07） */
 .ssd-dp-grpstrip {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 12px 0 4px;
+  margin: 0 0 12px;
 }
 .ssd-dp-grpchip {
   padding: 5px 12px;
@@ -3117,7 +3223,23 @@ button.ssd-dp-extbtn { padding: 0; cursor: pointer; font-family: inherit; }
 }
 .ssd-dp-igmeta { font-size: 11.5px; color: var(--sx-tx2); line-height: 1.35; word-break: break-word; }
 .ssd-dp-igmeta.dim { color: var(--sx-tx3); }
-.ssd-dp-igrestore { align-self: flex-start; margin-top: 2px; }
+/* 快照被截断时的「+N」徽章：跟在演员名/别名后面，不抢正文的视觉权重 */
+.ssd-dp-igmore {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--sx-ui3);
+  color: var(--sx-tx2);
+  font-size: 10.5px;
+  line-height: 1.5;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+/* 「恢复显示」钉在卡片底部（用户 2026-11-07）：工作室名换行会把卡片撑高，
+   按钮若紧跟在内容后面，同一行里就会一高一低。margin-top:auto 吃掉剩余
+   空间，同一 flex 行内卡片等高（align-items: stretch 默认）→ 按钮齐底。 */
+.ssd-dp-igrestore { align-self: flex-start; margin-top: auto; }
 
 /* 演员卡：头像 + 名字 + 别名 + 恢复 */
 .ssd-dp-igperf {
@@ -3474,6 +3596,14 @@ button.ssd-dp-extbtn { padding: 0; cursor: pointer; font-family: inherit; }
   font-weight: 600;
   color: var(--sx-tx1b);
 }
+/* 需要整组隐藏的设置组（目前只有 Whisparr）套一层容器：父级的 14px gap
+   只作用于直接子元素，标题与卡片被包进来后间距就没了，标题会贴住卡片
+   （用户 2026-11-09 截图）。这里补一份同样的 gap。 */
+.ssd-dp-set-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 .ssd-dp-set-box {
   display: flex;
   flex-direction: column;
@@ -3491,8 +3621,9 @@ button.ssd-dp-extbtn { padding: 0; cursor: pointer; font-family: inherit; }
   padding: 9px 0;
 }
 .ssd-dp-setrow + .ssd-dp-setrow { border-top: 1px solid var(--sx-line); }
-/* 已忽略首行卡片（§7）：与下面的「通用」分组之间留一口气 */
-.ssd-dp-set-ign { margin-bottom: 18px; }
+/* 已忽略首行卡片（§7）：不再额外加下方留白 —— 「入库默认字段」卡片就紧跟
+   在它下面，18px 叠上容器 gap 后中间空出 32px 且没有任何文字承接（用户
+   2026-11-07）。统一交给 .ssd-dp-settings 的 14px gap。 */
 .ssd-dp-setname { font-size: 13px; color: var(--sx-tx); }
 .ssd-dp-sethint {
   font-size: 12px;
@@ -3500,6 +3631,19 @@ button.ssd-dp-extbtn { padding: 0; cursor: pointer; font-family: inherit; }
   color: var(--sx-tx2);
   padding: 0 0 9px;
 }
+/* 提示行插在两条设置之间时，会把「.ssd-dp-setrow + .ssd-dp-setrow」那条淡分隔线
+   打断（相邻选择器失效）—— 这里补回来，用同一个色（用户 2026-11-07）。 */
+.ssd-dp-sethint + .ssd-dp-setrow { border-top: 1px solid var(--sx-line); }
+/* 讲「整段生效范围」的提示（不是某一条控件的注释）：与上面的控件隔一条淡线，
+   行高、留白各压一档，读起来比控件行矮，不会像又一条设置（用户 2026-11-07）。 */
+.ssd-dp-sethint.sep {
+  border-top: 1px solid var(--sx-line);
+  margin-top: 2px;
+  padding: 7px 0 5px;
+  line-height: 1.32;
+}
+/* 整行只有一个按钮、左侧没有标题时贴右，与其他行的下拉/开关对齐 */
+.ssd-dp-setrow.is-end { justify-content: flex-end; }
 /* 设置写入失败（localStorage 配额满）的就地提示 */
 .ssd-dp-setwarn {
   font-size: 12px;
@@ -3596,6 +3740,62 @@ button.ssd-dp-extbtn { padding: 0; cursor: pointer; font-family: inherit; }
 }
 .ssd-dp-setsel:focus { border-color: var(--sx-acc); }
 .ssd-dp-setsel.num { width: 88px; }
+/* 设置页下拉的自定义浮层（discover.js enhanceSettingSelects）：
+   原生 select 的弹层在靠近视口底部时会整块跑出屏幕，且不会自动向上翻。 */
+.ssd-dp-nsel-off { display: none; }   /* 原生节点只当值与事件来源 */
+.ssd-dp-nsel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 30px;
+  font-family: inherit;
+  text-align: left;
+}
+/* 补回下拉三角：原生 select 隐藏后没地方借这个形状 */
+.ssd-dp-nsel-btn::after {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-top: 4.5px solid currentColor;
+  opacity: 0.55;
+}
+.ssd-dp-nsel-panel {
+  position: fixed;
+  z-index: 30000;   /* 高于 .ssd-dp-modal 覆盖层(20000)，低于图片预览(99999) */
+  overflow: auto;
+  padding: 4px;
+  /* 面板挂在 body 上，不在 .ssd-dp-page 里 → 拿不到那里统一设的 border-box，
+     宽度必须自己按 border-box 算，否则 JS 算出的 45px 实际渲染成 55px */
+  box-sizing: border-box;
+  /* 兜底色：面板挂在 body 上，主题变量由 JS 从页面根内联过来；
+     万一读不到（插件还没注入 scope）也不至于透明 */
+  background: var(--sx-ui2, #343331);
+  border: 1px solid var(--sx-ui3, #403E3C);
+  color: var(--sx-tx, #cecdc3);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+}
+.ssd-dp-nsel-opt {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--sx-tx);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.ssd-dp-nsel-opt.on { color: var(--sx-acc); font-weight: 600; }
+.ssd-dp-nsel-opt.act,
+.ssd-dp-nsel-opt:hover { background: var(--sx-ui3); }
 .ssd-dp-btn.sm { padding: 4px 9px; font-size: 12px; }
 /* 设置页的入口按钮（已忽略管理 / 入库字段的场景·演员）要和同一行的下拉框
    一样大（用户 2026-10-29）：下拉实测 30px 高，按钮基础样式是 34px（7px
@@ -4291,7 +4491,6 @@ button.ssd-dp-extbtn { padding: 0; cursor: pointer; font-family: inherit; }
 
 .ssd-tab-pane {
   --ssd-sel-acc: #137cbd; /* = 原生 .btn-primary 底色，选中态和按钮同一色系 */
-  --ssd-sel-line: rgba(128, 128, 128, 0.4);
 }
 .ssd-tab-pane .ssd-dp-selbox { border-color: #fff; background: rgba(0, 0, 0, 0.45); }
 .ssd-tab-pane .scene-card.is-sel .ssd-dp-selbox,
@@ -4460,6 +4659,8 @@ button.ssd-dp-extbtn { padding: 0; cursor: pointer; font-family: inherit; }
 .ssd-test-mark { font-weight: 700; line-height: 1.5; }
 .ssd-test-row.is-ok .ssd-test-mark { color: var(--ssd-success); }
 .ssd-test-row.is-bad .ssd-test-mark { color: var(--ssd-danger); }
+/* 可选集成未配置（Whisparr）：中性短横线 —— 不是通过也不是失败（用户 2026-11-09） */
+.ssd-test-row.is-skip .ssd-test-mark { color: var(--ssd-modal-muted); }
 .ssd-test-body { min-width: 0; }
 .ssd-test-name { font-size: 13px; font-weight: 600; }
 .ssd-test-detail { font-size: 12px; color: var(--ssd-modal-muted); word-break: break-word; }
