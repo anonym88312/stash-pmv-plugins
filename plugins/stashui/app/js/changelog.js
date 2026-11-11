@@ -7,6 +7,15 @@
 
 export const CHANGES = [
   {
+    v: "3.141.4",
+    date: "2026-11-11",
+    items: [
+      ["ui", "Fix: classic Stash follows the colors you chose in Stash UI now (Settings → Appearance). It stayed pink whatever you picked, because its look had fixed plum/pink colors. Turn “Style classic Stash like this interface” off in Settings → General to keep classic Stash as it is.", "修复：经典版 Stash 现在会跟随你在 Stash UI 中选择的颜色（设置 → 外观）。之前无论选什么颜色它都保持粉色，因为它的样式使用了固定的梅红/粉色。如想保持经典版原样，可在设置 → 常规中关闭“让经典版 Stash 使用此界面的样式”。"],
+      ["ui", "Versus: new option “Keep the star ratings up to date” (Versus → Options). After every pick the two get the star rating that fits their points – so the duels change the real ratings of scenes, images and performers. Off by default; “Undo” takes the last change back. The ranking page still has “Turn into star ratings …” for doing it all at once.", "Versus：新增选项“保持星级评分为最新”（Versus → 选项）。每次选择后，两者会得到与其积分相符的星级评分——这样对决会改变场景、图片和演员的真实评分。默认关闭；“撤销”会还原最近一次改动。排名页仍有“转为星级评分 …”可一次性完成。", "versus::[data-vx=opts]"],
+      ["ui", "Scene cards: a studio logo that can't be loaded is replaced by the studio's name, so no studio goes missing on a card.", "场景卡片：无法加载的工作室徽标会改为显示工作室名称，卡片上不会再缺少工作室。"],
+    ],
+  },
+  {
     v: "3.141.3",
     date: "2026-11-11",
     items: [

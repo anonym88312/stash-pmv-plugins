@@ -23,8 +23,12 @@
   --st-violet: #b48cff;
   --st-font: Bahnschrift, "DIN Alternate", "Segoe UI", system-ui, sans-serif;
   --st-display: "Bahnschrift Condensed", Bahnschrift, "Arial Narrow", "Segoe UI", sans-serif;
+  /* the same colors as r, g, b (classic.js sets them from the colors chosen in Stash UI) */
+  --st-ink-rgb: 35, 15, 31;
+  --st-ink-2-rgb: 52, 23, 46;
+  --st-flush-rgb: 255, 62, 138;
   --st-hatch: repeating-linear-gradient(-60deg, var(--st-flush) 0 2px, transparent 2px 5px);
-  --st-tone: radial-gradient(circle, rgba(35, 15, 31, .55) 1.1px, transparent 1.7px);
+  --st-tone: radial-gradient(circle, rgba(var(--st-ink-rgb), .55) 1.1px, transparent 1.7px);
   --st-dim: .45;
   /* Stash/Bootstrap partly fall back to these variables */
   --primary: #ff3e8a;
@@ -48,13 +52,13 @@ body {
 
 /* Wallpaper from Random Backgrounds: plum veil and halftone screen on top */
 body::after {
-  background-image: var(--st-tone), linear-gradient(rgba(35, 15, 31, var(--st-dim)), rgba(35, 15, 31, calc(var(--st-dim) + .12))), var(--stash-bg-image) !important;
+  background-image: var(--st-tone), linear-gradient(rgba(var(--st-ink-rgb), var(--st-dim)), rgba(var(--st-ink-rgb), calc(var(--st-dim) + .12))), var(--stash-bg-image) !important;
   background-size: 6px 6px, cover, cover !important;
   background-repeat: repeat, no-repeat, no-repeat !important;
   background-position: 0 0, center, center !important;
 }
 .st-no-tone body::after {
-  background-image: linear-gradient(rgba(35, 15, 31, var(--st-dim)), rgba(35, 15, 31, calc(var(--st-dim) + .12))), var(--stash-bg-image) !important;
+  background-image: linear-gradient(rgba(var(--st-ink-rgb), var(--st-dim)), rgba(var(--st-ink-rgb), calc(var(--st-dim) + .12))), var(--stash-bg-image) !important;
   background-size: cover, cover !important;
   background-repeat: no-repeat, no-repeat !important;
 }
@@ -149,7 +153,7 @@ nav.top-nav .donate { color: var(--st-faint) !important; }
   background-color: var(--st-flush) !important;
   border-color: var(--st-flush) !important;
 }
-.btn-primary:not(.minimal):hover { background-color: #ff5c9d !important; }
+.btn-primary:not(.minimal):hover { background-color: color-mix(in srgb, var(--st-flush), #fff 15%) !important; }
 /* Stash also uses btn-primary for overlay buttons – those stay transparent */
 .preview-button .btn-primary, div[class*="-divider"] > .btn-primary, .Lightbox .btn-primary {
   color: var(--st-paper) !important;
@@ -204,7 +208,7 @@ nav.top-nav .donate { color: var(--st-faint) !important; }
 .form-control:hover, .custom-select:hover { border-color: var(--st-faint) !important; }
 .form-control:focus, .custom-select:focus { border-color: var(--st-shine) !important; }
 .form-control::placeholder { color: var(--st-faint) !important; }
-.form-control:disabled, .form-control[readonly] { color: var(--st-smudge) !important; background-color: rgba(52, 23, 46, .55) !important; }
+.form-control:disabled, .form-control[readonly] { color: var(--st-smudge) !important; background-color: rgba(var(--st-ink-2-rgb), .55) !important; }
 .input-group-text { color: var(--st-smudge) !important; }
 select.form-control option, .custom-select option { background: var(--st-ink-2); }
 .form-group label, .form-label, label { color: var(--st-smudge); }
@@ -297,7 +301,7 @@ div.react-select__control .react-select__multi-value__remove:hover { color: var(
 
 .nav-tabs {
   padding: 0 6px;
-  background: rgba(35, 15, 31, .92);
+  background: rgba(var(--st-ink-rgb), .92);
   border: 1px solid var(--st-ink-3) !important;
   border-radius: 4px;
 }
@@ -326,7 +330,7 @@ div.react-select__control .react-select__multi-value__remove:hover { color: var(
 /* ---------- List toolbar, sidebar, pagination ---------- */
 
 .filtered-list-toolbar, [role="toolbar"] {
-  background: rgba(35, 15, 31, .92);
+  background: rgba(var(--st-ink-rgb), .92);
   border-radius: 4px;
 }
 .filtered-list-toolbar { padding: 6px; border: 1px solid var(--st-ink-3); }
@@ -384,13 +388,13 @@ div.react-select__control .react-select__multi-value__remove:hover { color: var(
   margin-left: 3px;
   color: var(--st-paper);
   text-shadow: none;
-  background: rgba(35, 15, 31, .82);
+  background: rgba(var(--st-ink-rgb), .82);
   border-radius: 2px;
 }
 
 /* Progress and scrubber: hatching */
-.progress-bar { background-color: rgba(35, 15, 31, .6) !important; }
-.progress-indicator { background: var(--st-hatch), rgba(255, 62, 138, .5) !important; }
+.progress-bar { background-color: rgba(var(--st-ink-rgb), .6) !important; }
+.progress-indicator { background: var(--st-hatch), rgba(var(--st-flush-rgb), .5) !important; }
 .hover-scrubber-indicator-marker { background-color: var(--st-flush) !important; }
 .progress { background-color: var(--st-ink-3); border-radius: 2px; }
 .progress .progress-bar { background: var(--st-hatch), var(--st-flush-deep) !important; }
@@ -449,7 +453,7 @@ div.react-select__control .react-select__multi-value__remove:hover { color: var(
 .detail-item-value { color: var(--st-paper); }
 
 .scene-tabs, #scene-edit-details, .scene-tabs .tab-content, .gallery-tabs {
-  background-color: rgba(35, 15, 31, .94) !important;
+  background-color: rgba(var(--st-ink-rgb), .94) !important;
 }
 .scene-tabs { border-right: 1px solid var(--st-ink-3); }
 .scene-tabs .scene-header h3, .scene-header { font-family: var(--st-display); font-stretch: 80%; }
@@ -464,7 +468,7 @@ div.react-select__control .react-select__multi-value__remove:hover { color: var(
 .scrubber-viewport { background: var(--st-ink); }
 
 /* Video-Player (video.js) */
-.vjs-control-bar { background: linear-gradient(transparent, rgba(35, 15, 31, .9)) !important; }
+.vjs-control-bar { background: linear-gradient(transparent, rgba(var(--st-ink-rgb), .9)) !important; }
 .vjs-play-progress, .vjs-volume-level { background: var(--st-flush) !important; }
 .vjs-load-progress div { background: rgba(251, 239, 244, .25) !important; }
 .vjs-slider { background-color: rgba(251, 239, 244, .15) !important; }
@@ -480,11 +484,11 @@ div.react-select__control .react-select__multi-value__remove:hover { color: var(
   border-color: var(--st-ink-3) !important;
 }
 .table td, .table th { border-color: var(--st-ink-3) !important; }
-.table-striped tbody tr:nth-of-type(odd) { background-color: rgba(52, 23, 46, .5); }
+.table-striped tbody tr:nth-of-type(odd) { background-color: rgba(var(--st-ink-2-rgb), .5); }
 .table-hover tbody tr:hover { color: var(--st-paper); background-color: var(--st-ink-3); }
 
 #settings-container .setting-section, .setting-section {
-  background-color: rgba(35, 15, 31, .94) !important;
+  background-color: rgba(var(--st-ink-rgb), .94) !important;
   border: 1px solid var(--st-ink-3) !important;
   border-radius: 4px;
 }
@@ -550,7 +554,7 @@ div.react-select__control .react-select__multi-value__remove:hover { color: var(
 /* ---------- Misc ---------- */
 
 .alert { color: var(--st-paper); background: var(--st-ink-2); border: 1px solid var(--st-ink-3); border-left: 4px solid var(--st-flush); border-radius: 3px; }
-.alert-danger { border-left-color: #ff5a5a; }
+.alert-danger { border-left-color: var(--danger); }
 .list-group-item { color: var(--st-paper); background-color: var(--st-ink-2); border-color: var(--st-ink-3); }
 .list-group-item.active { color: var(--st-ink); background-color: var(--st-flush); border-color: var(--st-flush); }
 .jumbotron { background: var(--st-ink-2); }

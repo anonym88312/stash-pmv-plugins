@@ -66,6 +66,60 @@
     document.head.appendChild(st);
   }
 
+  // The colors chosen in Stash UI (Settings → Appearance, saved in this browser as "stashui.theme") color classic Stash too:
+  // the look below is made of the --st-* variables, so they are set from the chosen colors. Nothing chosen = the Plum default in the CSS.
+  function rgbOf(color) {
+    var el = document.createElement("span");
+    el.style.color = color;
+    document.body.appendChild(el);
+    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).color);
+    el.remove();
+    return m ? m[1] + ", " + m[2] + ", " + m[3] : "";
+  }
+  function applyColors() {
+    var th;
+    try {
+      th = JSON.parse(localStorage.getItem("stashui.theme") || "null");
+    } catch (e) {
+      th = null;
+    }
+    var c = th && th.colors;
+    if (!c || typeof c !== "object") return;
+    var s = html.style;
+    var set = function (name, v) {
+      if (typeof v === "string" && v && window.CSS && CSS.supports("color", v)) s.setProperty(name, v);
+    };
+    var pink = c["--pink"];
+    set("--st-ink", c["--bg"]);
+    set("--st-ink-2", c["--bg-2"]);
+    set("--st-ink-3", c["--bg-3"]);
+    set("--st-paper", c["--text"]);
+    set("--st-smudge", c["--text-2"]);
+    set("--st-faint", c["--faint"]);
+    set("--st-flush", pink);
+    set("--primary", pink);
+    set("--secondary", c["--bg-2"]);
+    set("--dark", c["--bg"]);
+    set("--danger", c["--danger"]);
+    set("--success", c["--ok"]);
+    if (typeof pink === "string" && pink) {
+      s.setProperty("--st-flush-deep", "color-mix(in srgb, " + pink + ", #000 55%)");
+      if (pink.toLowerCase() !== "#ff3e8a") s.setProperty("--st-violet", "color-mix(in srgb, " + pink + " 70%, #fff)");
+    }
+    var rgb = function (name, v) {
+      var r = typeof v === "string" && v ? rgbOf(v) : "";
+      if (r) s.setProperty(name, r);
+    };
+    var go = function () {
+      rgb("--st-ink-rgb", c["--bg"]);
+      rgb("--st-ink-2-rgb", c["--bg-2"]);
+      rgb("--st-flush-rgb", pink);
+    };
+    if (document.body) go();
+    else document.addEventListener("DOMContentLoaded", go);
+  }
+  if (!(!embedded && plain())) applyColors();
+
   var params = new URLSearchParams(location.search);
   try {
     if (params.get("classic") === "1") sessionStorage.setItem("stashui.classic", "1");

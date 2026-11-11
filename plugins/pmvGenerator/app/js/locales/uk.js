@@ -2785,4 +2785,6 @@ export default {
   "Crop / zoom in on this piece": "Обрізати / наблизити цей фрагмент",
   "– drag the frame on the picture; only that part of the piece goes into the new video": "– перетягніть рамку на зображенні; у нове відео потрапить лише ця частина фрагмента",
   "This piece shows only a part of the picture": "Цей фрагмент показує лише частину зображення",
+  "Keep the star ratings up to date": "Оновлювати оцінки зірками автоматично",
+  "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "Після кожного вибору обидва отримують оцінку зірками, що відповідає їхнім очкам (Elo). Вона щоразу замінює їхню оцінку в Stash. Не для маркерів.",
 };

@@ -2692,4 +2692,6 @@ export default {
   "Crop / zoom in on this piece": "Recadrer / zoomer sur ce passage",
   "– drag the frame on the picture; only that part of the piece goes into the new video": "– faites glisser le cadre sur l'image ; seule cette partie du passage va dans la nouvelle vidéo",
   "This piece shows only a part of the picture": "Ce passage n'affiche qu'une partie de l'image",
+  "Keep the star ratings up to date": "Garder les notes en étoiles à jour",
+  "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "Après chaque choix, les deux reçoivent la note en étoiles qui correspond à leurs points (Elo). Elle remplace leur note dans Stash, à chaque fois. Pas pour les marqueurs.",
 };

@@ -12,7 +12,7 @@ import { tagPicker } from "./tagpicker.js";
 import { go } from "../main.js";
 import { isGif } from "../pieces.js";
 import { loadStandings } from "../standings.js";
-import { tiersOf, tierBadge, TIERS, matchOpts, pushLedger, popLedger, mergeLedger, blankLedger, ledgerHtml, openOptions, overviewHtml, openSnapshots } from "../versusx.js";
+import { tiersOf, tierBadge, TIERS, eloToRating, matchOpts, pushLedger, popLedger, mergeLedger, blankLedger, ledgerHtml, openOptions, overviewHtml, openSnapshots } from "../versusx.js";
 import { logEvent, toggleLog } from "../eventlog.js";
 import { ensureTiers } from "../tiers.js";
 import { largeNow } from "../scale.js";
@@ -493,6 +493,11 @@ export function render(main, params = {}) {
     const dl = kl * (1 - expect);
     r[win.id] = [ew + dw, ww + 1, wl];
     r[lose.id] = [el - dl, lw, ll + 1];
+    // "Keep the star ratings up to date": the new points become the star rating in Stash (what they had before is kept for Undo)
+    if (mo.live && S.kind !== "marker") {
+      undo[undo.length - 1].stars = { [win.id]: win.rating100 == null ? null : win.rating100, [lose.id]: lose.rating100 == null ? null : lose.rating100 };
+      writeStars([win, lose], r);
+    }
     pushLedger(data, S.kind, win.id, lose.id, dw, dl);
     logEvent("versus", "win", "{r0} beat {r1} (+{dw} / −{dl})", { dw: Math.round(dw), dl: Math.round(dl) }, [
       { k: S.kind, id: win.id, name: titleOf(S.kind, win), tier: tierNow.get(win.id) },
@@ -528,9 +533,30 @@ export function render(main, params = {}) {
     }, 420);
   }
 
+  // Writes the star rating that fits the points of these items into Stash (one by one; a failure is shown once, the pick stays)
+  function writeStars(items, r) {
+    const kind = S.kind;
+    for (const x of items) {
+      const n = eloToRating(r[x.id][0]);
+      if (x.rating100 === n) continue;
+      x.rating100 = n;
+      gql(KINDS[kind].bulk, { i: { ids: [x.id], rating100: n } }).catch((e) => {
+        if (!writeStars.failed) (writeStars.failed = true), errorToast(e, t("Star ratings"));
+      });
+    }
+  }
+
   function undoLast() {
     const u = undo.pop();
     if (!u) return toast(t("Nothing to undo"));
+    if (u.stars && u.kind === S.kind) {
+      // the star ratings go back to what they were before this pick (a rating that was never set can't be taken away: it stays at the points' value)
+      for (const [id, old] of Object.entries(u.stars)) {
+        const x = (pair || []).find((y) => String(y.id) === String(id)) || pool.find((y) => String(y.id) === String(id));
+        if (old != null) gql(KINDS[u.kind].bulk, { i: { ids: [id], rating100: old } }).catch(() => {});
+        if (x) x.rating100 = old;
+      }
+    }
     Object.entries(u.before).forEach(([id, r]) => (r ? (data[u.kind][id] = r) : delete data[u.kind][id]));
     if (u.led) popLedger(data, u.kind, u.led[0], u.led[1]);
     logEvent("versus", "info", "Last pick undone");

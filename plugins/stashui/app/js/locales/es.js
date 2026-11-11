@@ -2728,4 +2728,6 @@ export default {
   "Crop / zoom in on this piece": "Recortar / acercar este fragmento",
   "– drag the frame on the picture; only that part of the piece goes into the new video": "– arrastra el marco sobre la imagen; solo esa parte del fragmento pasa al vídeo nuevo",
   "This piece shows only a part of the picture": "Este fragmento muestra solo una parte de la imagen",
+  "Keep the star ratings up to date": "Mantener las valoraciones con estrellas al día",
+  "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "Tras cada elección, los dos reciben la valoración con estrellas que corresponde a sus puntos (Elo). Sustituye su valoración en Stash cada vez. No sirve para marcadores.",
 };

@@ -2706,4 +2706,6 @@ export default {
   "Crop / zoom in on this piece": "Dieses Stück zuschneiden / hineinzoomen",
   "– drag the frame on the picture; only that part of the piece goes into the new video": "– Rahmen auf dem Bild ziehen; nur dieser Teil des Stücks kommt ins neue Video",
   "This piece shows only a part of the picture": "Dieses Stück zeigt nur einen Teil des Bildes",
+  "Keep the star ratings up to date": "Sternebewertungen aktuell halten",
+  "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "Nach jeder Wahl bekommen die beiden die Sternebewertung, die zu ihren Punkten (Elo) passt. Sie ersetzt jedes Mal ihre Bewertung in Stash. Nicht für Marker.",
 };

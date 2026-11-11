@@ -73,6 +73,21 @@ function studioBadge(p) {
   return `<span class="kb-studio${logo ? "" : " is-name"}" title="${esc(p.studio.name)}">${logo ? `<img alt="${esc(p.studio.name)}" loading="lazy" src="${esc(p.studio.image_path)}">` : esc(p.studio.name)}</span>`;
 }
 
+// A studio logo that can't be loaded (gone, wrong address, blocked) is replaced by the studio's name, so no studio goes missing.
+// (An image error doesn't bubble – hence the listener in the capture phase.)
+document.addEventListener(
+  "error",
+  (e) => {
+    const img = e.target;
+    if (!img || img.tagName !== "IMG" || !img.closest) return;
+    const box = img.closest(".kb-scard-studio, .kb-studio");
+    if (!box || box.classList.contains("is-name")) return;
+    box.classList.add("is-name");
+    box.textContent = img.alt || box.title || "";
+  },
+  true
+);
+
 // A card from an extension (see ext.js): own link in a new tab, no selection, favourites, tiers or previews
 function foreignHtml(p) {
   const badges = (p.badges || []).map((b) => `<span class="kb-xbadge"${b.title ? ` title="${esc(b.title)}"` : ""}>${esc(b.text)}</span>`).join("");

@@ -2752,4 +2752,6 @@ export default {
   "Crop / zoom in on this piece": "このパートをクロップ / ズームイン",
   "– drag the frame on the picture; only that part of the piece goes into the new video": "— 映像上の枠をドラッグします。その部分だけが新しい動画に入ります",
   "This piece shows only a part of the picture": "このパートは映像の一部だけを表示します",
+  "Keep the star ratings up to date": "星評価を常に最新にする",
+  "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "選ぶたびに、2つにポイント（Elo）に合った星評価が付きます。Stash 内の評価は毎回置き換えられます。マーカーには使えません。",
 };

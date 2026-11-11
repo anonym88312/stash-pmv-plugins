@@ -2787,4 +2787,6 @@ export default {
   "Crop / zoom in on this piece": "Обрезать / приблизить этот фрагмент",
   "– drag the frame on the picture; only that part of the piece goes into the new video": "– перетащите рамку на картинке; в новое видео попадёт только эта часть фрагмента",
   "This piece shows only a part of the picture": "Этот фрагмент показывает только часть картинки",
+  "Keep the star ratings up to date": "Обновлять оценки звёздами автоматически",
+  "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "После каждого выбора оба получают оценку звёздами, соответствующую их очкам (Elo). Она каждый раз заменяет их оценку в Stash. Не для маркеров.",
 };

@@ -38,7 +38,9 @@ export function tiersOf(rows) {
 export const tierBadge = (k) => (k ? `<span class="kb-tier is-${k}" style="--tc:${TIERS.find((x) => x.k === k).color}" title="${t("Tier {tier}", { tier: k })}">${k}</span>` : "");
 
 // ---------- Options of the matches (this browser) ----------
-const DEF_OPTS = { kNew: 40, kOld: 24, newUntil: 10, momentLen: 12, jumpEvery: 4 };
+const DEF_OPTS = { kNew: 40, kOld: 24, newUntil: 10, momentLen: 12, jumpEvery: 4, live: false };
+// Points (Elo) ↔ star rating: the same line the start points are made from (a rating of 50 starts at 1500, 6 points per rating point)
+export const eloToRating = (elo) => Math.min(100, Math.max(1, Math.round(50 + (elo - 1500) / 6)));
 export const matchOpts = () => Object.assign({}, DEF_OPTS, store.get("versusOpts", {}));
 
 // ---------- Ledger: the last 10 matches of an item: [opponent id, 1 won / 0 lost, points, minutes since 1970] ----------
@@ -87,6 +89,8 @@ export function openOptions() {
       <label class="kb-vx-row"><b>${t("Points per pick – new ones")}</b><input class="kb-field" type="number" min="4" max="80" step="1" data-o="kNew" value="${o.kNew}"></label>
       <label class="kb-vx-row"><b>${t("Points per pick – settled ones")}</b><input class="kb-field" type="number" min="4" max="80" step="1" data-o="kOld" value="${o.kOld}"></label>
       <label class="kb-vx-row"><b>${t("New until … matches")}</b><input class="kb-field" type="number" min="1" max="50" step="1" data-o="newUntil" value="${o.newUntil}"></label>
+      <label class="kb-vx-row"><b>${t("Keep the star ratings up to date")}</b><input type="checkbox" data-live ${o.live ? "checked" : ""}></label>
+      <p class="kb-hint">${t("After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.")}</p>
       <p class="kb-hint">${t("Length of the clips. Kept in this browser.")}</p>
       <label class="kb-vx-row"><b>${t("Moments play at least … seconds")}</b><input class="kb-field" type="number" min="3" max="120" step="1" data-o="momentLen" value="${o.momentLen}"></label>
       <label class="kb-vx-row"><b>${t("Scenes jump to a new spot every … seconds")}</b><input class="kb-field" type="number" min="2" max="60" step="1" data-o="jumpEvery" value="${o.jumpEvery}"></label>`,
@@ -94,6 +98,7 @@ export function openOptions() {
   });
   dr.el.classList.add("kb-vx");
   dr.el.addEventListener("change", (e) => {
+    if (e.target.dataset && e.target.dataset.live != null) return void store.set("versusOpts", Object.assign(matchOpts(), { live: e.target.checked }));
     const k = e.target.dataset && e.target.dataset.o;
     if (!k) return;
     const v = Math.min(Number(e.target.max), Math.max(Number(e.target.min), Math.round(Number(e.target.value) || DEF_OPTS[k])));

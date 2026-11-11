@@ -2809,4 +2809,6 @@ export default {
   "Crop / zoom in on this piece": "裁剪 / 放大此片段",
   "– drag the frame on the picture; only that part of the piece goes into the new video": "——在画面上拖动方框；只有该部分会进入新视频",
   "This piece shows only a part of the picture": "此片段只显示画面的一部分",
+  "Keep the star ratings up to date": "保持星级评分为最新",
+  "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "每次选择后，两者会得到与其积分（Elo）相符的星级评分，并每次都替换它们在 Stash 中的评分。不适用于标记。",
 };

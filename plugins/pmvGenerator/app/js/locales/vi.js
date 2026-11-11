@@ -2745,4 +2745,6 @@ export default {
   "Crop / zoom in on this piece": "Cắt / phóng to đoạn này",
   "– drag the frame on the picture; only that part of the piece goes into the new video": "– kéo khung trên hình; chỉ phần đó của đoạn được đưa vào video mới",
   "This piece shows only a part of the picture": "Đoạn này chỉ hiển thị một phần của hình",
+  "Keep the star ratings up to date": "Luôn cập nhật xếp hạng sao",
+  "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "Sau mỗi lần chọn, cả hai nhận xếp hạng sao tương ứng với điểm (Elo) của chúng. Xếp hạng trong Stash bị thay thế mỗi lần. Không dùng cho các mốc đánh dấu.",
 };
