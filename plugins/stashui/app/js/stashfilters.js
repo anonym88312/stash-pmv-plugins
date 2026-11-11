@@ -103,6 +103,7 @@ export function convert(obj) {
       g = undefined;
     }
     if (g === undefined || (typeof g === "object" && g.value === null)) skipped.push(key);
+    else if (key === "folder") filter.files_filter = { ...(filter.files_filter || {}), parent_folder: g }; // Stash asks for a folder through files_filter
     else filter[key] = g;
   }
   return { filter, skipped };

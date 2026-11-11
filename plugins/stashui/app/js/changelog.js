@@ -7,6 +7,14 @@
 
 export const CHANGES = [
   {
+    v: "3.141.3",
+    date: "2026-11-11",
+    items: [
+      ["ui", "Fix: Stash’s own saved filters that include a Folder work again – they gave an “unknown field” error before (thanks to dopeniko for the report).", "修复：包含“文件夹”条件的 Stash 原生已保存筛选器现在可以正常使用（之前会报“unknown field”错误，感谢 dopeniko 的反馈）。"],
+      ["ui", "Fix: the mpv link no longer fails for scenes without subtitles (fix by dopeniko).", "修复：对于没有字幕的场景，mpv 链接不再失效（由 dopeniko 修复）。"],
+    ],
+  },
+  {
     v: "3.141.2",
     date: "2026-11-05",
     items: [
