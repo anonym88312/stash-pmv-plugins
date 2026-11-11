@@ -2360,3 +2360,27 @@ html.kb-glass .kb-studiorow-img { background: rgba(255, 255, 255, .08); }
 .kb-subgroups-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
 .kb-subgroups-bar h2 { margin: 0 auto 0 0; }
 .kb-subgroups-bar h2 small { margin-left: 6px; color: var(--faint); font-weight: 500; }
+
+/* Markdown in details and descriptions (markdown.js) */
+.kb-md.kb-md { white-space: normal; overflow-wrap: anywhere; } /* (twice: beats the pre-line of the plain text classes) */
+.kb-md > :first-child { margin-top: 0; }
+.kb-md > :last-child { margin-bottom: 0; }
+.kb-md p, .kb-md ul, .kb-md ol, .kb-md blockquote, .kb-md pre, .kb-md table, .kb-md hr { margin: .6em 0; }
+.kb-md h1, .kb-md h2, .kb-md h3, .kb-md h4, .kb-md h5, .kb-md h6 { margin: .9em 0 .35em; color: var(--text); font: 700 1.05em/1.3 var(--f-display); }
+.kb-md h1 { font-size: 1.3em; }
+.kb-md h2 { font-size: 1.18em; }
+.kb-md ul, .kb-md ol { padding-left: 1.4em; }
+.kb-md li { margin: .15em 0; }
+.kb-md li > ul, .kb-md li > ol { margin: .2em 0; }
+.kb-md a { color: var(--pink-2, var(--pink)); text-decoration: underline; text-underline-offset: 2px; }
+.kb-md code { padding: .05em .35em; border-radius: 4px; background: var(--bg-2); font: 500 .92em ui-monospace, Consolas, monospace; }
+.kb-md pre { padding: 10px 12px; overflow-x: auto; border-radius: 8px; background: var(--base); }
+.kb-md pre code { padding: 0; background: none; }
+.kb-md blockquote { padding-left: 12px; border-left: 3px solid var(--bg-3); color: var(--faint); }
+.kb-md hr { border: 0; border-top: 1px solid var(--line, var(--bg-3)); }
+.kb-md table { border-collapse: collapse; max-width: 100%; display: block; overflow-x: auto; }
+.kb-md th, .kb-md td { padding: 4px 10px; border: 1px solid var(--line, var(--bg-3)); text-align: left; }
+.kb-md th { color: var(--text); background: var(--bg-2); }
+html.kb-glass .kb-md code, html.kb-glass .kb-md th { background: rgba(255, 255, 255, .1); }
+html.kb-glass .kb-md pre { background: rgba(0, 0, 0, .25); }
+.kb-scard-details code { padding: 0 .3em; border-radius: 3px; background: var(--bg-2); font-size: .92em; }

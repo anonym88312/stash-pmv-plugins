@@ -2811,4 +2811,6 @@ export default {
   "This piece shows only a part of the picture": "此片段只显示画面的一部分",
   "Keep the star ratings up to date": "保持星级评分为最新",
   "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "每次选择后，两者会得到与其积分（Elo）相符的星级评分，并每次都替换它们在 Stash 中的评分。不适用于标记。",
+  "Markdown in descriptions": "描述中的 Markdown",
+  "Details and descriptions of scenes, images, galleries, groups, performers, studios and tags can have **bold**, *italic*, lists, headings, links and tables. Links open in a new tab; pictures and raw HTML are never shown.": "场景、图片、图库、系列、演员、工作室和标签的详情与描述可以使用 **粗体**、*斜体*、列表、标题、链接和表格。链接会在新标签页打开；图片和原始 HTML 不会显示。",
 };

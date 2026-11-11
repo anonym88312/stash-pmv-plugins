@@ -49,6 +49,7 @@ async function tagPerformers(box, tag) {
 }
 
 import { mountSlots } from "../ext.js";
+import { textBox } from "../markdown.js";
 
 export async function render(main, params, query) {
   const tag = await getTag(params.id);
@@ -66,7 +67,7 @@ export async function render(main, params, query) {
         <nav class="kb-crumbs"><span><a href="#/tags">${t("Tags")}</a></span>${tag.parents.map((p) => `<span><a href="#/tag/${p.id}">${esc(p.name)}</a></span>`).join("")}</nav>
         <h1 class="kb-h1">${esc(tag.name)}</h1>
         <p class="kb-sub">${[tag.scene_count ? plural(tag.scene_count, "scene", "scenes") : "", tag.image_count ? plural(tag.image_count, "image", "images") : "", tag.gallery_count ? plural(tag.gallery_count, "gallery", "galleries") : ""].filter(Boolean).join(t(", ")) || t("Nothing tagged yet")}</p>
-        ${tag.description ? `<p class="kb-lead">${esc(tag.description)}</p>` : ""}
+        ${textBox(tag.description, "kb-lead")}
         <div class="kb-xhead" data-xhead></div>
         ${tag.children.length ? `<div class="kb-chips kb-head-chips">${tag.children.map((c) => `<a class="kb-chip" href="#/tag/${c.id}">${esc(c.name)}</a>`).join("")}</div>` : ""}
       </div>

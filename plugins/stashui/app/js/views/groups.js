@@ -10,6 +10,7 @@ import { mediaBrowser } from "./media.js";
 import { openGroupEditor } from "./groupedit.js";
 import { openAddMedia } from "./perfadd.js";
 import { caps } from "../caps.js";
+import { textBox } from "../markdown.js";
 
 const SORTS = [
   ["name", "Alphabetical"],
@@ -157,7 +158,7 @@ async function drawOne(main, id, query, redraw) {
         <div class="kb-plc-acts">${g.rating100 ? starsHtml(g.rating100) : ""}<button type="button" class="kb-btn" data-add>${icon("plus")}${t("Add scenes")}</button><button type="button" class="kb-btn" data-edit>${icon("edit")}${t("Edit group")}</button><button type="button" class="kb-btn is-ghost kb-pdanger" data-del>${icon("trash")}${t("Delete group")}</button></div>
         ${facts.length ? `<dl class="kb-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>` : ""}
         ${(g.tags || []).length ? `<div class="kb-chips">${g.tags.map((tg) => `<a class="kb-chip" href="#/tag/${esc(tg.id)}">${esc(tg.name)}</a>`).join("")}</div>` : ""}
-        ${g.synopsis ? `<p class="kb-lead kb-perf-details">${esc(g.synopsis)}</p>` : ""}
+        ${textBox(g.synopsis, "kb-lead kb-perf-details")}
       </div>
     </header>
     ${(g.sub_groups || []).length ? `<section class="kb-subgroups">

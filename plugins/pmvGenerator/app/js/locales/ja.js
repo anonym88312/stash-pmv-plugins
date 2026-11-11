@@ -2754,4 +2754,6 @@ export default {
   "This piece shows only a part of the picture": "このパートは映像の一部だけを表示します",
   "Keep the star ratings up to date": "星評価を常に最新にする",
   "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "選ぶたびに、2つにポイント（Elo）に合った星評価が付きます。Stash 内の評価は毎回置き換えられます。マーカーには使えません。",
+  "Markdown in descriptions": "説明文の Markdown",
+  "Details and descriptions of scenes, images, galleries, groups, performers, studios and tags can have **bold**, *italic*, lists, headings, links and tables. Links open in a new tab; pictures and raw HTML are never shown.": "シーン・画像・ギャラリー・グループ・パフォーマー・スタジオ・タグの詳細や説明で、**太字**、*斜体*、リスト、見出し、リンク、表が使えます。リンクは新しいタブで開きます。画像と生の HTML は表示されません。",
 };

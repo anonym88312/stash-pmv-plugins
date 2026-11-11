@@ -37,6 +37,7 @@ async function stashIdLinks(id) {
 
 import { mountSlots } from "../ext.js";
 import { mountPerfPanel } from "./perfstats.js";
+import { textBox } from "../markdown.js";
 
 export async function render(main, params, query) {
   const p = await getPerformer(params.id);
@@ -90,7 +91,7 @@ export async function render(main, params, query) {
         ${p.tags.length ? `<div class="kb-chips">${p.tags.map((tg) => `<a class="kb-chip" href="#/tag/${tg.id}">${esc(tg.name)}</a>`).join("")}</div>` : ""}
         <div class="kb-chips kb-perf-links" data-links${p.urls && p.urls.length ? "" : " hidden"}>${(p.urls || []).map((u) => `<a class="kb-chip" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(hostOf(u))} ↗</a>`).join("")}</div>
         <div class="kb-xhead" data-xhead></div>
-        ${p.details ? `<p class="kb-lead kb-perf-details">${esc(p.details)}</p>` : ""}
+        ${textBox(p.details, "kb-lead kb-perf-details")}
       </div>
     </header>
     <section class="kb-pst-panel" data-perfpanel hidden></section>

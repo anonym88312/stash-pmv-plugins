@@ -2789,4 +2789,6 @@ export default {
   "This piece shows only a part of the picture": "Этот фрагмент показывает только часть картинки",
   "Keep the star ratings up to date": "Обновлять оценки звёздами автоматически",
   "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "После каждого выбора оба получают оценку звёздами, соответствующую их очкам (Elo). Она каждый раз заменяет их оценку в Stash. Не для маркеров.",
+  "Markdown in descriptions": "Markdown в описаниях",
+  "Details and descriptions of scenes, images, galleries, groups, performers, studios and tags can have **bold**, *italic*, lists, headings, links and tables. Links open in a new tab; pictures and raw HTML are never shown.": "В подробностях и описаниях сцен, изображений, галерей, групп, исполнителей, студий и тегов можно использовать **жирный**, *курсив*, списки, заголовки, ссылки и таблицы. Ссылки открываются в новой вкладке; картинки и сырой HTML никогда не показываются.",
 };

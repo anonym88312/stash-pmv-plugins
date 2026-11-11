@@ -6,6 +6,7 @@ import { tierNow } from "./tiers.js";
 import { tierBadge } from "./versusx.js";
 import { critOf } from "./ratingx.js";
 import { cardAspect, previewsOn, nsfwKeeps } from "./display.js";
+import { cardText } from "./markdown.js";
 
 // Stash files animated GIFs as video files (codec "gif") but serves the GIF itself: those are images
 export const isGif = (vf) => !!vf && vf.__typename === "VideoFile" && (/gif/i.test(vf.format || "") || /gif/i.test(vf.video_codec || "") || /\.gif$/i.test(vf.basename || vf.path || ""));
@@ -225,7 +226,7 @@ function cardBody(p) {
     `<a class="kb-scard-title" href="#/scene/${p.id}" title="${esc(p.title)}">${esc(p.title)}</a>` +
     (x.date ? `<div class="kb-scard-date">${esc(fmtDate(x.date))}</div>` : "") +
     cardFacts(x) +
-    (x.details ? `<p class="kb-scard-details">${esc(x.details)}</p>` : "") +
+    (x.details ? `<p class="kb-scard-details">${cardText(x.details)}</p>` : "") +
     `<div class="kb-scard-pops">` +
     pop("perfs", "person", perfs.length, t("Performers")) +
     pop("tags", "tag", tags.length, t("Tags")) +

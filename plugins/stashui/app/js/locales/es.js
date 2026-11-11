@@ -2730,4 +2730,6 @@ export default {
   "This piece shows only a part of the picture": "Este fragmento muestra solo una parte de la imagen",
   "Keep the star ratings up to date": "Mantener las valoraciones con estrellas al día",
   "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "Tras cada elección, los dos reciben la valoración con estrellas que corresponde a sus puntos (Elo). Sustituye su valoración en Stash cada vez. No sirve para marcadores.",
+  "Markdown in descriptions": "Markdown en las descripciones",
+  "Details and descriptions of scenes, images, galleries, groups, performers, studios and tags can have **bold**, *italic*, lists, headings, links and tables. Links open in a new tab; pictures and raw HTML are never shown.": "Los detalles y descripciones de escenas, imágenes, galerías, grupos, artistas, estudios y etiquetas pueden llevar **negrita**, *cursiva*, listas, títulos, enlaces y tablas. Los enlaces se abren en una pestaña nueva; las imágenes y el HTML sin procesar nunca se muestran.",
 };

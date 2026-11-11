@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.142.0",
+    date: "2026-11-11",
+    items: [
+      ["ui", "Markdown in descriptions: the details of scenes, images, galleries, groups, performers and studios and the description of tags show **bold**, *italic*, lists, headings, quotes, links and tables (and the scene cards a flowing one-line version). Links open in a new tab; pictures and raw HTML are never shown, so nothing in a description can run. Settings → This interface → “Markdown in descriptions” turns it off. (This is what the Stash Markdown plugin does in classic Stash – Stash UI has it built in, you don't need that plugin here.)", "描述中的 Markdown：场景、图片、图库、系列、演员和工作室的详情，以及标签的描述，现在会显示 **粗体**、*斜体*、列表、标题、引用、链接和表格（场景卡片上显示为连续的一行）。链接会在新标签页打开；图片和原始 HTML 不会显示，因此描述中的内容无法执行。可在 设置 → 此界面 →“描述中的 Markdown”关闭。（这相当于经典版 Stash 的 Stash Markdown 插件——Stash UI 已内置，无需安装该插件。）", "settings::Markdown in descriptions"],
+    ],
+  },
+  {
     v: "3.141.4",
     date: "2026-11-11",
     items: [

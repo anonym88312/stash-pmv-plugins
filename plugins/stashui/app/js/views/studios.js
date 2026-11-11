@@ -9,6 +9,7 @@ import { caps } from "../caps.js";
 import { mediaBrowser } from "./media.js";
 import { openStudioEditor } from "./studioedit.js";
 import { go, setQuery } from "../main.js";
+import { textBox } from "../markdown.js";
 
 const SORTS = [
   ["name", "Alphabetical"],
@@ -196,7 +197,7 @@ async function renderOne(main, id, query) {
         ${facts.length ? `<dl class="kb-facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join("")}</dl>` : ""}
         ${(s.tags || []).length ? `<div class="kb-chips">${s.tags.map((tg) => `<a class="kb-chip" href="#/tag/${esc(tg.id)}">${esc(tg.name)}</a>`).join("")}</div>` : ""}
         <div class="kb-xhead" data-xhead></div>
-        ${s.details ? `<p class="kb-lead kb-perf-details">${esc(s.details)}</p>` : ""}
+        ${textBox(s.details, "kb-lead kb-perf-details")}
       </div>
     </header>
     <section class="kb-pst-panel" data-sdpanel hidden></section>

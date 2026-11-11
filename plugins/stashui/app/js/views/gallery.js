@@ -10,6 +10,7 @@ import { isHandMade } from "./gallerypicker.js";
 import { app, go } from "../main.js";
 
 import { mountSlots } from "../ext.js";
+import { textBox } from "../markdown.js";
 
 export async function render(main, params, query) {
   const g = await getGallery(params.id);
@@ -26,7 +27,7 @@ export async function render(main, params, query) {
         <nav class="kb-crumbs"><span><a href="#/galleries">${t("Galleries")}</a></span></nav>
         <h1 class="kb-h1">${esc(name)}${fav ? ` <span class="kb-dot-inline" title="${t("Favorite")}"></span>` : ""}</h1>
         <p class="kb-sub">${[plural(g.image_count, "image", "images"), g.date ? fmtDate(g.date) : "", g.rating100 ? starsHtml(g.rating100) : ""].filter(Boolean).join(t(", "))}</p>
-        ${g.details ? `<p class="kb-lead">${esc(g.details)}</p>` : ""}
+        ${textBox(g.details, "kb-lead")}
         <div class="kb-xhead" data-xhead></div>
         ${g.tags.filter((x) => x.id !== app.favId).length ? `<div class="kb-chips kb-head-chips">${g.tags.filter((x) => x.id !== app.favId).map((x) => `<a class="kb-chip" href="#/tag/${x.id}">${esc(x.name)}</a>`).join("")}</div>` : ""}
       </div>

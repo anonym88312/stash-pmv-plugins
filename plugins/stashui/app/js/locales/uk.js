@@ -2787,4 +2787,6 @@ export default {
   "This piece shows only a part of the picture": "Цей фрагмент показує лише частину зображення",
   "Keep the star ratings up to date": "Оновлювати оцінки зірками автоматично",
   "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "Після кожного вибору обидва отримують оцінку зірками, що відповідає їхнім очкам (Elo). Вона щоразу замінює їхню оцінку в Stash. Не для маркерів.",
+  "Markdown in descriptions": "Markdown в описах",
+  "Details and descriptions of scenes, images, galleries, groups, performers, studios and tags can have **bold**, *italic*, lists, headings, links and tables. Links open in a new tab; pictures and raw HTML are never shown.": "У подробицях та описах сцен, зображень, галерей, груп, виконавців, студій і тегів можна використовувати **жирний**, *курсив*, списки, заголовки, посилання й таблиці. Посилання відкриваються в новій вкладці; картинки та сирий HTML ніколи не показуються.",
 };

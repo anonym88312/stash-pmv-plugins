@@ -2747,4 +2747,6 @@ export default {
   "This piece shows only a part of the picture": "Đoạn này chỉ hiển thị một phần của hình",
   "Keep the star ratings up to date": "Luôn cập nhật xếp hạng sao",
   "After every pick, the two get the star rating that fits their points (Elo). It replaces their rating in Stash, every time. Not for markers.": "Sau mỗi lần chọn, cả hai nhận xếp hạng sao tương ứng với điểm (Elo) của chúng. Xếp hạng trong Stash bị thay thế mỗi lần. Không dùng cho các mốc đánh dấu.",
+  "Markdown in descriptions": "Markdown trong phần mô tả",
+  "Details and descriptions of scenes, images, galleries, groups, performers, studios and tags can have **bold**, *italic*, lists, headings, links and tables. Links open in a new tab; pictures and raw HTML are never shown.": "Chi tiết và mô tả của cảnh, ảnh, thư viện ảnh, nhóm, diễn viên, hãng và thẻ có thể dùng **chữ đậm**, *chữ nghiêng*, danh sách, tiêu đề, liên kết và bảng. Liên kết mở trong tab mới; ảnh và HTML thô không bao giờ được hiển thị.",
 };

@@ -11,6 +11,7 @@ import { tierNow } from "../tiers.js";
 import { tierBadge } from "../versusx.js";
 import { critOf } from "../ratingx.js";
 import { GENDERS, countryOf } from "./performers.js";
+import { textBox } from "../markdown.js";
 
 function fileInfo(kind, x) {
   if (kind === "scene") {
@@ -124,7 +125,7 @@ export function placardHtml(kind, x) {
           : ""
       }
       ${tags.length ? `<div class="kb-chips kb-plc-tags">${tags.map((tg) => `<a class="kb-chip" href="#/tag/${tg.id}">${esc(tg.name)}</a>`).join("")}</div>` : ""}
-      ${x.details ? `<p class="kb-plc-text">${esc(x.details)}</p>` : ""}
+      ${textBox(x.details, "kb-plc-text")}
       ${kind === "image" && x.galleries && x.galleries.length ? `<p class="kb-plc-meta">${t("From")} ${x.galleries.map((g) => `<a href="#/gallery/${g.id}">${esc(g.title || ((g.folder && g.folder.path) || ((g.files || [])[0] || {}).path || "").split(/[\\/]/).filter(Boolean).pop() || t("Gallery {id}", { id: g.id }))}</a>`).join(t(", "))}</p>` : ""}
       <div class="kb-plc-row">
         <button class="kb-plc-btn" data-edit>${icon("edit")}${t("Edit")}</button>

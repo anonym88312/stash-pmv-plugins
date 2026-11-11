@@ -57,7 +57,7 @@ SECTIONS.splice(SECTIONS.findIndex((x) => x.id === "classic-ui"), 0, Object.assi
 const CUSTOM_ENTRIES = {
   look: ["Colors", "Liquid glass", "Effects and animations"],
   "player-ui": ["At the end of a video", "Start at a random spot", "Mouse wheel on the video", "Reverse the wheel", "Picture when hovering the timeline", "Info panel in fullscreen", "Sound in previews", "The Handy", "Connection key", "Script offset"],
-  "this-ui": ["Language", "Folder loading", "This interface as home page", "Install as app", "Studio on scenes", "Resolution on scene cards", "Other pictures on performer cards", "Folder for new clips and GIFs", "Hidden folders", "Show hidden folders on the Folders page", "Other plugins in the menu", "Rating system", "Thumbnail size", "Favorites", "Backup and restore", "Reset interface settings"],
+  "this-ui": ["Language", "Folder loading", "This interface as home page", "Install as app", "Studio on scenes", "Markdown in descriptions", "Resolution on scene cards", "Other pictures on performer cards", "Folder for new clips and GIFs", "Hidden folders", "Show hidden folders on the Folders page", "Other plugins in the menu", "Rating system", "Thumbnail size", "Favorites", "Backup and restore", "Reset interface settings"],
   database: ["Back up database", "Optimize database", "Clean up generated files"],
   login: ["API key"],
 };
@@ -505,6 +505,8 @@ async function renderApp(body) {
         <div class="kb-hidden-list" data-hiddenlist></div></div>
       <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Show hidden folders on the Folders page")}</b><small>${t("Off: the hidden folders aren't listed anywhere – open one from the list above.")}</small></span>
         <span class="kb-switch"><input type="checkbox" data-hidenames${hiddenNames() ? " checked" : ""}><i></i></span></label>
+      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Markdown in descriptions")}</b><small>${t("Details and descriptions of scenes, images, galleries, groups, performers, studios and tags can have **bold**, *italic*, lists, headings, links and tables. Links open in a new tab; pictures and raw HTML are never shown.")}</small></span>
+        <span class="kb-switch"><input type="checkbox" data-markdown${store.get("markdown", true) !== false ? " checked" : ""}><i></i></span></label>
       <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Resolution on scene cards")}</b><small>${t("Shows 1080p, 720p … next to the length in the corner of scene thumbnails (after the next page load).")}</small></span>
         <span class="kb-switch"><input type="checkbox" data-cardres${store.get("cardRes", false) ? " checked" : ""}><i></i></span></label>
       <div class="kb-set"><span class="kb-set-label"><b>${t("Info on scene cards")}</b><small>${t("Extra lines under the date when scenes are shown as cards. Click to switch each one on or off.")}</small></span>
@@ -750,6 +752,10 @@ async function renderApp(body) {
   };
   body.querySelector("[data-perfhover]").onchange = (e) => {
     store.set("perfHover", e.target.checked);
+    toast(t("Saved"), "ok");
+  };
+  body.querySelector("[data-markdown]").onchange = (e) => {
+    store.set("markdown", e.target.checked);
     toast(t("Saved"), "ok");
   };
   body.querySelector("[data-cardres]").onchange = (e) => {
