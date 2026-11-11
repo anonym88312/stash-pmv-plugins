@@ -1,24 +1,19 @@
-// Settings: all Stash options, sorted into understandable sections. Titles and intros below are
-// translated when shown (the English text is the key).
-// Fields and types come live from Stash; unknown options end up under "More options".
+// Settings: every option of Stash plus those of this interface, sorted by topic (the catalog is in setdefs.js).
+// Settings Stash stores itself are read live from its schema (so new options after an update show up under "Other Stash options");
+// the rest is saved when it is changed. Titles and hints are English texts, translated when shown.
 
-import { applyDisplay, iconFromFile, perfInfo } from "../display.js";
-import { tagPicker } from "./tagpicker.js";
+import { applyDisplay } from "../display.js";
 import { cardInfo } from "../pieces.js";
-import { forgetLarge, largeNow } from "../scale.js";
-import { esc, icon, toast, errorToast, store, confirmDialog, fmtDate, folderMode, ratingSystem, setRatingSystem } from "../ui.js";
-import { t, locale, LANGS, chosen, choose } from "../i18n.js";
+import { perfInfo } from "../display.js";
+import { forgetLarge } from "../scale.js";
+import { esc, icon, toast, errorToast, store, folderMode, ratingSystem, setRatingSystem } from "../ui.js";
+import { t, LANGS, chosen, choose } from "../i18n.js";
 import { oPrefs, setOPrefs } from "../oclip.js";
 import { gql, setPluginConfig, pluginConfig } from "../api.js";
-import { typeInfo, selection, fieldHtml, readFields, unwrap, labelOf, LABELS } from "../forms.js";
-import { go } from "../main.js";
-import { exportBackup, importBackup } from "../backup.js";
-import { pokeJobs } from "../jobs.js";
-import { themeHtml, bindTheme } from "../theme.js";
-import { interactiveConfig, saveInteractiveConfig, testHandy, runBackend } from "../interactive.js";
+import { typeInfo, selection, fieldHtml, readFields, unwrap, labelOf, helpOf, LABELS } from "../forms.js";
 import { mountSlots, slotList, extensionsReady } from "../ext.js";
-import { hiddenItems, hiddenState, hiddenNames } from "../hidden.js";
-import { saveHidden } from "../hiddensync.js";
+import { GROUPS, SECTIONS, OTHER, ALIASES, ELSEWHERE } from "./setdefs.js";
+import { BLOCKS } from "./setblocks.js";
 
 const AREAS = {
   general: { result: "ConfigGeneralResult", input: "ConfigGeneralInput", mutation: "configureGeneral" },
@@ -26,120 +21,471 @@ const AREAS = {
   dlna: { result: "ConfigDLNAResult", input: "ConfigDLNAInput", mutation: "configureDLNA" },
   scraping: { result: "ConfigScrapingResult", input: "ConfigScrapingInput", mutation: "configureScraping" },
 };
+// Fields of Stash that never get a row of their own
+const SKIP = new Set(["apiKey", "configFilePath", "handyKey", "funscriptOffset", "useStashHostedFunscript", "menuItems", "disableCustomizations"]);
+const isTyped = (it) => typeof it === "string" || (it && it.k === undefined && it.f);
+const typedPath = (it) => (typeof it === "string" ? it : it.f);
 
-const SECTIONS = [
-  { id: "look", group: "This interface", title: "Appearance", intro: "Colors, presets and liquid glass.", custom: "look" },
-  { id: "player-ui", group: "This interface", title: "Player and previews", intro: "How videos and hover previews play.", custom: "player" },
-  { id: "this-ui", group: "This interface", title: "General", intro: "Language, navigation, home page, thumbnail size.", custom: "app" },
-  { id: "library", group: "Stash", title: "Library", intro: "Which folders Stash scans and which files belong to the library.", area: "general",
-    fields: ["stashes", "createGalleriesFromFolders", "galleryCoverRegex", "writeImageThumbnails", "createImageClipsFromVideos", "videoExtensions", "imageExtensions", "galleryExtensions", "excludes", "imageExcludes", "calculateMD5", "videoFileNamingAlgorithm"] },
-  { id: "previews", title: "Previews", intro: "How hover previews and timeline images are generated.", area: "general",
-    fields: ["parallelTasks", "previewSegments", "previewSegmentDuration", "previewExcludeStart", "previewExcludeEnd", "previewPreset", "previewAudio", "useCustomSpriteInterval", "spriteInterval", "minimumSprites", "maximumSprites", "spriteScreenshotSize"] },
-  { id: "playback", title: "Playback", intro: "Transcoding videos the browser can't play directly.", area: "general",
-    fields: ["maxStreamingTranscodeSize", "maxTranscodeSize", "transcodeHardwareAcceleration", "ffmpegPath", "ffprobePath", "transcodeInputArgs", "transcodeOutputArgs", "liveTranscodeInputArgs", "liveTranscodeOutputArgs", "drawFunscriptHeatmapRange"] },
-  { id: "paths", title: "Paths", intro: "Where Stash keeps its database, backups and generated files. Changes here usually take effect after restarting Stash.", area: "general",
-    fields: ["databasePath", "backupDirectoryPath", "deleteTrashPath", "generatedPath", "metadataPath", "cachePath", "blobsStorage", "blobsPath", "scrapersPath", "pluginsPath", "customPerformerImageLocation", "pythonPath"] },
-  { id: "login", title: "Login", intro: "With a username and password, Stash asks for a login when opened.", area: "general", fields: ["username", "password", "maxSessionAge"], apiKey: true },
-  { id: "log", title: "Log", intro: "What Stash logs – and the latest entries.", area: "general", fields: ["logLevel", "logFile", "logOut", "logAccess", "logFileMaxSize"], logs: true },
-  { id: "classic-ui", group: "More", title: "Classic interface", intro: "Applies to classic Stash, not to this interface.", area: "interface", fields: "*" },
-  { id: "dlna", title: "DLNA", intro: "Makes the library visible to TVs and other devices on your home network.", area: "dlna", fields: "*" },
-  { id: "scraper", title: "Scraper", intro: "Connection settings for scrapers. Manage the scrapers themselves and Stash-Box logins in classic Stash.", area: "scraping", fields: "*", classic: "/settings?tab=metadata-providers" },
-  { id: "more", title: "More options", intro: "Everything that isn't sorted in anywhere else.", area: "general", fields: "rest" },
-  { id: "database", title: "Database", intro: "Back up, optimize, clean up.", custom: "system" },
-];
-// Sections without a group belong to the one before them
-SECTIONS.reduce((g, sec) => (sec.group = sec.group || g), "");
-const DB = SECTIONS.find((x) => x.id === "database");
-SECTIONS.splice(SECTIONS.indexOf(DB), 1);
-SECTIONS.splice(SECTIONS.findIndex((x) => x.id === "classic-ui"), 0, Object.assign(DB, { group: "Stash" }));
+// ---------- what is loaded for the page ----------
+const S = { typed: {}, ui: {}, defaults: {}, plugin: {} };
+async function loadConfig() {
+  const areas = await Promise.all(
+    Object.entries(AREAS).map(async ([a, d]) => {
+      try {
+        return [a, await selection(d.result)];
+      } catch (e) {
+        return [a, ""];
+      }
+    })
+  );
+  const sel = areas.filter(([, s]) => s).map(([a, s]) => `${a} { ${s} }`).join(" ");
+  const [cfg, plugin] = await Promise.all([
+    gql(`query { configuration { ${sel} ui defaults { deleteFile deleteGenerated } } }`),
+    pluginConfig("stashui").catch(() => ({})),
+  ]);
+  S.typed = {};
+  for (const a of Object.keys(AREAS)) S.typed[a] = cfg.configuration[a] || {};
+  S.ui = cfg.configuration.ui || {};
+  S.defaults = cfg.configuration.defaults || {};
+  S.plugin = plugin || {};
+}
 
-// Search: what the custom pages contain (their labels, as shown)
-const CUSTOM_ENTRIES = {
-  look: ["Colors", "Liquid glass", "Effects and animations"],
-  "player-ui": ["At the end of a video", "Start at a random spot", "Mouse wheel on the video", "Reverse the wheel", "Picture when hovering the timeline", "Info panel in fullscreen", "Sound in previews", "The Handy", "Connection key", "Script offset"],
-  "this-ui": ["Language", "Folder loading", "This interface as home page", "Install as app", "Studio on scenes", "Markdown in descriptions", "Resolution on scene cards", "Other pictures on performer cards", "Folder for new clips and GIFs", "Hidden folders", "Show hidden folders on the Folders page", "Other plugins in the menu", "Rating system", "Thumbnail size", "Favorites", "Backup and restore", "Reset interface settings"],
-  database: ["Back up database", "Optimize database", "Clean up generated files"],
-  login: ["API key"],
-};
+// "interface.imageLightbox.slideshowDelay" → its input type, current value, parent path
+const inputCache = new Map();
+async function inputOf(area) {
+  if (!inputCache.has(area)) inputCache.set(area, typeInfo(AREAS[area].input).catch(() => null));
+  return inputCache.get(area);
+}
+async function resolveTyped(path) {
+  const [area, ...rest] = path.split(".");
+  if (!AREAS[area]) return null;
+  let ti = await inputOf(area);
+  if (!ti) return null;
+  let cur = S.typed[area];
+  let field = null;
+  for (let i = 0; i < rest.length; i++) {
+    field = (ti.inputFields || []).find((f) => f.name === rest[i]);
+    if (!field) return null;
+    cur = cur ? cur[rest[i]] : undefined;
+    if (i < rest.length - 1) {
+      const u = unwrap(field.type);
+      if (u.kind !== "INPUT_OBJECT") return null;
+      ti = await typeInfo(u.named);
+    }
+  }
+  return { area, name: rest[rest.length - 1], parent: rest.slice(0, -1).join("."), type: field.type, value: cur };
+}
 
-// Fields never edited here (own tools or read-only)
-const SKIP = new Set(["stashBoxes", "scraperPackageSources", "pluginPackageSources", "apiKey", "configFilePath"]);
+// fields that Stash stores but the catalog does not list → section "Other Stash options"
+let otherNames = null;
+async function computeOther() {
+  const placed = new Set();
+  for (const s of SECTIONS) for (const it of [...s.items, ...(s.classic || [])]) if (isTyped(it)) placed.add(typedPath(it));
+  for (const s of SECTIONS) for (const it of [...s.items, ...(s.classic || [])]) if (it.k === "tgroup") it.f.forEach(([p]) => placed.add(p));
+  const out = [];
+  for (const area of Object.keys(AREAS)) {
+    const ti = await inputOf(area);
+    for (const f of (ti && ti.inputFields) || []) {
+      if (SKIP.has(f.name)) continue;
+      if ([...placed].some((p) => p === `${area}.${f.name}` || p.startsWith(`${area}.${f.name}.`))) continue;
+      out.push(`${area}.${f.name}`);
+    }
+  }
+  return (otherNames = out);
+}
 
-// Settings screens of extension plugins (slot settings.section) – under their own group "Plugins"
-const extSections = () =>
-  slotList("settings.section").map((s) => ({ id: "x:" + s.plugin + ":" + s.id, group: "Plugins", title: s.title || s.plugin, intro: "", custom: "ext", slot: s }));
+// ---------- sections of extension plugins (slot settings.section) ----------
+const extSections = () => slotList("settings.section").map((s) => ({ id: "x:" + s.plugin + ":" + s.id, group: "plugins", title: s.title || s.plugin, intro: "", ext: true, slot: s, items: [] }));
 const allSections = () => {
+  const list = SECTIONS.slice();
+  if (otherNames && otherNames.length) list.push(Object.assign({}, OTHER, { items: otherNames }));
   const x = extSections();
-  if (!x.length) return SECTIONS;
-  const i = SECTIONS.findIndex((s) => s.group === "More");
-  return SECTIONS.slice(0, i < 0 ? SECTIONS.length : i).concat(x, i < 0 ? [] : SECTIONS.slice(i));
+  if (!x.length) return list;
+  const i = list.findIndex((s) => s.group === "more");
+  return list.slice(0, i < 0 ? list.length : i).concat(x, i < 0 ? [] : list.slice(i));
+};
+const groupsOf = (list) => {
+  const g = GROUPS.slice();
+  if (list.some((s) => s.ext)) g.splice(g.findIndex((x) => x.id === "more"), 0, { id: "plugins", title: "Plugins", intro: "" });
+  return g;
 };
 
+// ---------- values of the instant settings ----------
+const BASES = { cardInfo, perfInfo, player: () => store.get("player", {}) };
+const baseOf = (key) => (BASES[key] || (() => store.get(key, {})))();
+const dig = (o, path) => path.split(".").reduce((a, k) => (a == null ? undefined : a[k]), o);
+const RATE_NOW = () => {
+  const r = ratingSystem();
+  return r.type === "decimal" ? "decimal:" : "stars:" + ({ 0.5: "half", 0.25: "quarter", 0.1: "tenth" }[r.step] || "full");
+};
+const FN = {
+  lang: { get: () => chosen(), set: (v) => (choose(v), location.reload()) },
+  ratesys: {
+    get: RATE_NOW,
+    async set(v) {
+      const [type, starPrecision] = v.split(":");
+      const opts = type === "decimal" ? { type: "decimal", starPrecision: "full" } : { type: "stars", starPrecision };
+      await gql(`mutation($p: Map) { configureUI(partial: $p) }`, { p: { ratingSystemOptions: opts } });
+      setRatingSystem(opts);
+      S.ui.ratingSystemOptions = opts;
+    },
+  },
+  foldermode: {
+    get: () => folderMode(),
+    set(v) {
+      store.set("folderMode", v);
+      sessionStorage.removeItem("stashui.foldersOnce");
+      location.reload(); // the navigation is built once – rebuild it with or without folders
+    },
+  },
+  pmode: {
+    get() {
+      const p = store.get("player", {});
+      return p.mode || (p.loop ? "one" : p.random ? "shuffle" : p.auto === false ? "stop" : "order");
+    },
+    set: (v) => store.set("player", Object.assign(store.get("player", {}), { mode: v })),
+  },
+  omark: { get: () => oPrefs().mark !== false, set: (v) => setOPrefs({ mark: v }) },
+  oshow: { get: () => oPrefs().show !== false, set: (v) => setOPrefs({ show: v }) },
+  vanim: { get: () => store.get("viewer", {}).anim || "fade", set: (v) => store.set("viewer", Object.assign(store.get("viewer", { panel: false, interval: 5 }), { anim: v })) },
+};
+
+function getValue(it) {
+  const s = it.src;
+  switch (s.t) {
+    case "local": return store.get(s.key, s.def);
+    case "obj": { const v = baseOf(s.key)[s.path]; return v === undefined ? s.def : v; }
+    case "flags": return baseOf(s.key);
+    case "ui": { const v = dig(S.ui, s.key); return v === undefined || v === null ? s.def : v; }
+    case "plugin": { const v = S.plugin[s.key]; const x = v === undefined ? s.def : v; return s.inv ? !x : x; }
+    case "defaults": { const v = S.defaults[s.key]; return v === undefined || v === null ? s.def : v; }
+    case "fn": return FN[s.id].get();
+  }
+}
+async function setValue(it, v) {
+  const s = it.src;
+  switch (s.t) {
+    case "local":
+      store.set(s.key, v);
+      if (s.key === "largeMode") forgetLarge();
+      applyDisplay();
+      window.dispatchEvent(new Event("stash:display-changed"));
+      break;
+    case "obj": store.set(s.key, Object.assign(baseOf(s.key), { [s.path]: v })); break;
+    case "flags": store.set(s.key, Object.assign(baseOf(s.key), v)); break;
+    case "ui": {
+      const parts = s.key.split(".");
+      const partial = {};
+      if (parts.length === 1) partial[parts[0]] = v;
+      else partial[parts[0]] = Object.assign({}, S.ui[parts[0]] || {}, { [parts[1]]: v });
+      await gql(`mutation($p: Map) { configureUI(partial: $p) }`, { p: partial });
+      S.ui = Object.assign({}, S.ui, partial);
+      break;
+    }
+    case "plugin": {
+      const stored = s.inv ? !v : v;
+      await setPluginConfig("stashui", { [s.key]: stored });
+      S.plugin[s.key] = stored;
+      if (it.mirror) localStorage.setItem("stashui." + it.mirror, String(stored));
+      break;
+    }
+    case "defaults":
+      await gql(`mutation($i: ConfigDefaultSettingsInput!) { configureDefaults(input: $i) { __typename } }`, { i: { [s.key]: v } });
+      S.defaults[s.key] = v;
+      break;
+    case "fn": await FN[s.id].set(v); break;
+  }
+}
+
+// ---------- rows ----------
+const sid = (sec, it) => `${sec.id}.${it.id || typedPath(it)}`;
+const labelHtml = (title, hint) => `<span class="kb-set-label"><b>${esc(t(title))}</b>${hint ? `<small>${esc(t(hint))}</small>` : ""}</span>`;
+const later = (it) => (it.later ? ` ${t("Takes effect when a list is loaded again.")}` : "");
+const hintOf = (it) => (it.hint ? t(it.hint) + later(it) : "");
+const labelFull = (it) => `<span class="kb-set-label"><b>${esc(t(it.title))}</b>${it.hint ? `<small>${esc(hintOf(it))}</small>` : ""}</span>`;
+
+function optionsOf(it) {
+  const list = it.options === "langs" ? [["auto", "Automatic"], ...LANGS.map(([c, n]) => [c, n])] : it.options;
+  return list.map(([v, l]) => [v, it.options === "langs" && v !== "auto" ? l : t(l)]);
+}
+
+async function rowHtml(sec, it, idx, ctx) {
+  const id = `data-sid="${esc(sid(sec, it))}"`;
+  if (isTyped(it)) return typedRow(sec, it, id, ctx);
+  switch (it.k) {
+    case "heading": return `<h3 class="kb-set-heading">${esc(t(it.title))}</h3>${it.hint ? `<p class="kb-hint kb-set-headhint">${esc(t(it.hint))}</p>` : ""}`;
+    case "info": return `<div class="kb-set kb-set-info" ${id}>${labelFull(it)}</div>`;
+    case "link": return `<div class="kb-set" ${id}>${labelFull(it)}<a class="kb-btn" href="${esc(it.href)}">${t(it.btn || "Open")}</a></div>`;
+    case "block": {
+      const b = BLOCKS[it.block];
+      const html = await b.html(ctx);
+      return `<div class="kb-block" ${id} data-block="${it.block}">${html}</div>`;
+    }
+    case "switch": return `<label class="kb-set kb-set-bool" ${id}>${labelFull(it)}<span class="kb-switch"><input type="checkbox" data-i="${idx}"${getValue(it) ? " checked" : ""}><i></i></span></label>`;
+    case "select": {
+      const cur = String(getValue(it));
+      const opts = optionsOf(it);
+      return `<label class="kb-set" ${id}>${labelFull(it)}<select class="kb-field" data-i="${idx}">${opts.some(([v]) => String(v) === cur) ? "" : `<option value="${esc(cur)}">${esc(cur)}</option>`}${opts.map(([v, l]) => `<option value="${esc(v)}"${String(v) === cur ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+    }
+    case "range": return `<label class="kb-set" ${id}>${labelFull(it)}<input type="range" min="${it.min}" max="${it.max}" step="${it.step || 1}" data-i="${idx}" value="${esc(getValue(it))}"></label>`;
+    case "number": return `<label class="kb-set" ${id}>${labelFull(it)}<span class="kb-set-unit"><input class="kb-field kb-num" type="number" min="${it.min ?? ""}" max="${it.max ?? ""}" data-i="${idx}" value="${esc(getValue(it))}">${it.unit ? `<i>${esc(it.unit)}</i>` : ""}</span></label>`;
+    case "text": return `<label class="kb-set" ${id}>${labelFull(it)}<input class="kb-field" type="text" data-i="${idx}" value="${esc(getValue(it) || "")}" placeholder="${esc(it.placeholder || "")}"${it.max ? ` maxlength="${it.max}"` : ""} spellcheck="false" autocomplete="off"></label>`;
+    case "chips": {
+      const on = getValue(it);
+      return `<div class="kb-set" ${id}>${labelFull(it)}<div class="kb-chips" data-chips="${idx}">${it.options.map(([k, l]) => `<button type="button" class="kb-chip${on[k] ? " is-on" : ""}" data-ck="${k}">${esc(t(l))}</button>`).join("")}</div></div>`;
+    }
+    case "uigroup":
+      return `<div class="kb-set kb-set-ext" ${id}>${labelFull(it)}<div class="kb-checks">${it.items.map(([k, l]) => `<label class="kb-check"><input type="checkbox" data-ug="${k}"${S.ui[k] ? " checked" : ""}>${esc(t(l))}</label>`).join("")}</div></div>`;
+    case "tgroup": {
+      const rows = await Promise.all(it.f.map(async ([p, l]) => ({ r: await resolveTyped(p), l })));
+      if (!rows.some((x) => x.r)) return "";
+      return `<div class="kb-set kb-set-ext" data-typed data-area="${esc(rows.find((x) => x.r).r.area)}" ${id}>${labelFull(it)}<div class="kb-checks">${rows
+        .filter((x) => x.r)
+        .map(({ r, l }) => `<label class="kb-check"><input type="checkbox" data-field="${esc(r.parent ? r.parent + "." + r.name : r.name)}" data-t="bool"${r.value ? " checked" : ""}>${esc(t(l))}</label>`)
+        .join("")}</div></div>`;
+    }
+  }
+  return "";
+}
+
+// ---- typed rows (a field of Stash's own configuration)
+async function typedRow(sec, it, id, ctx) {
+  const path = typedPath(it);
+  const r = await resolveTyped(path);
+  if (!r) return "";
+  const meta = typeof it === "string" ? null : { label: it.title, help: it.hint };
+  let inner;
+  if (path === "general.stashes") inner = stashesHtml(r.value || []);
+  else if (LIST_EDITORS[r.name]) inner = listEditorHtml(r.name, r.value || []);
+  else inner = await fieldHtml(r.name, r.type, r.value, r.parent, meta);
+  return `<div data-typed data-area="${r.area}" data-lf="${esc(r.name)}" ${id}>${inner}</div>`;
+}
+
+// ---- library folders and the other lists of objects
+function stashRow(s) {
+  return `<div class="kb-stash-row" data-stash>
+    <input class="kb-field" data-spath value="${esc(s.path || "")}" placeholder="${t("Folder path")}" spellcheck="false">
+    <label class="kb-check"><input type="checkbox" data-snovid${s.excludeVideo ? " checked" : ""}>${t("no videos")}</label>
+    <label class="kb-check"><input type="checkbox" data-snoimg${s.excludeImage ? " checked" : ""}>${t("no images")}</label>
+    <button type="button" class="kb-btn is-icon is-ghost" data-srm aria-label="${t("Remove folder")}">${icon("close")}</button>
+  </div>`;
+}
+const stashesHtml = (list) => `<div class="kb-set kb-set-col"><div class="kb-set-label"><b>${t("Library folders")}</b><small>${t("Folders Stash scans. “no videos/images” ignores that kind of media in the folder.")}</small></div>
+    <div class="kb-stashes" data-stashes>${list.map(stashRow).join("")}</div>
+    <button type="button" class="kb-btn" data-sadd>${icon("plus")}${t("Add folder")}</button></div>`;
+const readStashes = (root) =>
+  [...root.querySelectorAll("[data-stash]")]
+    .map((r) => ({ path: r.querySelector("[data-spath]").value.trim(), excludeVideo: r.querySelector("[data-snovid]").checked, excludeImage: r.querySelector("[data-snoimg]").checked }))
+    .filter((s) => s.path);
+
+// generic editor for lists of objects: columns [key, label, kind, placeholder]
+const LIST_EDITORS = {
+  stashBoxes: { add: "Add stash-box instance", cols: [["name", "Name", "text", "StashDB"], ["endpoint", "GraphQL endpoint", "text", "https://stashdb.org/graphql"], ["api_key", "API key", "password", ""], ["max_requests_per_minute", "Max requests per minute", "number", "240"]], req: ["endpoint"] },
+  scraperPackageSources: { add: "Add source", cols: [["name", "Name", "text", ""], ["url", "URL", "text", "https://…/index.yml"], ["local_path", "Local path", "text", ""]], req: ["url"] },
+  pluginPackageSources: { add: "Add source", cols: [["name", "Name", "text", ""], ["url", "URL", "text", "https://…/index.yml"], ["local_path", "Local path", "text", ""]], req: ["url"] },
+};
+function listRow(ed, o) {
+  return `<div class="kb-lrow" data-lrow>${ed.cols
+    .map(([k, label, kind, ph]) => `<label class="kb-lcell"><span>${esc(t(label))}</span><input class="kb-field" data-lk="${k}" type="${kind}" value="${esc(o[k] == null ? "" : o[k])}" placeholder="${esc(ph)}" spellcheck="false" autocomplete="off"></label>`)
+    .join("")}<button type="button" class="kb-btn is-icon is-ghost" data-lrm aria-label="${t("Remove")}">${icon("close")}</button></div>`;
+}
+const listEditorHtml = (name, list) => `<div class="kb-set kb-set-col"><div class="kb-llist" data-llist="${name}">${list.map((o) => listRow(LIST_EDITORS[name], o)).join("") || ""}</div>
+  <button type="button" class="kb-btn" data-ladd="${name}">${icon("plus")}${t(LIST_EDITORS[name].add)}</button></div>`;
+function readList(root, name) {
+  const ed = LIST_EDITORS[name];
+  return [...root.querySelectorAll("[data-lrow]")]
+    .map((r) => {
+      const o = {};
+      for (const [k, , kind] of ed.cols) {
+        const v = r.querySelector(`[data-lk="${k}"]`).value.trim();
+        o[k] = kind === "number" ? (v === "" ? 0 : parseInt(v, 10) || 0) : v;
+      }
+      if (name !== "stashBoxes") for (const k of ["name", "local_path"]) if (!o[k]) o[k] = null;
+      return o;
+    })
+    .filter((o) => ed.req.every((k) => o[k]));
+}
+
+// ---------- the page ----------
 export async function render(main, params, query = {}) {
   if (String(params.section || "").startsWith("x:")) await Promise.race([extensionsReady(), new Promise((r) => setTimeout(r, 1500))]);
-  const ALL = allSections();
-  const sec = ALL.find((s) => s.id === params.section) || ALL.find((s) => s.id === "library");
-  let group = "";
+  await computeOther().catch(() => (otherNames = []));
+  let ALL = allSections();
+  let secId = ALIASES[params.section] || params.section || "overview";
+  // old links with ?find= land in the section that has the setting now
+  if (query.find) {
+    const hits = (await getIndex()).filter((e) => e.sid === query.find || e.label === query.find);
+    if (hits.length && !hits.some((h) => h.sec.id === secId)) secId = hits[0].sec.id;
+  }
+  const sec = secId === "overview" ? null : ALL.find((s) => s.id === secId) || null;
+  const groups = groupsOf(ALL);
+  const group = sec ? groups.find((g) => g.id === sec.group) : null;
+  const pick = `<select class="kb-field kb-set-pick" data-secpick aria-label="${t("Sections")}"><option value="">${t("Overview")}</option>${groups
+    .map((g) => `<optgroup label="${esc(t(g.title))}">${ALL.filter((s) => s.group === g.id).map((s) => `<option value="${s.id}"${sec && s.id === sec.id ? " selected" : ""}>${esc(t(s.title))}</option>`).join("")}</optgroup>`)
+    .join("")}</select>`;
   main.innerHTML = `
     <header class="kb-head"><div class="kb-head-title">
-      <nav class="kb-crumbs"><span><a href="#/settings">${t("Settings")}</a></span></nav>
-      <h1 class="kb-h1">${esc(t(sec.title))}</h1>
-      <p class="kb-sub">${esc(t(sec.intro))}</p>
+      <nav class="kb-crumbs"><span><a href="#/settings">${t("Settings")}</a></span>${group ? `<span>${esc(t(group.title))}</span>` : ""}</nav>
+      <h1 class="kb-h1">${esc(sec ? t(sec.title) : t("Settings"))}</h1>
+      <p class="kb-sub">${esc(sec ? t(sec.intro) : t("Everything in one place – pick a topic or search."))}</p>
     </div></header>
     <div class="kb-settings">
       <nav class="kb-set-nav" aria-label="${t("Sections")}">
         <label class="kb-search kb-set-search">${icon("search")}<input class="kb-field" type="search" data-setq placeholder="${t("Search settings")}" autocomplete="off"></label>
         <div class="kb-set-results" data-setres hidden></div>
-        ${ALL.map((s) => (s.group !== group ? `<div class="kb-set-navgroup">${t((group = s.group))}</div>` : "") + `<a href="#/settings/${s.id}" class="${s === sec ? "is-active" : ""}">${esc(t(s.title))}</a>`).join("")}
+        ${pick}
+        <a href="#/settings" class="kb-set-ov${sec ? "" : " is-active"}">${t("Overview")}</a>
+        ${groups.map((g) => `<div class="kb-set-navgroup">${esc(t(g.title))}</div>${ALL.filter((s) => s.group === g.id).map((s) => `<a href="#/settings/${s.id}" class="${sec && s.id === sec.id ? "is-active" : ""}">${esc(t(s.title))}</a>`).join("")}`).join("")}
         <a href="#/extern/classic-settings">${t("Open in classic Stash")}</a></nav>
       <div class="kb-set-body" data-body><div class="kb-loading">${t("Loading …")}</div></div>
     </div>`;
   const body = main.querySelector("[data-body]");
+  bindNav(main, groups);
+  let cleanups = [];
   let extHandle = null;
-  bindSearch(main);
   try {
-    if (sec.custom === "system") await renderSystem(body);
-    else if (sec.custom === "app") await renderApp(body);
-    else if (sec.custom === "look") renderLook(body);
-    else if (sec.custom === "player") renderPlayerUi(body);
-    else if (sec.custom === "ext") {
+    if (!sec) await renderOverview(body, groups, ALL);
+    else if (sec.ext) {
       body.innerHTML = "";
       extHandle = mountSlots("settings.section", body, { page: "settings" }, { only: (s) => s === sec.slot });
-    }
-    else await renderArea(body, sec);
+    } else cleanups = await renderSection(body, sec, () => render(main, params, query));
     if (query.find) showFound(body, query.find);
   } catch (e) {
     body.innerHTML = `<div class="kb-empty"><b>${t("Couldn't load settings")}</b><p>${esc(e.message)}</p></div>`;
   }
-  return () => extHandle && extHandle.destroy();
+  return () => {
+    extHandle && extHandle.destroy();
+    cleanups.forEach((c) => typeof c === "function" && c());
+  };
 }
 
-// ---------- Search across all sections ----------
+// ---------- overview ----------
+async function renderOverview(body, groups, ALL) {
+  body.innerHTML = `<div class="kb-set-ovgrid">${groups
+    .map(
+      (g) => `<section class="kb-card kb-set-ovcard"><h2>${esc(t(g.title))}</h2>${g.intro ? `<p>${esc(t(g.intro))}</p>` : ""}
+      <ul>${ALL.filter((s) => s.group === g.id).map((s) => `<li><a href="#/settings/${s.id}"><b>${esc(t(s.title))}</b>${s.intro ? `<small>${esc(t(s.intro))}</small>` : ""}</a></li>`).join("")}</ul></section>`
+    )
+    .join("")}
+    <section class="kb-card kb-set-ovcard"><h2>${t("Somewhere else")}</h2><p>${t("Not in Settings, but you may be looking for them:")}</p>
+      <ul>${ELSEWHERE.map((e) => `<li><a href="${e.href}"><b>${esc(t(e.title))}</b><small>${esc(t(e.hint))}</small></a></li>`).join("")}</ul></section></div>`;
+}
 
-let searchIndex = null;
-async function buildIndex() {
-  const out = [];
-  const add = (sec, label, hint) => out.push({ sec, label, hay: (label + " " + (hint || "")).toLowerCase() });
-  for (const sec of allSections()) {
-    add(sec, t(sec.title), t(sec.intro)); // the section itself
-    (CUSTOM_ENTRIES[sec.id] || []).forEach((l) => add(sec, t(l)));
-    if (!sec.area) continue;
-    let names = sec.fields;
-    if (!Array.isArray(names)) {
-      try {
-        const all = (await typeInfo(AREAS[sec.area].input)).inputFields.map((f) => f.name);
-        const used = new Set(SECTIONS.filter((x) => x.area === "general" && Array.isArray(x.fields)).flatMap((x) => x.fields));
-        names = sec.fields === "rest" ? all.filter((n) => !used.has(n)) : all;
-      } catch (e) {
-        names = [];
+// ---------- one section ----------
+async function renderSection(body, sec, rerender) {
+  await loadConfig();
+  const items = sec.items;
+  const classic = sec.classic || [];
+  const all = [...items, ...classic];
+  const ctx = { S, rerender };
+  const parts = [];
+  for (let i = 0; i < items.length; i++) parts.push(await rowHtml(sec, items[i], i, ctx));
+  const cparts = [];
+  for (let i = 0; i < classic.length; i++) cparts.push(await rowHtml(sec, classic[i], items.length + i, ctx));
+  const cshown = cparts.filter(Boolean).length;
+  body.innerHTML = `<div class="kb-set-form" data-form>${parts.join("")}
+    ${cshown ? `<details class="kb-set-classic" data-classic><summary><span>${t("Only for classic Stash")}</span><em>${cshown}</em></summary><p class="kb-hint">${t("These options change classic Stash (the original interface), not this one. They are here so that nothing of Stash's settings is missing.")}</p>${cparts.join("")}</details>` : ""}
+    <div class="kb-set-save" data-save hidden><span>${t("Unsaved changes")}</span><button type="button" class="kb-btn" data-reset>${t("Discard")}</button><button type="button" class="kb-btn is-primary" data-dosave>${t("Save")}</button></div></div>`;
+  if (!parts.join("").trim() && !cshown) body.insertAdjacentHTML("afterbegin", `<p class="kb-hint">${t("Nothing else to set here.")}</p>`);
+  const form = body.querySelector("[data-form]");
+  const saveBar = body.querySelector("[data-save]");
+  const dirty = () => (saveBar.hidden = false);
+
+  // instant settings
+  const itemOf = (el) => all[Number(el.dataset.i)];
+  const done = (it, r) => Promise.resolve(r).then(() => toast(t("Saved"), "ok"), (err) => errorToast(err, it.title));
+  form.addEventListener("change", (e) => {
+    const el = e.target.closest("[data-i]");
+    if (el) {
+      const it = itemOf(el);
+      let v = el.type === "checkbox" ? el.checked : el.type === "range" || el.type === "number" ? Number(el.value) : el.value;
+      if (el.type === "number" && el.value === "") v = it.src.def;
+      if (it.k === "select" && typeof it.src.def === "boolean") v = v === "true";
+      return void done(it, setValue(it, v));
+    }
+    const ug = e.target.closest("[data-ug]");
+    if (ug) return void done({ title: "Enable background image" }, setValue({ src: { t: "ui", key: ug.dataset.ug } }, ug.checked));
+    if (e.target.closest("[data-typed]")) dirty();
+  });
+  form.addEventListener("input", (e) => {
+    const el = e.target.closest("[data-i]");
+    if (el && el.type === "range") {
+      const it = itemOf(el);
+      if (it.src.t === "local") setValue(it, Number(el.value));
+    } else if (e.target.closest("[data-typed]")) dirty();
+  });
+  form.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-ck]");
+    if (chip) {
+      const it = all[Number(chip.closest("[data-chips]").dataset.chips)];
+      chip.classList.toggle("is-on");
+      return void done(it, setValue(it, { [chip.dataset.ck]: chip.classList.contains("is-on") }));
+    }
+    if (e.target.closest("[data-sadd]")) {
+      form.querySelector("[data-stashes]").insertAdjacentHTML("beforeend", stashRow({}));
+      return dirty();
+    }
+    const rm = e.target.closest("[data-srm]");
+    if (rm) {
+      rm.closest("[data-stash]").remove();
+      return dirty();
+    }
+    const la = e.target.closest("[data-ladd]");
+    if (la) {
+      form.querySelector(`[data-llist="${la.dataset.ladd}"]`).insertAdjacentHTML("beforeend", listRow(LIST_EDITORS[la.dataset.ladd], {}));
+      return dirty();
+    }
+    const lr = e.target.closest("[data-lrm]");
+    if (lr) {
+      lr.closest("[data-lrow]").remove();
+      return dirty();
+    }
+  });
+
+  // typed settings: one mutation per area
+  body.querySelector("[data-reset]").onclick = () => rerender();
+  body.querySelector("[data-dosave]").onclick = async () => {
+    const inputs = {};
+    for (const rowEl of form.querySelectorAll("[data-typed]")) {
+      const area = rowEl.dataset.area;
+      const o = (inputs[area] = inputs[area] || {});
+      const name = rowEl.dataset.lf;
+      if (rowEl.querySelector("[data-stashes]")) o.stashes = readStashes(rowEl);
+      else if (LIST_EDITORS[name] && rowEl.querySelector("[data-llist]")) o[name] = readList(rowEl, name);
+      else {
+        const v = readFields(rowEl);
+        for (const [k, val] of Object.entries(v)) o[k] = val && typeof val === "object" && !Array.isArray(val) ? Object.assign(o[k] || {}, val) : val;
       }
     }
-    names.filter((n) => !SKIP.has(n)).forEach((n) => add(sec, n === "stashes" ? t("Library folders") : labelOf(n), LABELS[n] ? t(LABELS[n][1] || "") : ""));
-  }
-  return out;
+    // nested objects go whole: what the page did not touch keeps its value
+    for (const [area, o] of Object.entries(inputs))
+      for (const [k, val] of Object.entries(o)) if (val && typeof val === "object" && !Array.isArray(val) && S.typed[area]) o[k] = Object.assign({}, S.typed[area][k] || {}, val);
+    try {
+      for (const [area, o] of Object.entries(inputs)) {
+        if (!Object.keys(o).length) continue;
+        await gql(`mutation($i: ${AREAS[area].input}!) { ${AREAS[area].mutation}(input: $i) { __typename } }`, { i: o });
+      }
+      toast(sec.id === "paths" ? t("Saved – takes effect after restarting Stash") : t("Saved"), "ok");
+      saveBar.hidden = true;
+      await loadConfig();
+    } catch (err) {
+      errorToast(err, "Saving failed");
+    }
+  };
+
+  // hand-made blocks
+  const cleanups = [];
+  const bctx = Object.assign({ rerender }, ctx);
+  body.querySelectorAll("[data-block]").forEach((el) => {
+    const b = BLOCKS[el.dataset.block];
+    if (b.bind) cleanups.push(b.bind(el, bctx));
+  });
+  return cleanups;
 }
 
-function bindSearch(main) {
+// ---------- navigation, search ----------
+function bindNav(main, groups) {
+  main.querySelector("[data-secpick]").onchange = (e) => (location.hash = "#/settings" + (e.target.value ? "/" + e.target.value : ""));
   const q = main.querySelector("[data-setq]");
   const box = main.querySelector("[data-setres]");
   let seq = 0;
@@ -147,12 +493,12 @@ function bindSearch(main) {
     const my = ++seq;
     const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (!words.length) return (box.hidden = true);
-    searchIndex = searchIndex || (await buildIndex());
+    const idx = await getIndex();
     if (my !== seq) return;
-    const hits = searchIndex.filter((e) => words.every((w) => e.hay.includes(w))).slice(0, 14);
+    const hits = idx.filter((e) => words.every((w) => e.hay.includes(w))).slice(0, 14);
     box.hidden = false;
     box.innerHTML = hits.length
-      ? hits.map((h) => `<a href="#/settings/${h.sec.id}?find=${encodeURIComponent(h.label)}"><b>${esc(h.label)}</b><small>${esc(t(h.sec.title))}</small></a>`).join("")
+      ? hits.map((h) => `<a href="#/settings/${h.sec.id}?find=${encodeURIComponent(h.sid)}"><b>${esc(h.label)}</b><small>${esc(h.isSec ? t((groups.find((g) => g.id === h.sec.group) || {}).title || "") : t(h.sec.title))}${h.classic ? " · " + esc(t("Only for classic Stash")) : ""}</small></a>`).join("")
       : `<p class="kb-hint">${t("Nothing found")}</p>`;
   });
   q.addEventListener("keydown", (e) => {
@@ -166,664 +512,50 @@ function bindSearch(main) {
   });
 }
 
-// Scroll to the setting that was picked in the search and let it light up
-function showFound(body, label) {
-  const el = [...body.querySelectorAll("b, h2")].find((x) => x.textContent.trim() === label);
-  const row = el && (el.closest(".kb-set, .kb-card, .kb-theme-glass") || el);
-  if (!row) return;
-  row.scrollIntoView({ block: "center" });
-  row.classList.add("is-found");
-  setTimeout(() => row.classList.remove("is-found"), 2400);
+let indexP = null;
+function getIndex() {
+  return (indexP = indexP || buildIndex());
 }
-
-async function renderArea(body, sec) {
-  const a = AREAS[sec.area];
-  const [inputT, sel] = await Promise.all([typeInfo(a.input), selection(a.result)]);
-  const d = await gql(`query { configuration { ${sec.area} { ${sel} } } }`);
-  const cur = d.configuration[sec.area];
-  const inputFields = new Map(inputT.inputFields.map((f) => [f.name, f]));
-
-  let names;
-  if (sec.fields === "*") names = inputT.inputFields.map((f) => f.name);
-  else if (sec.fields === "rest") {
-    const used = new Set(SECTIONS.filter((s) => s.area === "general" && Array.isArray(s.fields)).flatMap((s) => s.fields));
-    names = inputT.inputFields.map((f) => f.name).filter((n) => !used.has(n));
-  } else names = sec.fields;
-  names = names.filter((n) => inputFields.has(n) && !SKIP.has(n));
-
-  const parts = [];
-  for (const n of names) {
-    if (n === "stashes") parts.push(stashesHtml(cur.stashes || []));
-    else parts.push(await fieldHtml(n, inputFields.get(n).type, cur[n]));
+window.addEventListener("stash:plugins-changed", () => (indexP = null));
+async function buildIndex() {
+  const out = [];
+  const add = (sec, sidv, label, hint, classic) => out.push({ sec, sid: sidv, label, classic, isSec: sidv === sec.id, hay: (label + " " + (hint || "") + " " + t(sec.title)).toLowerCase() });
+  if (!otherNames) await computeOther().catch(() => (otherNames = []));
+  for (const sec of allSections()) {
+    add(sec, sec.id, t(sec.title), t(sec.intro) + " " + (sec.alias || ""));
+    const each = (list, classic) =>
+      list.forEach((it) => {
+        if (isTyped(it)) {
+          const p = typedPath(it);
+          const name = p.split(".").pop();
+          add(sec, `${sec.id}.${p}`, it.title ? t(it.title) : p === "general.stashes" ? t("Library folders") : labelOf(name), it.hint ? t(it.hint) : helpOf(name), classic);
+        } else if (it.k === "heading") return;
+        else {
+          add(sec, `${sec.id}.${it.id}`, t(it.title), [it.hint && t(it.hint), ...(it.terms || []).map(t)].filter(Boolean).join(" "), classic);
+          (it.terms || []).forEach((x) => add(sec, `${sec.id}.${it.id}`, t(x), "", classic));
+          (it.items || []).forEach(([, l]) => add(sec, `${sec.id}.${it.id}`, t(l), t(it.title), classic));
+          (it.f || []).forEach(([, l]) => add(sec, `${sec.id}.${it.id}`, t(l), t(it.title), classic));
+          (it.options && Array.isArray(it.options) ? it.options : []).forEach(([, l]) => add(sec, `${sec.id}.${it.id}`, t(l), t(it.title), classic));
+        }
+      });
+    each(sec.items.filter((x) => x), false);
+    each(sec.classic || [], true);
   }
-  body.innerHTML = `
-    <form class="kb-set-form" data-form>${parts.join("") || `<p class="kb-hint">${t("Nothing else to set here.")}</p>`}
-      ${sec.apiKey ? apiKeyHtml(cur.apiKey) : ""}
-      ${sec.classic ? `<p><a class="kb-btn" href="#/extern/classic-settings?path=${encodeURIComponent(sec.classic)}">${icon("door")}${t("Open in classic Stash")}</a></p>` : ""}
-      <div class="kb-set-save" data-save hidden><span>${t("Unsaved changes")}</span><button type="button" class="kb-btn" data-reset>${t("Discard")}</button><button type="submit" class="kb-btn is-primary">${t("Save")}</button></div>
-    </form>
-    ${sec.logs ? '<section class="kb-logs" data-logs></section>' : ""}`;
-  const form = body.querySelector("[data-form]");
-  const saveBar = body.querySelector("[data-save]");
-  const dirty = () => (saveBar.hidden = false);
-  form.addEventListener("input", dirty);
-  form.addEventListener("change", dirty);
-  bindStashes(form, dirty);
-  body.querySelector("[data-reset]").onclick = () => renderArea(body, sec);
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const input = readFields(form);
-    if (names.includes("stashes")) input.stashes = readStashes(form);
-    try {
-      await gql(`mutation($i: ${a.input}!) { ${a.mutation}(input: $i) { __typename } }`, { i: input });
-      toast(sec.id === "paths" ? t("Saved – takes effect after restarting Stash") : t("Saved"), "ok");
-      saveBar.hidden = true;
-    } catch (err) {
-      errorToast(err, "Saving failed");
-    }
-  };
-  if (sec.apiKey) bindApiKey(body);
-  if (sec.logs) renderLogs(body.querySelector("[data-logs]"));
+  return out;
 }
 
-// ---------- Library folders ----------
-
-function stashRow(s) {
-  return `<div class="kb-stash-row" data-stash>
-    <input class="kb-field" data-spath value="${esc(s.path || "")}" placeholder="${t("Folder path")}" spellcheck="false">
-    <label class="kb-check"><input type="checkbox" data-snovid${s.excludeVideo ? " checked" : ""}>${t("no videos")}</label>
-    <label class="kb-check"><input type="checkbox" data-snoimg${s.excludeImage ? " checked" : ""}>${t("no images")}</label>
-    <button type="button" class="kb-btn is-icon is-ghost" data-srm aria-label="${t("Remove folder")}">${icon("close")}</button>
-  </div>`;
-}
-function stashesHtml(list) {
-  return `<div class="kb-set"><div class="kb-set-label"><b>${t("Library folders")}</b><small>${t("Folders Stash scans. “no videos/images” ignores that kind of media in the folder.")}</small></div>
-    <div class="kb-stashes" data-stashes>${list.map(stashRow).join("")}</div>
-    <button type="button" class="kb-btn" data-sadd>${icon("plus")}${t("Add folder")}</button></div>`;
-}
-function bindStashes(form, dirty) {
-  form.addEventListener("click", (e) => {
-    if (e.target.closest("[data-sadd]")) {
-      form.querySelector("[data-stashes]").insertAdjacentHTML("beforeend", stashRow({}));
-      dirty();
-    }
-    const rm = e.target.closest("[data-srm]");
-    if (rm) {
-      rm.closest("[data-stash]").remove();
-      dirty();
-    }
-  });
-}
-function readStashes(form) {
-  return [...form.querySelectorAll("[data-stash]")]
-    .map((r) => ({ path: r.querySelector("[data-spath]").value.trim(), excludeVideo: r.querySelector("[data-snovid]").checked, excludeImage: r.querySelector("[data-snoimg]").checked }))
-    .filter((s) => s.path);
-}
-
-// ---------- API key ----------
-
-function apiKeyHtml(key) {
-  return `<div class="kb-set"><div class="kb-set-label"><b>${t("API key")}</b><small>${t("For external programs. Generating a new one invalidates the old one.")}</small></div>
-    <div class="kb-apikey"><code data-key>${key ? esc(key) : t("no key")}</code>
-    <button type="button" class="kb-btn" data-genkey>${t("Generate new")}</button>${key ? `<button type="button" class="kb-btn is-ghost" data-clearkey>${t("Remove")}</button>` : ""}</div></div>`;
-}
-function bindApiKey(body) {
-  body.addEventListener("click", async (e) => {
-    const gen = e.target.closest("[data-genkey]");
-    const clr = e.target.closest("[data-clearkey]");
-    if (!gen && !clr) return;
-    const r = await confirmDialog({ title: gen ? t("Generate a new API key?") : t("Remove the API key?"), text: t("Programs using the old key lose access."), ok: gen ? t("Generate") : t("Remove"), danger: !!clr });
-    if (!r.ok) return;
-    try {
-      const d = await gql(`mutation($c: Boolean) { generateAPIKey(input: { clear: $c }) }`, { c: !!clr });
-      body.querySelector("[data-key]").textContent = d.generateAPIKey || t("no key");
-      toast(t("API key changed"), "ok");
-    } catch (err) {
-      errorToast(err, "API key");
-    }
-  });
-}
-
-// ---------- Log ----------
-
-async function renderLogs(box) {
-  const level = store.get("logLevel", "Info");
-  box.innerHTML = `<h2 class="kb-h2">${t("Latest entries")}
-    <select class="kb-field" data-lvl>${["Debug", "Info", "Warning", "Error"].map((l) => `<option value="${l}"${l === level ? " selected" : ""}>${t(l)}</option>`).join("")}</select>
-    <button class="kb-btn is-ghost" data-refresh>${t("Refresh")}</button></h2><div class="kb-loglist" data-list>${t("Loading …")}</div>`;
-  const order = { Trace: 0, Debug: 1, Info: 2, Progress: 2, Warning: 3, Error: 4 };
-  const load = async () => {
-    try {
-      const d = await gql(`query { logs { time level message } }`);
-      const min = order[box.querySelector("[data-lvl]").value];
-      const rows = d.logs.filter((l) => (order[l.level] ?? 2) >= min).slice(-400).reverse();
-      box.querySelector("[data-list]").innerHTML = rows.length
-        ? rows.map((l) => `<div class="kb-log is-${l.level.toLowerCase()}"><time>${esc(new Date(l.time).toLocaleTimeString(locale()))}</time><b>${esc(l.level)}</b><span>${esc(l.message)}</span></div>`).join("")
-        : `<p class="kb-hint">${t("No entries at this level.")}</p>`;
-    } catch (e) {
-      box.querySelector("[data-list]").textContent = t("Couldn't load the log:") + " " + e.message;
-    }
-  };
-  box.querySelector("[data-lvl]").onchange = (e) => {
-    store.set("logLevel", e.target.value);
-    load();
-  };
-  box.querySelector("[data-refresh]").onclick = load;
-  load();
-}
-
-// ---------- Database & system ----------
-
-async function renderSystem(body) {
-  const cg = await typeInfo("CleanGeneratedInput");
-  body.innerHTML = `
-    <div class="kb-cards">
-      <section class="kb-card"><h2>${t("Back up database")}</h2><p>${t("Stores a copy of the database in the backup folder.")}</p>
-        <label class="kb-check"><input type="checkbox" data-blobs>${t("Include image data")}</label>
-        <button class="kb-btn is-primary" data-backup>${t("Back up now")}</button></section>
-      <section class="kb-card"><h2>${t("Optimize database")}</h2><p>${t("Tidies up the database internally and makes it smaller. Runs as a background task.")}</p>
-        <button class="kb-btn" data-optimise>${t("Optimize")}</button></section>
-      <section class="kb-card"><h2>${t("Clean up generated files")}</h2><p>${t("Removes previews, sprites and other generated files that no longer belong to a scene or image.")}</p>
-        <form data-cleangen>${(await Promise.all(cg.inputFields.map((f) => fieldHtml(f.name, f.type, f.name === "dryRun")))).join("")}
-        <button class="kb-btn" type="submit">${t("Start clean-up")}</button></form></section>
-    </div>`;
-  body.querySelector("[data-backup]").onclick = async () => {
-    try {
-      const d = await gql(`mutation($b: Boolean) { backupDatabase(input: { download: false, includeBlobs: $b }) }`, { b: body.querySelector("[data-blobs]").checked });
-      toast(t("Backed up") + (d.backupDatabase ? ": " + d.backupDatabase : ""), "ok");
-    } catch (e) {
-      errorToast(e, "Backup failed");
-    }
-  };
-  body.querySelector("[data-optimise]").onclick = async () => {
-    try {
-      await gql(`mutation { optimiseDatabase }`);
-      pokeJobs();
-      toast(t("Optimizing – see Tasks"), "ok");
-    } catch (e) {
-      errorToast(e, "Optimize");
-    }
-  };
-  body.querySelector("[data-cleangen]").onsubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await gql(`mutation($i: CleanGeneratedInput!) { metadataCleanGenerated(input: $i) }`, { i: readFields(e.target) });
-      pokeJobs();
-      toast(t("Cleaning up – see Tasks"), "ok");
-    } catch (err) {
-      errorToast(err, "Clean-up");
-    }
-  };
-}
-
-// ---------- This interface ----------
-
-function renderLook(body) {
-  body.innerHTML = `<form class="kb-set-form" data-form>${themeHtml()}
-    <div class="kb-set kb-theme"><div class="kb-theme-body"><label class="kb-theme-glass"><span class="kb-switch"><input type="checkbox" data-fx${store.get("fx", true) !== false ? " checked" : ""}><i></i></span><span><b>${t("Effects and animations")}</b><small>${t("Button shine and ripples, tilting cards with a moving light, a wipe on page changes and a glow behind the mouse. Off by itself when your system asks for less motion.")}</small></span></label></div></div></form>`;
-  bindTheme(body);
-  body.querySelector("[data-fx]").addEventListener("change", (e) => {
-    store.set("fx", e.target.checked);
-    applyDisplay();
-    toast(t("Saved"), "ok");
-  });
-}
-
-const RATE_SYS = [["stars:full", "Stars (whole)"], ["stars:half", "Stars (half)"], ["stars:quarter", "Stars (quarter)"], ["stars:tenth", "Stars (tenth)"], ["decimal:", "Decimal (0.0–10.0)"]];
-const rateSysNow = () => {
-  const r = ratingSystem();
-  return r.type === "decimal" ? "decimal:" : "stars:" + ({ 0.5: "half", 0.25: "quarter", 0.1: "tenth" }[r.step] || "full");
-};
-const setPlayer = (patch) => store.set("player", Object.assign(store.get("player", {}), patch));
-function renderPlayerUi(body) {
-  const player = store.get("player", {});
-  const mode = player.mode || (player.loop ? "one" : player.random ? "shuffle" : player.auto === false ? "stop" : "order");
-  const sw = (attr, on, title, hint) => `<label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t(title)}</b><small>${t(hint)}</small></span>
-        <span class="kb-switch"><input type="checkbox" ${attr}${on ? " checked" : ""}><i></i></span></label>`;
-  body.innerHTML = `<form class="kb-set-form" data-form>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("At the end of a video")}</b><small>${t("The same as the button in the player bar – a click there cycles through these.")}</small></span>
-        <select class="kb-field" data-pmode>${[["order", "In order"], ["shuffle", "Random order"], ["one", "Repeat this video"], ["all", "Repeat all"], ["stop", "Stop at the end"]].map(([v, l]) => `<option value="${v}"${mode === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Image viewer: turning the page")}</b><small>${t("How the next picture comes in. Arrow keys, a swipe (finger or dragging with the mouse) and the arrows on the sides all turn the page.")}</small></span>
-        <select class="kb-field" data-vanim>${[["fade", "Fade"], ["slide", "Slide in"], ["zoom", "Zoom in"], ["none", "None"]].map(([v, l]) => `<option value="${v}"${(store.get("viewer", {}).anim || "fade") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      ${sw("data-autoplay", player.autoplay !== false, "Start playing when a scene opens", "Off: opening a scene shows the first picture and waits for the play button. Going on to the next video from the player always plays.")}
-      ${sw("data-fromstart", !!player.fromStart, "Always start from the beginning", "Scenes you stopped halfway begin at 0:00 instead of where you left off. The saved point stays in Stash; the hint offers it as a button.")}
-      ${sw("data-randstart",!!player.randomStart, "Start at a random spot", "Every scene starts somewhere in the middle – for browsing around. Your resume points in Stash stay as they are.")}
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Mouse wheel on the video")}</b><small>${t("Turn the wheel over the picture to change the volume or to jump (5 s per notch); hold Shift for the other one.")}</small></span>
-        <select class="kb-field" data-wheel>${[["volume", "Volume"], ["seek", "Jump forward / back"], ["off", "Off"]].map(([v, l]) => `<option value="${v}"${(player.wheel || "volume") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      ${sw("data-wheelrev", !!player.wheelRev, "Reverse the wheel", "Normally turning the wheel up makes it louder or jumps forward. Switch this on and up goes quieter / back, down louder / forward.")}
-      ${sw("data-scrubpeek", player.scrubPeek !== false, "Picture when hovering the timeline", "Hover the timeline in the player to see a small picture of that moment above the pointer (needs Stash's timeline images – Tasks → Generate → Timeline images). Not shown on touch screens.")}
-      ${sw("data-omark", oPrefs().mark !== false, "O marks the moment", "Pressing O (key or button) in the player also remembers the spot in the video. Shift+O marks it without counting an O.")}
-      ${sw("data-oshow", oPrefs().show !== false, "Show the O clip at the O moments", "From a marked O moment on, the O clip you chose plays in a small window next to the video (info bar → O moments).")}
-      ${sw("data-fspanel", player.fsPanel !== false, "Info panel in fullscreen", "Move the mouse to the right edge in fullscreen to slide in the info panel.")}
-      <div class="kb-set"><div class="kb-set-label"><b>${t("External players")}</b><small>${t("The “External player” button in a scene's info panel hands the video to a player on this device – for formats the browser can't play. Choose the ones to offer; some need a small helper installed (see below each).")}</small></div></div>
-      <div class="kb-extpick" data-extpick></div>
-      ${sw("data-psound", store.get("previewSound", true), "Sound in previews", "Hover previews play with sound (at the player's volume). Stash only puts sound into previews when “Preview audio” is on under Previews – regenerate them after switching it on.")}
-    </form>`;
-  // External players: which ones the "External player" button offers (kept in Stash: the same on every device)
-  (async () => {
-    const { PLAYERS, playersHere, loadExtPlayers, saveExtPlayers, offeredPlayers } = await import("../extplayer.js");
-    const box = body.querySelector("[data-extpick]");
-    if (!box) return;
-    const on = new Set((await offeredPlayers()).map((p) => p.id));
-    box.innerHTML = playersHere()
-      .map((p) => `<label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${esc(p.name)}</b>${p.hint ? `<small>${esc(t(p.hint))}</small>` : ""}</span><span class="kb-switch"><input type="checkbox" data-xp="${p.id}"${on.has(p.id) ? " checked" : ""}><i></i></span></label>`)
-      .join("");
-    box.onchange = async (e) => {
-      const c = e.target.closest("[data-xp]");
-      if (!c) return;
-      c.checked ? on.add(c.dataset.xp) : on.delete(c.dataset.xp);
-      await saveExtPlayers({ enabled: [...on] });
-      toast(t("Saved"), "ok");
-    };
-  })().catch(() => {});
-  body.querySelector("[data-pmode]").onchange = (e) => setPlayer({ mode: e.target.value });
-  body.querySelector("[data-wheel]").onchange = (e) => setPlayer({ wheel: e.target.value });
-  body.querySelector("[data-wheelrev]").onchange = (e) => setPlayer({ wheelRev: e.target.checked });
-  body.querySelector("[data-scrubpeek]").onchange = (e) => setPlayer({ scrubPeek: e.target.checked });
-  body.querySelector("[data-omark]").onchange = (e) => setOPrefs({ mark: e.target.checked });
-  body.querySelector("[data-oshow]").onchange = (e) => setOPrefs({ show: e.target.checked });
-  body.querySelector("[data-fspanel]").onchange = (e) => setPlayer({ fsPanel: e.target.checked });
-  body.querySelector("[data-vanim]").onchange = (e) => store.set("viewer", Object.assign(store.get("viewer", { panel: false, interval: 5 }), { anim: e.target.value }));
-  body.querySelector("[data-autoplay]").onchange = (e) => setPlayer({ autoplay: e.target.checked });
-  body.querySelector("[data-fromstart]").onchange = (e) => setPlayer({ fromStart: e.target.checked });
-  body.querySelector("[data-randstart]").onchange = (e) => setPlayer({ randomStart: e.target.checked });
-  body.querySelector("[data-psound]").onchange = (e) => store.set("previewSound", e.target.checked);
-
-  // Interactive: The Handy (Stash's own settings – classic Stash uses the same)
-  const box = document.createElement("form");
-  box.className = "kb-set-form kb-set-handy";
-  box.innerHTML = `<h3 class="kb-set-sub">${icon("plug")}${t("The Handy")}</h3>
-    <p class="kb-hint">${t("Scenes with a funscript play on The Handy: it follows play, pause and jumps. Saved in Stash – classic Stash uses the same settings.")}</p>
-    <label class="kb-set"><span class="kb-set-label"><b>${t("Connection key")}</b><small>${t("From the Handy app or handyfeeling.com. Empty = off.")}</small></span>
-      <input class="kb-field" type="text" data-hkey autocomplete="off" spellcheck="false" placeholder="${t("e.g. abc123XYZ")}"></label>
-    <label class="kb-set"><span class="kb-set-label"><b>${t("Script offset")}</b><small>${t("Milliseconds – if the movement comes too early (negative) or too late (positive).")}</small></span>
-      <input class="kb-field" type="number" step="10" data-hoff style="max-width:120px"></label>
-    <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("The Handy fetches the script from Stash")}</b><small>${t("Only when Stash can be reached from the internet. Otherwise the script goes to the Handy's own server for playback.")}</small></span>
-      <span class="kb-switch"><input type="checkbox" data-hhost><i></i></span></label>
-    <div class="kb-set"><span class="kb-set-label"><b>${t("Test the connection")}</b><small data-hres>${t("Is the Handy online, and how far off is its clock?")}</small></span>
-      <button type="button" class="kb-btn" data-htest>${t("Test")}</button></div>`;
-  body.appendChild(box);
-  interactiveConfig(true).then((c) => {
-    box.querySelector("[data-hkey]").value = c.handyKey;
-    box.querySelector("[data-hoff]").value = c.funscriptOffset;
-    box.querySelector("[data-hhost]").checked = c.useStashHostedFunscript;
-  });
-  const saveH = async (patch) => {
-    try {
-      await saveInteractiveConfig(patch);
-      toast(t("Saved"), "ok");
-    } catch (err) {
-      errorToast(err, "The Handy");
-    }
-  };
-  box.querySelector("[data-hkey]").onchange = (e) => saveH({ handyKey: e.target.value.trim() });
-  box.querySelector("[data-hoff]").onchange = (e) => saveH({ funscriptOffset: Math.round(Number(e.target.value) || 0) });
-  box.querySelector("[data-hhost]").onchange = (e) => saveH({ useStashHostedFunscript: e.target.checked });
-  box.querySelector("[data-htest]").onclick = async (e) => {
-    const res = box.querySelector("[data-hres]");
-    e.target.disabled = true;
-    res.textContent = t("Testing …");
-    try {
-      const off = await testHandy();
-      res.textContent = t("Online and ready – clock difference {n} ms", { n: off });
-      res.className = "is-ok";
-    } catch (err) {
-      res.textContent = err.message;
-      res.className = "is-err";
-    }
-    e.target.disabled = false;
-  };
-}
-
-async function renderApp(body) {
-  const d = await gql(`query { configuration { plugins(include: ["stashui"]) } }`);
-  const cfg = (d.configuration.plugins && d.configuration.plugins.stashui) || {};
-  body.innerHTML = `
-    <form class="kb-set-form" data-form>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Language")}</b><small>${t("“Automatic” follows the language set in Stash (classic Stash → Settings → Interface).")}</small></span>
-        <select class="kb-field" data-lang><option value="auto">${t("Automatic")}</option>${LANGS.map(([code, name]) => `<option value="${code}">${esc(name)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Folder loading")}</b><small>${t("Counting the folders reads the whole library once (then it's remembered) – on very big libraries that can take very long. “Off” loads no folders at all.")}</small></span>
-        <select class="kb-field" data-foldermode>${[["all", "Everywhere"], ["page", "Only on the Folders page"], ["off", "Off"]].map(([v, l]) => `<option value="${v}"${folderMode() === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Large library mode")}</b><small>${t("For libraries with very many files (from 20 000 scenes or 100 000 images): folders aren't counted on their own, the home page loads what you scroll to, Versus plays preview clips, scans of all funscripts wait for a click. Takes effect after reloading the page.")}${largeNow() ? " " + t("Right now: on.") : ""}</small></span>
-        <select class="kb-field" data-dsp="largeMode">${[["auto", "Automatic"], ["on", "On"], ["off", "Off"]].map(([v, l]) => `<option value="${v}"${store.get("largeMode", "auto") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Versus: scenes")}</b><small>${t("What a scene shows in Versus: the whole video (jumping through it) or only the preview clip – lighter on slow disks. Automatic follows the large library mode.")}</small></span>
-        <select class="kb-field" data-dsp="vsMedia">${[["auto", "Automatic"], ["preview", "Preview clips"], ["full", "Whole video"]].map(([v, l]) => `<option value="${v}"${store.get("vsMedia", "auto") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("This interface as home page")}</b><small>${t("Opening Stash goes straight to this interface. Off = classic Stash stays the home page.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-home${cfg.keepClassicHome ? "" : " checked"}><i></i></span></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Style classic Stash like this interface")}</b><small>${t("Off: classic Stash keeps its own look (reload its page after changing this); only this interface is styled.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-plainclassic${cfg.plainClassic ? "" : " checked"}><i></i></span></label>
-      <div class="kb-set"><div class="kb-set-label"><b>${t("Install as app")}</b><small data-installhint></small></div><button type="button" class="kb-btn" data-install hidden>${icon("phone")}${t("Install")}</button></div>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Studio on scenes")}</b><small>${t("Shows the studio's logo (or its name) in the corner of scene thumbnails.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-studiologo${store.get("studioLogos", false) ? " checked" : ""}><i></i></span></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Other pictures on performer cards")}</b><small>${t("While the mouse rests on a performer card, it shows other pictures of that performer from your library, one after the other. Not on touch screens.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-perfhover${store.get("perfHover", true) !== false ? " checked" : ""}><i></i></span></label>
-      <div class="kb-set"><span class="kb-set-label"><b>${t("Info on performer cards")}</b><small>${t("What the cards of the Performers page say under the name. Click to switch each one on or off (after the next page load).")}</small></span>
-        <div class="kb-chips" data-perfinfo>${[["scenes", "Scenes"], ["images", "Images"], ["age", "Age"], ["rating", "Rating"], ["country", "Country"], ["ethnicity", "Ethnicity"], ["hair", "Hair color"], ["eye", "Eye color"], ["height", "Height"], ["tags", "Tags"]].map(([k, l]) => `<button type="button" class="kb-chip${perfInfo()[k] ? " is-on" : ""}" data-pi="${k}">${t(l)}</button>`).join("")}</div></div>
-      <div class="kb-set"><span class="kb-set-label"><b>${t("Folder for new clips and GIFs")}</b><small>${t("Every clip, GIF and edit you make is saved here, all together – not next to each original. Needs a full path (e.g. E:\\Stash\\Clips) and should lie inside a library folder, so Stash finds the files. Empty = next to each original.")}</small><small class="kb-set-msg" data-clipsdirmsg></small></span>
-        <span class="kb-set-btns"><input class="kb-field" type="text" data-clipsdir autocomplete="off" spellcheck="false" placeholder="${esc(t("next to each original"))}"><button type="button" class="kb-btn" data-clipsdirsave>${t("Save")}</button></span></div>
-      <div class="kb-set kb-set-col"><span class="kb-set-label"><b>${t("Hidden folders")}</b><small>${t("What lies in a hidden folder shows up on no page – only when you open the folder itself. Hide a folder on its page (Folders → open it → “Hide this folder”). Numbers such as the scene count of a performer or tag may still include it.")}</small></span>
-        <div class="kb-hidden-list" data-hiddenlist></div></div>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Show hidden folders on the Folders page")}</b><small>${t("Off: the hidden folders aren't listed anywhere – open one from the list above.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-hidenames${hiddenNames() ? " checked" : ""}><i></i></span></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Markdown in descriptions")}</b><small>${t("Details and descriptions of scenes, images, galleries, groups, performers, studios and tags can have **bold**, *italic*, lists, headings, links and tables. Links open in a new tab; pictures and raw HTML are never shown.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-markdown${store.get("markdown", true) !== false ? " checked" : ""}><i></i></span></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Resolution on scene cards")}</b><small>${t("Shows 1080p, 720p … next to the length in the corner of scene thumbnails (after the next page load).")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-cardres${store.get("cardRes", false) ? " checked" : ""}><i></i></span></label>
-      <div class="kb-set"><span class="kb-set-label"><b>${t("Info on scene cards")}</b><small>${t("Extra lines under the date when scenes are shown as cards. Click to switch each one on or off.")}</small></span>
-        <div class="kb-chips" data-cardinfo>${[["watched", "Last watched"], ["added", "Added"], ["time", "Watch time"], ["size", "File size"]].map(([k, l]) => `<button type="button" class="kb-chip${cardInfo()[k] ? " is-on" : ""}" data-ci="${k}">${t(l)}</button>`).join("")}</div></div>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Dates on scene cards")}</b><small>${t("Last watched and Added: the exact date, or how many days ago.")}</small></span>
-        <select class="kb-field" data-cistyle>${[["date", "Exact date"], ["days", "Days ago"]].map(([v, l]) => `<option value="${v}"${cardInfo().style === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("With the time")}</b><small>${t("Adds the hour and minute to those dates.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-cihour${cardInfo().hour ? " checked" : ""}><i></i></span></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Time format")}</b><small>${t("How the time of day is written when “With the time” is on.")}</small></span>
-        <select class="kb-field" data-ciclock>${[["auto", "Automatic"], ["24", "24-hour (14:25)"], ["12", "12-hour (2:25 PM)"]].map(([v, l]) => `<option value="${v}"${cardInfo().clock === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      ${[
-        ["badgeRating", "Rating badge", "Where the rating sits on a thumbnail. Automatic: only on the card view (bottom left).", [["auto", "Automatic"], ["off", "Hidden"]]],
-        ["badgeTier", "Tier badge", "Where the tier (S–F) sits on a thumbnail. Automatic: top left.", [["auto", "Automatic"], ["off", "Hidden"]]],
-        ["badgeStamp", "Length badge", "Where the length (and resolution) sits on a thumbnail. Automatic: top right.", [["auto", "Automatic"], ["off", "Hidden"]]],
-      ].map(([k, label, hint, first]) => `<label class="kb-set"><span class="kb-set-label"><b>${t(label)}</b><small>${t(hint)} ${t("Takes effect when a list is loaded again.")}</small></span>
-        <select class="kb-field" data-dsp="${k}">${[...first, ["tl", "Top left"], ["tr", "Top right"], ["bl", "Bottom left"], ["br", "Bottom right"]].map(([v, l]) => `<option value="${v}"${store.get(k, "auto") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>`).join("")}
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Rating badge: colour")}</b><small>${t("The colour can follow the rating – from red (low) to green (high).")}</small></span>
-        <select class="kb-field" data-dsp="ratingStyle">${[["plain", "Dark"], ["tint", "Coloured text"], ["fill", "Filled with the colour"]].map(([v, l]) => `<option value="${v}"${store.get("ratingStyle", "plain") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Studio logo: corner")}</b><small>${t("Where the logo sits on a thumbnail.")}</small></span>
-        <select class="kb-field" data-dsp="studioPos">${[["bl", "Bottom left"], ["br", "Bottom right"], ["tl", "Top left"], ["tr", "Top right"]].map(([v, l]) => `<option value="${v}"${store.get("studioPos", "bl") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Studio logo: size")}</b><small>${t("How big the logo is.")}</small></span>
-        <select class="kb-field" data-dsp="studioSize">${[["s", "Small"], ["m", "Medium"], ["l", "Large"], ["xl", "Extra large"]].map(([v, l]) => `<option value="${v}"${store.get("studioSize", "m") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("NSFW mode")}</b><small>${t("Blurs all pictures and hover previews – also with the eye button at the top of the menu on the left.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-dsp="nsfw"${store.get("nsfw", false) ? " checked" : ""}><i></i></span></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("NSFW mode: what is blurred")}</b><small>${t("Thumbnails and previews – or also the player and the image viewer.")}</small></span>
-        <select class="kb-field" data-dsp="nsfwScope">${[["cards", "Thumbnails and previews"], ["all", "Everything, also player and viewer"]].map(([v, l]) => `<option value="${v}"${store.get("nsfwScope", "cards") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("NSFW mode: blur strength")}</b></span>
-        <input type="range" min="6" max="40" step="2" data-dsp="nsfwBlur" value="${store.get("nsfwBlur", 18)}"></label>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("NSFW mode: clear while the mouse is on it")}</b><small>${t("A thumbnail shows sharp as long as you point at it.")}</small></span>
-        <span class="kb-switch"><input type="checkbox" data-dsp="nsfwHover"${store.get("nsfwHover", false) ? " checked" : ""}><i></i></span></label>
-      <div class="kb-set kb-set-ext"><div class="kb-set-label"><b>${t("NSFW mode: never blur these tags")}</b><small>${t("Scenes, images and galleries with one of these tags stay sharp (thumbnails and, with “Everything”, the player and viewer). Applies to lists the next time they load.")}</small></div>
-        <div data-nsfwtags></div></div>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Page title")}</b><small>${t("The name in the browser tab. Empty = “Stash UI”.")}</small></span>
-        <input type="text" class="kb-field" data-dsp="pageTitle" maxlength="60" placeholder="Stash UI" value="${esc(store.get("pageTitle", "") || "")}"></label>
-      <div class="kb-set"><div class="kb-set-label"><b>${t("Tab icon")}</b><small>${t("A small picture for the browser tab (any image – it is cut square and made small). Kept in this browser.")}</small></div>
-        <span class="kb-set-btns"><img class="kb-favprev" data-favprev alt="" width="28" height="28" hidden><button type="button" class="kb-btn" data-favpick>${t("Choose a picture")}</button><button type="button" class="kb-btn is-ghost" data-favreset>${t("Default icon")}</button><input type="file" accept="image/*" data-favfile hidden></span></div>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Menu on the left")}</b><small>${t("Full, icons only, or hidden until you press the menu button in the top left corner. The button at the top of the menu switches between them too.")}</small></span>
-        <select class="kb-field" data-dsp="railMode">${[["full", "Full"], ["mini", "Icons only"], ["hidden", "Hidden"]].map(([v, l]) => `<option value="${v}"${store.get("railMode", "full") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Menu width")}</b><small>${t("How wide the menu on the left is (on a computer).")}</small></span>
-        <input type="range" min="180" max="360" step="4" data-dsp="railWidth" value="${store.get("railWidth", 236)}"></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Thumbnail shape")}</b><small>${t("Each as its picture is – or all as posters (portrait) or all as scenes (landscape).")}</small></span>
-        <select class="kb-field" data-dsp="cardFormat">${[["auto", "As the picture is"], ["poster", "Posters (portrait)"], ["scene", "Scenes (landscape)"]].map(([v, l]) => `<option value="${v}"${store.get("cardFormat", "auto") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Hover previews")}</b><small>${t("Whether a thumbnail plays a short clip when you point at it.")}</small></span>
-        <select class="kb-field" data-dsp="previewMode">${[["on", "Always"], ["auto", "Always, and all in view play by themselves"], ["off", "Never"], ["poster", "Not with posters"]].map(([v, l]) => `<option value="${v}"${store.get("previewMode", "on") === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <div class="kb-set kb-set-ext"><div class="kb-set-label"><b>${t("Other plugins in the menu")}</b><small>${t("Plugins with their own page get an entry under “Extensions” on the left. Fold the group with a click on its heading, or hide it here – all of it or single plugins.")}</small></div>
-        <select class="kb-field" data-extmode><option value="show">${t("Show")}</option><option value="hide">${t("Hide")}</option></select>
-        <div class="kb-extpick" data-extpick></div></div>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Rating system")}</b><small>${t("How ratings are shown and set. Saved in Stash – classic Stash uses the same setting.")}</small></span>
-        <select class="kb-field" data-ratesys>${RATE_SYS.map(([v, l]) => `<option value="${v}"${rateSysNow() === v ? " selected" : ""}>${t(l)}</option>`).join("")}</select></label>
-      <label class="kb-set"><span class="kb-set-label"><b>${t("Thumbnail size")}</b><small>${t("How tall a row in the lists is.")}</small></span>
-        <input type="range" min="130" max="480" step="10" data-rowh value="${store.get("rowHeight", 250)}"></label>
-      <div class="kb-set"><div class="kb-set-label"><b>${t("Favorites")}</b><small>${t("The heart is the Stash tag “Favorite”. You'll find it in classic Stash too.")}</small></div></div>
-      <label class="kb-set kb-set-bool"><span class="kb-set-label"><b>${t("Automatic backup in Stash")}</b><small>${t("Copies the settings of this browser to Stash a little after they change. A browser that forgot them (site data cleared, another address, a new device) gets them back by itself.")}</small></span><span class="kb-switch"><input type="checkbox" data-autobk${store.get("autoBackup", true) !== false ? " checked" : ""}><i></i></span></label>
-      <div class="kb-set"><div class="kb-set-label"><b>${t("Backup and restore")}</b><small>${t("Saves everything this interface remembers – settings of this browser, home page and menu, ratings, playlists, Versus, funscript variants – in one file, and puts it back (also in another browser). It may contain your Handy connection key, so keep the file private.")}</small></div>
-        <span class="kb-set-btns"><button type="button" class="kb-btn" data-bkexport>${t("Save backup")}</button><button type="button" class="kb-btn" data-bkimport>${t("Restore backup")}</button><input type="file" accept=".json,application/json" data-bkfile hidden></span></div>
-      <div class="kb-set"><div class="kb-set-label"><b>${t("Reset interface settings")}</b><small>${t("Everything this interface remembers in this browser – player and viewer settings, thumbnail size, expanded folders, the home page and more. Not the queue, the colors or the glass look.")}</small></div>
-        <button type="button" class="kb-btn" data-resetlocal>${t("Reset")}</button></div>
-    </form>`;
-  // Install as an app
-  const instBtn = body.querySelector("[data-install]");
-  const instHint = body.querySelector("[data-installhint]");
-  const paintInstall = () => {
-    const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    instBtn.hidden = !window.kbInstall || standalone;
-    instHint.textContent = standalone
-      ? t("You're using the app right now.")
-      : window.kbInstall
-        ? t("Its own window and a home screen icon, without the browser bar.")
-        : ios
-          ? t("In Safari: Share → Add to Home Screen.")
-          : !window.isSecureContext
-            ? t("Browsers only install apps from https or on the computer Stash runs on (localhost). On other devices: browser menu → Add to Home screen – that adds a shortcut.")
-            : t("Use the install icon in the address bar, or the browser menu → Install app. Firefox can't install web apps.");
-  };
-  paintInstall();
-  window.addEventListener("kb-installable", paintInstall);
-  instBtn.onclick = async () => {
-    const e = window.kbInstall;
-    if (!e) return;
-    e.prompt();
-    const r = await e.userChoice;
-    if (r.outcome === "accepted") {
-      window.kbInstall = null;
-      toast(t("Installed"), "ok");
-    }
-    paintInstall();
-  };
-
-  // Extensions in the menu: all of them or none, and single ones off
-  const extMode = body.querySelector("[data-extmode]");
-  extMode.value = store.get("extMode", "show");
-  const paintExtPick = () => {
-    const found = store.get("extFound", []);
-    const off = new Set(store.get("extHidden", []));
-    const box = body.querySelector("[data-extpick]");
-    box.hidden = extMode.value === "hide" || !found.length;
-    box.innerHTML = found.map((f) => `<label class="kb-check"><input type="checkbox" data-extid="${esc(f.id)}"${off.has(f.id) ? "" : " checked"}>${esc(f.name)}</label>`).join("");
-  };
-  paintExtPick();
-  const extChanged = () => window.dispatchEvent(new Event("stash:plugins-changed"));
-  extMode.onchange = () => {
-    store.set("extMode", extMode.value);
-    paintExtPick();
-    extChanged();
-  };
-  body.querySelector("[data-extpick]").addEventListener("change", (e) => {
-    const c = e.target.closest("[data-extid]");
-    if (!c) return;
-    const off = new Set(store.get("extHidden", []));
-    c.checked ? off.delete(c.dataset.extid) : off.add(c.dataset.extid);
-    store.set("extHidden", [...off]);
-    extChanged();
-  });
-
-  // display options of this browser (display.js puts them on the page)
-  body.querySelectorAll("[data-dsp]").forEach((el) => {
-    const apply = () => {
-      const k = el.dataset.dsp;
-      store.set(k, el.type === "checkbox" ? el.checked : el.type === "range" ? Number(el.value) : el.value);
-      if (k === "largeMode") forgetLarge();
-      applyDisplay();
-      window.dispatchEvent(new Event("stash:display-changed"));
-    };
-    el.addEventListener(el.type === "range" ? "input" : "change", apply);
-    if (el.type === "range") el.addEventListener("change", () => toast(t("Saved"), "ok"));
-    else el.addEventListener("change", () => toast(t("Saved"), "ok"));
-  });
-  // the icon of the browser tab
-  const favPaint = () => {
-    const f = String(store.get("favicon", "") || "");
-    const im = body.querySelector("[data-favprev]");
-    im.hidden = !f;
-    if (f) im.src = f;
-    body.querySelector("[data-favreset]").disabled = !f;
-  };
-  favPaint();
-  body.querySelector("[data-favpick]").onclick = () => body.querySelector("[data-favfile]").click();
-  body.querySelector("[data-favfile]").onchange = async (e) => {
-    const file = e.target.files && e.target.files[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      store.set("favicon", await iconFromFile(file));
-      applyDisplay();
-      favPaint();
-      toast(t("Saved"), "ok");
-    } catch (err) {
-      toast(t("That isn't a picture the browser can read."), "error");
-    }
-  };
-  body.querySelector("[data-favreset]").onclick = () => {
-    store.set("favicon", "");
-    applyDisplay();
-    favPaint();
-    toast(t("Saved"), "ok");
-  };
-  // tags that NSFW mode never blurs
-  const nsfwTags = body.querySelector("[data-nsfwtags]");
-  if (nsfwTags)
-    tagPicker(nsfwTags, {
-      include: store.get("nsfwKeepTags", []) || [],
-      placeholder: t("Search tag"),
-      onChange: (inc) => {
-        store.set("nsfwKeepTags", inc);
-        window.dispatchEvent(new Event("stash:display-changed"));
-        toast(t("Saved"), "ok");
-      },
-    });
-  const setCardInfo = (patch) => {
-    store.set("cardInfo", Object.assign(cardInfo(), patch));
-    toast(t("Saved"), "ok");
-  };
-  body.querySelector("[data-cardinfo]").onclick = (e) => {
-    const b = e.target.closest("[data-ci]");
-    if (!b) return;
-    b.classList.toggle("is-on");
-    setCardInfo({ [b.dataset.ci]: b.classList.contains("is-on") });
-  };
-  body.querySelector("[data-perfinfo]").onclick = (e) => {
-    const b = e.target.closest("[data-pi]");
-    if (!b) return;
-    b.classList.toggle("is-on");
-    store.set("perfInfo", Object.assign(perfInfo(), { [b.dataset.pi]: b.classList.contains("is-on") }));
-    toast(t("Saved"), "ok");
-  };
-  body.querySelector("[data-cistyle]").onchange = (e) => setCardInfo({ style: e.target.value });
-  body.querySelector("[data-cihour]").onchange = (e) => setCardInfo({ hour: e.target.checked });
-  body.querySelector("[data-ciclock]").onchange = (e) => setCardInfo({ clock: e.target.value });
-  // the one folder for new clips and GIFs: checked by the backend (it can be made and written to, is it in a library?) before it is kept
-  // hidden folders
-  const hList = body.querySelector("[data-hiddenlist]");
-  const paintHidden = () => {
-    const items = hiddenItems();
-    hList.innerHTML = items.length
-      ? items
-          .map(
-            (x, i) => `<div class="kb-hrow"><span class="kb-hrow-name"><b>${esc(x.name)}</b><small>${esc(x.path)}</small></span><span class="kb-set-btns">${
-              x.id ? `<a class="kb-btn" href="#/folder/${esc(x.id)}">${t("Open")}</a>` : `<small>${t("Not found in Stash")}</small>`
-            }<button type="button" class="kb-btn" data-unhide="${i}">${t("Show again")}</button></span></div>`
-          )
-          .join("")
-      : `<small class="kb-hint">${t("No folder is hidden.")}</small>`;
-  };
-  paintHidden();
-  hList.onclick = async (e) => {
-    const b = e.target.closest("[data-unhide]");
-    if (!b) return;
-    try {
-      await saveHidden({ items: hiddenItems().filter((_, i) => i !== Number(b.dataset.unhide)), names: hiddenState().names });
-      toast(t("Shown on all pages again."), "ok");
-    } catch (err) {
-      errorToast(err, "Hidden folders");
-    }
-    paintHidden();
-  };
-  body.querySelector("[data-hidenames]").onchange = async (e) => {
-    try {
-      await saveHidden({ items: hiddenItems(), names: e.target.checked });
-      toast(t("Saved"), "ok");
-    } catch (err) {
-      errorToast(err, "Hidden folders");
-    }
-  };
-  const cdInput = body.querySelector("[data-clipsdir]");
-  const cdMsg = body.querySelector("[data-clipsdirmsg]");
-  pluginConfig("stashui").then((c) => (cdInput.value = c.clipsDir || "")).catch(() => {});
-  body.querySelector("[data-clipsdirsave]").onclick = async () => {
-    const path = cdInput.value.trim();
-    try {
-      const r = await runBackend({ mode: "clips_dir_check", path });
-      if (!r.ok) {
-        cdMsg.textContent = r.why === "relative" ? t("That isn't a full path (like E:\\Stash\\Clips).") : t("This folder can't be used: {why}", { why: r.why });
-        return;
-      }
-      await setPluginConfig("stashui", { clipsDir: path || undefined });
-      (await import("../clipsdir.js")).forgetClipsDir();
-      cdMsg.textContent = !path ? t("Saved – clips go next to their originals again.") : r.in_library ? t("Saved.") : t("Saved – but this folder isn't inside a library folder of Stash, so Stash won't find the files until you add it under Settings → Library.");
-      toast(t("Saved"), "ok");
-    } catch (e) {
-      cdMsg.textContent = e.message;
-    }
-  };
-  body.querySelector("[data-perfhover]").onchange = (e) => {
-    store.set("perfHover", e.target.checked);
-    toast(t("Saved"), "ok");
-  };
-  body.querySelector("[data-markdown]").onchange = (e) => {
-    store.set("markdown", e.target.checked);
-    toast(t("Saved"), "ok");
-  };
-  body.querySelector("[data-cardres]").onchange = (e) => {
-    store.set("cardRes", e.target.checked);
-    toast(t("Saved"), "ok");
-  };
-  body.querySelector("[data-studiologo]").onchange = (e) => {
-    store.set("studioLogos", e.target.checked);
-    toast(t("Saved"), "ok");
-  };
-
-  // Language: applies after reloading, so the menu and every page switch at once
-  const langSel = body.querySelector("[data-lang]");
-  langSel.value = chosen();
-  langSel.onchange = () => {
-    choose(langSel.value);
-    location.reload();
-  };
-  body.querySelector("[data-plainclassic]").onchange = async (e) => {
-    try {
-      await setPluginConfig("stashui", { plainClassic: !e.target.checked });
-      localStorage.setItem("stashui.plainClassic", String(!e.target.checked));
-      toast(t("Saved"), "ok");
-    } catch (err) {
-      errorToast(err, "Save");
-    }
-  };
-  body.querySelector("[data-home]").onchange = async (e) => {
-    try {
-      await setPluginConfig("stashui", { keepClassicHome: !e.target.checked });
-      localStorage.setItem("stashui.keepClassicHome", String(!e.target.checked));
-      toast(t("Saved"), "ok");
-    } catch (err) {
-      errorToast(err, "Save");
-    }
-  };
-  // Stash's own setting (configuration.ui.ratingSystemOptions) – only this one key is changed
-  body.querySelector("[data-ratesys]").onchange = async (e) => {
-    const [type, starPrecision] = e.target.value.split(":");
-    const opts = type === "decimal" ? { type: "decimal", starPrecision: "full" } : { type: "stars", starPrecision };
-    try {
-      await gql(`mutation($p: Map) { configureUI(partial: $p) }`, { p: { ratingSystemOptions: opts } });
-      setRatingSystem(opts);
-      toast(t("Rating system saved"), "ok");
-    } catch (err) {
-      e.target.value = rateSysNow();
-      errorToast(err, "Rating system");
-    }
-  };
-  body.querySelector("[data-foldermode]").onchange = (e) => {
-    store.set("folderMode", e.target.value);
-    sessionStorage.removeItem("stashui.foldersOnce");
-    location.reload(); // the navigation is built once – rebuild it with or without folders
-  };
-  body.querySelector("[data-autobk]").onchange = (e) => store.set("autoBackup", e.target.checked);
-  body.querySelector("[data-bkexport]").onclick = () => exportBackup().catch((e) => errorToast(e, "Backup"));
-  body.querySelector("[data-bkimport]").onclick = () => body.querySelector("[data-bkfile]").click();
-  body.querySelector("[data-bkfile]").onchange = (e) => {
-    const f = e.target.files[0];
-    e.target.value = "";
-    if (f) importBackup(f);
-  };
-  body.querySelector("[data-rowh]").onchange = (e) => store.set("rowHeight", Number(e.target.value));
-  body.querySelector("[data-resetlocal]").onclick = async () => {
-    const r = await confirmDialog({ title: t("Reset interface settings?"), text: t("Everything this interface remembers in this browser goes back to the defaults. Your library stays as it is."), ok: t("Reset"), danger: true });
-    if (!r.ok) return;
-    Object.keys(localStorage).filter((k) => k.startsWith("stashui.") && k !== "stashui.queue" && k !== "stashui.theme" && k !== "stashui.glass").forEach((k) => localStorage.removeItem(k));
-    toast(t("Reset"), "ok");
-    go("settings/this-ui", true);
-  };
+// Scroll to the setting that was picked in the search and let it light up
+function showFound(body, find) {
+  let el = body.querySelector(`[data-sid="${CSS.escape(find)}"]`);
+  if (!el) {
+    // a title (older links): the row whose heading says so
+    const b = [...body.querySelectorAll("b, h2, h3")].find((x) => x.textContent.trim() === find);
+    el = b && (b.closest("[data-sid]") || b.closest(".kb-set, .kb-card") || b);
+  }
+  if (!el) return;
+  const det = el.closest("details");
+  if (det) det.open = true;
+  el.scrollIntoView({ block: "center" });
+  el.classList.add("is-found");
+  setTimeout(() => el.classList.remove("is-found"), 2400);
 }

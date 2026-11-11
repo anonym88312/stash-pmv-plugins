@@ -65,7 +65,7 @@ export const LABELS = {
   previewExcludeStart: ["Skip start", "Seconds or percent (e.g. 5%) left out at the start."],
   previewExcludeEnd: ["Skip end", "Seconds or percent left out at the end."],
   previewPreset: ["Preview encoding quality", "Slower presets give smaller files."],
-  previewAudio: ["Audio in previews", ""],
+  previewAudio: ["Include audio", "Includes audio stream when generating previews."],
   useCustomSpriteInterval: ["Custom interval for timeline images", ""],
   spriteInterval: ["Timeline image interval (seconds)", ""],
   minimumSprites: ["Minimum number of timeline images", ""],
@@ -108,10 +108,10 @@ export const LABELS = {
   logAccess: ["Log every request", ""],
   logFileMaxSize: ["Maximum log file size (MB)", ""],
   // Interface (classic Stash)
-  language: ["Language", "e.g. en-US or de-DE."],
+  language: ["Language of classic Stash", ""],
   sfwContentMode: ["SFW mode", "Hides adult terms in the classic interface."],
   menuItems: ["Menu items of the classic interface", "One per line."],
-  soundOnPreview: ["Audio in previews", ""],
+  soundOnPreview: ["Enable sound on preview hover", ""],
   wallShowTitle: ["Titles in the wall view", ""],
   wallPlayback: ["Playback in the wall view", "video, animation or image."],
   showScrubber: ["Preview bar below the player", ""],
@@ -130,6 +130,13 @@ export const LABELS = {
   customLocalesEnabled: ["Custom translations enabled", ""],
   disableCustomizations: ["Disable all customizations", "Plugins, CSS and JavaScript off in the classic interface."],
   imageLightbox: ["Image viewer of the classic interface", ""],
+  slideshowDelay: ["Slideshow delay (seconds)", "Slideshow is available in galleries when in wall view mode."],
+  displayMode: ["Display mode", ""],
+  scaleUp: ["Scale up to fit", "Scale smaller images up to fill screen."],
+  resetZoomOnNav: ["Reset zoom level when changing image", ""],
+  scrollMode: ["Scroll mode", "Hold shift to temporarily use other mode."],
+  scrollAttemptsBeforeChange: ["Scroll attempts before transition", "Number of times to attempt to scroll before moving to the next/previous item. Only applies for Pan Y scroll mode."],
+  disableAnimation: ["Disable transition animation between images", ""],
   disableDropdownCreate: ["Disallow creating from dropdowns", ""],
   handyKey: ["Handy key", "For The Handy (interactive playback)."],
   funscriptOffset: ["Funscript offset (ms)", ""],
@@ -141,6 +148,9 @@ export const LABELS = {
   whitelistedIPs: ["Allowed devices (IP)", "One per line. Empty = all."],
   interfaces: ["Network interfaces", "One per line. Empty = all."],
   videoSortOrder: ["Video sort order", ""],
+  stashBoxes: ["Stash-box endpoints", ""],
+  scraperPackageSources: ["Scraper package sources", ""],
+  pluginPackageSources: ["Plugin package sources", ""],
   // Scraper connection
   scraperUserAgent: ["User agent", "Browser identifier for requests to websites."],
   scraperCDPPath: ["Chrome path (CDP)", "For scrapers that need a real browser."],
@@ -185,7 +195,11 @@ export const ENUM_LABELS = {
   ImageLightboxScrollMode: { ZOOM: "Zoom", PAN_Y: "Scroll up and down" },
 };
 // Text settings that only allow a few values → dropdown
-const STRING_CHOICES = { wallPlayback: { video: "Video", animation: "Animation", image: "Image" } };
+const STRING_CHOICES = {
+  wallPlayback: { video: "Video", animation: "Animated image", image: "Static image" },
+  logLevel: { Trace: "Trace", Debug: "Debug", Info: "Info", Warning: "Warning", Error: "Error" },
+  language: { "af-ZA": "Afrikaans (Preview)", "bg-BG": "Bulgarian (Preview)", "bn-BD": "বাংলা (বাংলাদেশ) (Preview)", "ca-ES": "Catalan (Preview)", "cs-CZ": "Čeština (Česko)", "da-DK": "Dansk (Danmark)", "de-DE": "Deutsch (Deutschland)", "en-GB": "English (United Kingdom)", "en-US": "English (United States)", "et-EE": "Eesti", "fa-IR": "فارسی (ایران) (Preview)", "fi-FI": "Suomi", "fr-FR": "Français (France)", "hi-IN": "हिन्दी (Preview)", "hr-HR": "Hrvatski (Preview)", "id-ID": "Indonesian (Preview)", "hu-HU": "Magyar (Preview)", "it-IT": "Italiano", "ja-JP": "日本語 (日本)", "ko-KR": "한국어 (대한민국)", "lv-LV": "Latviešu (Preview)", "lt-LT": "Lithuanian (Preview)", "nb-NO": "Norsk bokmål", "nn-NO": "Nynorsk (Preview)", "nl-NL": "Nederlands (Nederland)", "pl-PL": "Polski", "pt-BR": "Português (Brasil)", "ro-RO": "Română (Preview)", "ru-RU": "Русский (Россия)", "es-ES": "Español (España)", "sk-SK": "Slovenčina (Preview)", "sv-SE": "Svenska", "tr-TR": "Türkçe (Türkiye)", "th-TH": "ภาษาไทย (ไทย)", "uk-UA": "Ukrainian (Україна)", "ur-PK": "Urdu (Preview)", "vi-VN": "Tiếng Việt (Preview)", "zh-TW": "繁體中文 (台灣)", "zh-CN": "简体中文 (中国)" },
+};
 
 const humanize = (n) => n.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 // Labels and explanations are translated here (the English text is the key)
@@ -195,11 +209,11 @@ export const helpOf = (n) => (LABELS[n] && LABELS[n][1] ? t(LABELS[n][1]) : "");
 // ---------- Fields ----------
 // Returns HTML for a field; values are collected again with readFields.
 
-export async function fieldHtml(name, type, value, path) {
+export async function fieldHtml(name, type, value, path, meta) {
   const u = unwrap(type);
   const id = (path ? path + "." : "") + name;
-  const label = labelOf(name);
-  const help = helpOf(name);
+  const label = meta && meta.label ? t(meta.label) : labelOf(name);
+  const help = meta && meta.help != null ? (meta.help ? t(meta.help) : "") : helpOf(name);
   const helpHtml = help ? `<small>${esc(help)}</small>` : "";
   if (u.kind === "INPUT_OBJECT" && !u.list) {
     const ti = await typeInfo(u.named);

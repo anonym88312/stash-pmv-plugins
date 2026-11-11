@@ -39,7 +39,7 @@ def keys():
         for p in PATTERNS:
             for m in re.finditer(p, src):
                 found.update(g for g in m.groups() if g is not None)
-        if name in ("media.js", "embed.js", "performers.js", "videofolders.js"):
+        if name in ("media.js", "embed.js", "performers.js", "videofolders.js", "setdefs.js"):
             for m in re.finditer(TABLE_PAIRS, src):
                 found.add(m.group(1))
         if name == "forms.js":
@@ -52,8 +52,11 @@ def keys():
             found.update(re.findall(STR, m.group(1)))
         if name == "list.js":
             found.update(re.findall(r"\w+:\s*" + STR, src[src.index("const INTRO"): src.index("export function")]))
-        if name == "settings.js":
+        if name == "setblocks.js":
             found.update(["Debug", "Info", "Warning", "Error"])  # log levels
+        if name == "setdefs.js":
+            for m in re.finditer(r"terms:\s*\[([^\]]*)\]", src):  # extra search words of a block
+                found.update(re.findall(STR, m.group(1)))
         if name == "edit.js":
             found.update(["Couldn't be loaded"])
     found = {json.loads('"' + k + '"') for k in found}  # unescape \" etc.

@@ -33,7 +33,7 @@ export async function render(main, params, query) {
   if (folderMode() === "off" && !sessionStorage.getItem("stashui.foldersOnce")) {
     main.innerHTML = `<div class="kb-empty"><b>${t("Folder loading is switched off")}</b>
       <p>${t("Counting folders reads the whole library, which can take very long on big libraries. Switch it back on under Settings → General.")}</p>
-      <p><button class="kb-btn is-primary" data-loadonce>${t("Load anyway")}</button> <a class="kb-btn" href="#/settings/this-ui?find=${encodeURIComponent(t("Folder loading"))}">${t("Settings")}</a></p></div>`;
+      <p><button class="kb-btn is-primary" data-loadonce>${t("Load anyway")}</button> <a class="kb-btn" href="#/settings/large?find=${encodeURIComponent(t("Folder loading"))}">${t("Settings")}</a></p></div>`;
     main.querySelector("[data-loadonce]").onclick = () => {
       sessionStorage.setItem("stashui.foldersOnce", "1");
       render(main, params, query);

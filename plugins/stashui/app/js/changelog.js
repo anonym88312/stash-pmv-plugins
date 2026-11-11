@@ -7,6 +7,13 @@
 
 export const CHANGES = [
   {
+    v: "3.144.0",
+    date: "2026-11-11",
+    items: [
+      ["ui", "The Settings page is new. It opens with an overview of 6 groups (Look and feel · Browsing · Watching · Library · Server · More) and 24 topics – Appearance, Lists and thumbnails, Video player, Folders and files, Security and login, DLNA and startup … – instead of one long list, and the search finds every setting (also on a phone, where the topics sit in a drop-down). Every option of Stash is in it now: stash-box endpoints, scraper and plugin package sources, DLNA start/stop, the delete defaults, downloading FFmpeg, the troubleshooting mode, custom CSS / JavaScript / localisation, the image viewer, the Handy and more. What only changes classic Stash is folded away at the end of its topic under “Only for classic Stash”. Anything a future Stash adds shows up under “Other Stash options”.", "设置页面全新改版。打开后先是 6 个分组（外观与体验 · 浏览 · 观看 · 媒体库 · 服务器 · 更多）和 24 个主题的概览——外观、列表与缩略图、视频播放器、文件夹与文件、安全与登录、DLNA 与启动……——不再是一长串列表；搜索能找到每一个设置（手机上主题在下拉菜单里）。Stash 的每个选项现在都在这里：stash-box 端点、刮削器和插件包来源、DLNA 启动/停止、删除默认值、下载 FFmpeg、故障排查模式、自定义 CSS / JavaScript / 本地化、图片查看器、Handy 等。只影响经典 Stash 的选项折叠在各主题末尾的“仅用于经典 Stash”下。Stash 以后新增的选项会出现在“其他 Stash 选项”里。", "settings/navigation::[data-sid=\"navigation.railMode\"]"],
+    ],
+  },
+  {
     v: "3.143.0",
     date: "2026-11-11",
     items: [
