@@ -1897,7 +1897,28 @@ export async function render(host, params, query = {}) {
     watch.seeked(v.currentTime);
     flash(`${n < 0 ? "◂" : "▸"} ${fmtExact(snap(v.currentTime, fps))}`);
   }
-  const skipBy = (s) => seekTo(v.currentTime + s, s < 0 ? `−${-s} s` : `+${s} s`);
+  // Skips that come while the last jump is still loading (wheel notches, arrow keys, the ±10 buttons) add up and are
+  // made as one jump once it has landed – a row of jumps that each cancel the one before makes 4K wait for seconds.
+  // `from` is the time that jump was going to: if something else moved the video meanwhile, the sum is dropped.
+  let skipQueue = null; // { from, to }
+  let skipSum = 0;
+  const skipNote = (s) => (s < 0 ? `−${-s} s` : `+${s} s`);
+  function skipBy(s) {
+    if (!v.seeking) {
+      skipQueue = null;
+      skipSum = s;
+      return seekTo(v.currentTime + s, skipNote(s));
+    }
+    if (!skipQueue) skipQueue = { from: v.currentTime, to: v.currentTime };
+    skipQueue.to += s;
+    skipSum += s;
+    flash(skipNote(skipSum));
+  }
+  v.addEventListener("seeked", () => {
+    const q = skipQueue;
+    skipQueue = null;
+    if (q && Math.abs(v.currentTime - q.from) < 0.5) seekTo(q.to, skipNote(skipSum));
+  });
 
   // A–B loop (key L, gear menu): the first press sets A, the second sets B and the part between repeats, the third clears it
   let loop = null; // { a, b } – b stays null until it is set
@@ -1966,8 +1987,8 @@ export async function render(host, params, query = {}) {
     let handled = true;
     if (k === "escape") document.fullscreenElement ? document.exitFullscreen() : closeOverlay();
     else if (k === " " || k === "k") toggle();
-    else if (k === "arrowright") (v.currentTime += e.shiftKey ? 30 : 5), watch.seeked(v.currentTime);
-    else if (k === "arrowleft") (v.currentTime -= e.shiftKey ? 30 : 5), watch.seeked(v.currentTime);
+    else if (k === "arrowright") skipBy(e.shiftKey ? 30 : 5);
+    else if (k === "arrowleft") skipBy(e.shiftKey ? -30 : -5);
     else if (k === "j") nextHighlight();
     else if (k === "," || k === ".") stepBy(k === "," ? -1 : 1);
     else if (k === "home") seekTo(0, "↺ 0:00");
