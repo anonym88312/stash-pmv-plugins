@@ -2882,4 +2882,6 @@ export default {
   "Right": "Droite",
   "Left": "Gauche",
   "Pull to scroll fast": "Tirer pour défiler vite",
+  "Jump to keyframes": "Sauter aux images clés",
+  "The mouse wheel, the arrow keys and the ±10 buttons jump to the nearest keyframe, like KMP or VLC: much faster with big 4K files, but the steps get a little uneven (+3…+7 s instead of +5). Only for MP4 / MOV played directly; clicks on the timeline stay exact.": "La molette, les flèches et les boutons ±10 sautent à l'image clé la plus proche, comme KMP ou VLC : bien plus rapide avec les gros fichiers 4K, mais les pas deviennent un peu irréguliers (+3…+7 s au lieu de +5). Seulement pour les MP4 / MOV lus directement ; un clic sur la barre de temps reste exact.",
 };
