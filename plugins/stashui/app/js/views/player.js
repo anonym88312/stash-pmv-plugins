@@ -1906,11 +1906,12 @@ export async function render(host, params, query = {}) {
   // Skips land on the keyframe nearest to where they aim (like KMP), in the right direction and never farther off
   // than the skip itself; only on the direct stream of an MP4 / MOV, whose index is read once the video can play
   let keys = null;
-  const readKeys = () => keyframesOf(sources[0]).then((k) => (keys = k));
+  const keySeek = () => store.get("player", {}).keySeek !== false; // Settings → Video player
+  const readKeys = () => keySeek() && keyframesOf(sources[0]).then((k) => (keys = k));
   if (v.readyState >= 3) readKeys();
   else v.addEventListener("canplay", readKeys, { once: true });
   function keyNear(from, to) {
-    if (!keys || srcIdx !== 0 || to === from) return to;
+    if (!keys || srcIdx !== 0 || to === from || !keySeek()) return to;
     const fwd = to > from;
     let best = null;
     for (const k of keys) {

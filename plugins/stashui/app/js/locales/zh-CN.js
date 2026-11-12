@@ -2993,4 +2993,6 @@ export default {
   "Right": "右",
   "Left": "左",
   "Pull to scroll fast": "拉动以快速滚动",
+  "Jump to keyframes": "跳到关键帧",
+  "The mouse wheel, the arrow keys and the ±10 buttons jump to the nearest keyframe, like KMP or VLC: much faster with big 4K files, but the steps get a little uneven (+3…+7 s instead of +5). Only for MP4 / MOV played directly; clicks on the timeline stay exact.": "鼠标滚轮、方向键和 ±10 按钮会像 KMP 或 VLC 一样跳到最近的关键帧：大型 4K 文件快得多，但步长会略不均匀（+3…+7 秒，而不是 +5）。仅适用于直接播放的 MP4 / MOV；点击时间轴仍然精确。",
 };

@@ -2929,4 +2929,6 @@ export default {
   "Right": "Phải",
   "Left": "Trái",
   "Pull to scroll fast": "Kéo để cuộn nhanh",
+  "Jump to keyframes": "Nhảy tới khung hình chính",
+  "The mouse wheel, the arrow keys and the ±10 buttons jump to the nearest keyframe, like KMP or VLC: much faster with big 4K files, but the steps get a little uneven (+3…+7 s instead of +5). Only for MP4 / MOV played directly; clicks on the timeline stay exact.": "Con lăn chuột, phím mũi tên và nút ±10 nhảy tới khung hình chính gần nhất, như KMP hay VLC: nhanh hơn nhiều với tệp 4K lớn, nhưng bước nhảy hơi không đều (+3…+7 giây thay vì +5). Chỉ với MP4 / MOV phát trực tiếp; nhấp vào thanh thời gian vẫn chính xác.",
 };

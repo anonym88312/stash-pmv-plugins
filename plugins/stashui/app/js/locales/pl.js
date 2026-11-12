@@ -2934,4 +2934,6 @@ export default {
   "Right": "Prawa",
   "Left": "Lewa",
   "Pull to scroll fast": "Pociągnij, by szybko przewijać",
+  "Jump to keyframes": "Przewijanie do klatek kluczowych",
+  "The mouse wheel, the arrow keys and the ±10 buttons jump to the nearest keyframe, like KMP or VLC: much faster with big 4K files, but the steps get a little uneven (+3…+7 s instead of +5). Only for MP4 / MOV played directly; clicks on the timeline stay exact.": "Kółko myszy, strzałki i przyciski ±10 skaczą do najbliższej klatki kluczowej, jak KMP czy VLC: przy dużych plikach 4K dużo szybciej, ale kroki są trochę nierówne (+3…+7 s zamiast +5). Tylko dla MP4 / MOV odtwarzanych bezpośrednio; kliknięcia na osi czasu pozostają dokładne.",
 };
