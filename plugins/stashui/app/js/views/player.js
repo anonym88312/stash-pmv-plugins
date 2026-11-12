@@ -20,7 +20,7 @@ import { createVR, guessVR } from "../vr.js";
 import { createSlowmo, slowmoSupported } from "../slowmo.js";
 import { openMarkerEdit } from "../markeredit.js";
 import { generatePreviews } from "../genprev.js";
-import { fpsOf, stepFrame, snap, fmtExact } from "../frames.js";
+import { fpsOf, stepFrame, snap, fmtExact, keyframesOf } from "../frames.js";
 import { loadSprites } from "../sprites.js";
 import { videoGlow } from "../theme.js";
 import { nsfwKeeps } from "../display.js";
@@ -1903,11 +1903,27 @@ export async function render(host, params, query = {}) {
   let skipQueue = null; // { from, to }
   let skipSum = 0;
   const skipNote = (s) => (s < 0 ? `−${-s} s` : `+${s} s`);
+  // Skips land on the keyframe nearest to where they aim (like KMP), in the right direction and never farther off
+  // than the skip itself; only on the direct stream of an MP4 / MOV, whose index is read once the video can play
+  let keys = null;
+  const readKeys = () => keyframesOf(sources[0]).then((k) => (keys = k));
+  if (v.readyState >= 3) readKeys();
+  else v.addEventListener("canplay", readKeys, { once: true });
+  function keyNear(from, to) {
+    if (!keys || srcIdx !== 0 || to === from) return to;
+    const fwd = to > from;
+    let best = null;
+    for (const k of keys) {
+      if (fwd ? k <= from + 0.5 : k >= from - 0.5) continue;
+      if (best == null || Math.abs(k - to) < Math.abs(best - to)) best = k;
+    }
+    return best == null || Math.abs(best - to) > Math.abs(to - from) ? to : best + 0.5 / fps; // the frame's middle (see showFrame)
+  }
   function skipBy(s) {
     if (!v.seeking) {
       skipQueue = null;
       skipSum = s;
-      return seekTo(v.currentTime + s, skipNote(s));
+      return seekTo(keyNear(v.currentTime, v.currentTime + s), skipNote(s));
     }
     if (!skipQueue) skipQueue = { from: v.currentTime, to: v.currentTime };
     skipQueue.to += s;
@@ -1917,7 +1933,7 @@ export async function render(host, params, query = {}) {
   v.addEventListener("seeked", () => {
     const q = skipQueue;
     skipQueue = null;
-    if (q && Math.abs(v.currentTime - q.from) < 0.5) seekTo(q.to, skipNote(skipSum));
+    if (q && Math.abs(v.currentTime - q.from) < 0.5) seekTo(keyNear(v.currentTime, q.to), skipNote(skipSum));
   });
 
   // A–B loop (key L, gear menu): the first press sets A, the second sets B and the part between repeats, the third clears it
