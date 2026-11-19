@@ -7,6 +7,18 @@
 
 export const CHANGES = [
   {
+    v: "3.147.0",
+    date: "2026-11-20",
+    items: [
+      ["ui", "Faster jumps on big files (by Fixik071): quick wheel or arrow-key skips in the player are added up and made as one jump that lands on the next keyframe in the direction of the jump – on a big 4K file that is far quicker than an exact seek. The keyframes are read from the mp4 / mov index of Stash's own stream. Settings → Player → “Jump to keyframes” turns it off (then jumps are exact again).", "大文件上的跳转更快（作者 Fixik071）：播放器里快速滚轮或方向键跳转会被合并成一次跳转，并落在跳转方向上的下一个关键帧——在大的 4K 文件上比精确跳转快得多。关键帧取自 Stash 自身视频流的 mp4 / mov 索引。设置 → 播放器 → “跳到关键帧”可以关闭（关闭后恢复精确跳转）。"],
+      ["pmv", "Clip loading timeout (Clip selection, 5–60 s, default 8 s): how long a clip may take to open before it is skipped. Big 4K files often need longer – a higher value can fix clips that get skipped.", "片段加载超时（片段选择，5–60 秒，默认 8 秒）：一个片段最长可以等多久再被跳过。大的 4K 文件往往需要更久——调高后可以解决片段被跳过的问题。"],
+      ["pmv", "Markers as the source: “Use Stash's own marker clips” takes the short clip Stash made for each marker (about 640 px wide, a few MB) – it opens and plays far faster than seeking into a big scene file. A marker without such a clip comes from the scene as before. Off by default (the clips are small in size).", "以标记为素材：“使用 Stash 自带的标记片段”会使用 Stash 为每个标记生成的短片段（约 640 像素宽、几 MB）——比在大场景文件里跳转打开和播放快得多。没有这种片段的标记仍像以前一样取自场景。默认关闭（这些片段分辨率较小）。"],
+      ["pmv", "Markers can follow the song's timeline too: “Place in scene” (a marker's place in its scene matches how far the song is), “Marker time” (ordered by their own time) or “By tag” (the tags split the song into equal stretches; inside a stretch the earliest marker plays first, so same-name markers of a scene run in order).", "标记也可以跟随歌曲的时间线：“场景中的位置”（标记在其场景中的位置对应歌曲进度）、“标记时间”（按标记自己的时间排序）或“按标签”（标签把歌曲分成等长的几段；每段内最早的标记先播放，所以同一场景里同名的标记按顺序出现）。"],
+      ["pmv", "Tag stages: up to ten stages (before: five), a separate stage for the finale, “Next stage after each drop” (instead of equal stretches of the song) and switches to leave out the drops stage and / or the finale stage (the running stage then goes on).", "标签阶段：最多十个阶段（以前是五个）、结尾可以单独设一个阶段、“每次高潮后进入下一阶段”（不再按歌曲的等长片段切换），还可以分别取消高潮阶段和 / 或结尾阶段（此时继续当前阶段）。"],
+      ["pmv", "The song panel lists the drops (“Drops (4): 1:12 · 2:05 · 2:58 · 3:40”) and marks them on the waveform – handy when planning where the tag stages and the drop effects land.", "歌曲面板会列出高潮（“高潮 (4)：1:12 · 2:05 · 2:58 · 3:40”），并在波形上标出——方便规划标签阶段和高潮特效落在哪里。"],
+    ],
+  },
+  {
     v: "3.146.0",
     date: "2026-11-11",
     items: [

@@ -49,6 +49,11 @@ const DEFAULTS = {
   markerSub: true, // marker clips: tags below the picked tag count too
   stagesOn: false, // tag stages that follow the song: A → B → C … the last one on drops and in the finale
   stages: [{ tags: [], xtags: [] }, { tags: [], xtags: [] }, { tags: [], xtags: [] }],
+  stageFin: { tags: [], xtags: [] }, // the finale's own stage (with "Separate stage for the finale"; else the last stage plays on drops and in the finale)
+  stageFinSep: false, // drops and finale get a stage each
+  stageDropsOff: false, // no stage for drops: the running stage goes on
+  stageFinOff: false, // no stage for the finale: the running stage goes on
+  stageAfterDrop: false, // the next stage starts after each drop (instead of equal stretches of the song)
   perfs: [], // performer ids
   perfMode: "all",
   minRating: "0", // rating100: 0 = any
@@ -108,6 +113,9 @@ const DEFAULTS = {
   softAmt: 50, // how wide the blend is (%)
   skipHead: 0, // seconds at the start of every scene that no clip is taken from (on top of the automatic intro skip)
   skipTail: 0, // … and at the end
+  markerOwn: false, // marker clips: Stash's own short clip of each marker (opens fast, 640 px) instead of seeking into the scene
+  markerTl: "off", // markers follow the song's timeline: off | scene (place in its scene) | time (its own time) | tag (tags split the song)
+  loadTimeout: 8, // seconds a clip may take to load before it is skipped (big 4K files often need longer)
   divW: 2, // width of the dividers between the fields (px at 1280 wide, scales with the picture)
   cutLead: 0, // cuts land this many ms before the beat (the picture is a touch early, which feels tighter)
   minBeats: 0, // a clip stays at least this many beats before its field is cut again (0 = off)
@@ -242,6 +250,9 @@ export function render(main) {
   S.fx = Object.assign({}, DEFAULTS.fx, S.fx);
   S.layouts = Object.assign({}, DEFAULTS.layouts, S.layouts);
   S.stages = JSON.parse(JSON.stringify(Array.isArray(S.stages) && S.stages.length >= 2 ? S.stages : DEFAULTS.stages));
+  S.stageFin = Object.assign({ tags: [], xtags: [] }, S.stageFin);
+  S.stageFin.tags = S.stageFin.tags || [];
+  S.stageFin.xtags = S.stageFin.xtags || [];
   S.collapsed = Object.assign({}, S.collapsed);
   if (!S.mSidesMode) S.mSidesMode = S.mSides ? "volume" : "off"; // (settings from before the choice existed)
   // Settings from before version 2 had "Fill" as default – people took the cropping for a bug
@@ -350,6 +361,7 @@ export function render(main) {
         <div data-songinfo hidden>
           <div class="kb-pmvg-songhead"><b data-songname></b><span data-bpm></span></div>
           <canvas class="kb-pmvg-wave" data-wave width="1200" height="120"></canvas>
+          <p class="kb-hint kb-pmvg-drops" data-drops></p>
           <div class="kb-pmvg-listinfo" data-listinfo hidden>
             <p class="kb-hint" data-listn></p>
             ${sw("shuffle", "Shuffle", "")}
@@ -393,9 +405,19 @@ export function render(main) {
             <span class="kb-lab-t">Tags</span>
             <div class="kb-pmvg-tags" data-tags></div>
             <div class="kb-seg kb-pmvg-small" data-seg="tagMode" title="With several tags"><button type="button" data-v="all">All of the tags</button><button type="button" data-v="any">Any of the tags</button></div>
-            <div data-markerwrap hidden>${sw("markerSub", "Include sub-tags", "Markers with a tag below the picked one count too")}</div>
+            <div data-markerwrap hidden>${sw("markerSub", "Include sub-tags", "Markers with a tag below the picked one count too")}
+              ${sw("markerOwn", "Use Stash's own marker clips", "Each marker's short clip made by Stash (about 640 px wide, a few MB) opens and plays far faster than seeking into a big scene file – a good idea on 4K/8K libraries. Markers without a clip (not generated yet) come from the scene as before")}
+              <span class="kb-lab-t">Follow the song's timeline <small>– which markers come when</small></span>
+              <div class="kb-seg kb-pmvg-small" data-seg="markerTl"><button type="button" data-v="off" title="Markers come in random order">Off</button><button type="button" data-v="scene" title="A marker's place in its scene matches how far the song is: markers near the start of their scene early in the song, near the end late">Place in scene</button><button type="button" data-v="time" title="Markers are ordered by their own time: early ones (0:10) at the start of the song, late ones (8:00) towards the end">Marker time</button><button type="button" data-v="tag" title="The tags split the song into equal stretches; inside a stretch the markers play earliest first, so same-name markers of a scene run in order">By tag</button></div>
+            </div>
             ${sw("stagesOn", "Tag stages that follow the song", "A → B → C: the clips change with the song – the last stage plays on drops and in the finale")}
             <div class="kb-pmvg-stages" data-stages hidden></div>
+            <div class="kb-pmvg-opts" data-stageopts hidden>
+              ${sw("stageFinSep", "Separate stage for the finale", "Drops and the finale get a stage each (otherwise the last stage plays on both)")}
+              ${sw("stageAfterDrop", "Next stage after each drop", "The stages don't change at equal stretches of the song – the next one starts after every drop")}
+              ${sw("stageDropsOff", "No stage for drops", "On drops the running stage goes on")}
+              ${sw("stageFinOff", "No stage for the finale", "In the finale the running stage goes on")}
+            </div>
             <span class="kb-lab-t" data-perfwrap>Performers</span>
             <div class="kb-pmvg-perfs" data-perfs data-perfwrap></div>
             ${sw("fav", "Favorites only", "")}
@@ -422,6 +444,7 @@ export function render(main) {
         </div>
         <label class="kb-pmvg-range" title="No clip is taken from the first seconds of a scene (studio logo, titles). On top of the automatic skip of the intro; 0 = automatic only"><span>${icon("sliders")}Skip the start of each scene</span><input type="range" min="0" max="300" step="5" data-r="skipHead" aria-label="Skip the start of each scene"><output data-ro="skipHead" data-unit=" s"></output></label>
         <label class="kb-pmvg-range" title="No clip is taken from the last seconds of a scene (credits, outro). 0 = off"><span>${icon("sliders")}Skip the end of each scene</span><input type="range" min="0" max="300" step="5" data-r="skipTail" aria-label="Skip the end of each scene"><output data-ro="skipTail" data-unit=" s"></output></label>
+        <label class="kb-pmvg-range" title="How long a clip may take to open before it is skipped. Big 4K files often need longer – raising this can fix clips that get skipped (default 8 s)"><span>${icon("sliders")}Clip loading timeout</span><input type="range" min="5" max="60" step="1" data-r="loadTimeout" aria-label="Clip loading timeout"><output data-ro="loadTimeout" data-unit=" s"></output></label>
         <span class="kb-lab-t">Clip order <small>– which clip follows which</small></span>
         <div class="kb-pmvg-opts">
           ${sw("matchCut", "Match cuts", "At each cut, the clip that best matches the previous one in color, brightness and composition comes next")}
@@ -776,6 +799,7 @@ export function render(main) {
     $("[data-seqwrap]").style.display = S.source === "marker" || S.source === "image" ? "none" : "";
     $("[data-tags]").hidden = !!S.stagesOn;
     $("[data-stages]").hidden = !S.stagesOn;
+    $("[data-stageopts]").hidden = !S.stagesOn;
     main.querySelectorAll("[data-t]").forEach((c) => (c.checked = !!getPath(S, c.dataset.t)));
     main.querySelectorAll("[data-all]").forEach((b) => {
       const on = b.dataset.all.split(",").every((k) => S.fx[k]);
@@ -957,7 +981,7 @@ export function render(main) {
     paintSegs();
     if (c.dataset.t === "fx.text" && S.fx.text) $("[data-words]").focus();
     if (c.dataset.t === "fav" || c.dataset.t === "markerSub") updateCount();
-    if (c.dataset.t === "stagesOn") {
+    if (c.dataset.t === "stagesOn" || c.dataset.t === "stageFinSep" || c.dataset.t === "stageDropsOff" || c.dataset.t === "stageFinOff") {
       paintStages();
       updateCount();
       paintSummary();
@@ -1062,12 +1086,19 @@ export function render(main) {
     const host = $("[data-stages]");
     if (!S.stagesOn) return (host.innerHTML = "");
     const n = S.stages.length;
+    const sep = !!S.stageFinSep;
+    // the last entry of the list: drops (and finale), or only one of them when the other has no stage
+    const lastLabel = sep ? "Drops" : S.stageDropsOff ? "Finale" : S.stageFinOff ? "Drops" : "Drops & finale";
+    const lastShown = sep ? !S.stageDropsOff : !(S.stageDropsOff && S.stageFinOff);
+    const rows = S.stages.map((st, i) => ({ st, key: String(i), rm: n > 2, label: i === n - 1 ? lastLabel : "Stage " + (i + 1), show: i === n - 1 ? lastShown : true }));
+    if (sep && !S.stageFinOff) rows.push({ st: S.stageFin, key: "fin", rm: false, label: "Finale", show: true });
     host.innerHTML =
-      S.stages
-        .map((st, i) => `<div class="kb-pmvg-stage-row" data-stage="${i}"><span class="kb-pmvg-stage-no">${i === n - 1 ? "Drops & finale" : "Stage " + (i + 1)}</span><div class="kb-pmvg-tags" data-stagetags></div>${n > 2 ? `<button type="button" class="kb-btn is-ghost is-icon" data-stagerm="${i}" title="Remove this stage" aria-label="Remove this stage">×</button>` : ""}</div>`)
-        .join("") + `<div class="kb-pmvg-row">${n < 5 ? `<button type="button" class="kb-btn is-ghost" data-stageadd>${icon("plus")}Add a stage</button>` : ""}</div>`;
+      rows
+        .filter((r) => r.show)
+        .map((r) => `<div class="kb-pmvg-stage-row" data-stage="${r.key}"><span class="kb-pmvg-stage-no">${r.label}</span><div class="kb-pmvg-tags" data-stagetags></div>${r.rm ? `<button type="button" class="kb-btn is-ghost is-icon" data-stagerm="${r.key}" title="Remove this stage" aria-label="Remove this stage">×</button>` : ""}</div>`)
+        .join("") + `<div class="kb-pmvg-row">${n < 10 ? `<button type="button" class="kb-btn is-ghost" data-stageadd>${icon("plus")}Add a stage</button>` : ""}</div>`;
     host.querySelectorAll("[data-stage]").forEach((row) => {
-      const st = S.stages[Number(row.dataset.stage)];
+      const st = row.dataset.stage === "fin" ? S.stageFin : S.stages[Number(row.dataset.stage)];
       tagPicker(row.querySelector("[data-stagetags]"), {
         include: st.tags,
         exclude: st.xtags,
@@ -1332,7 +1363,7 @@ export function render(main) {
         spec.ids ? [spec.ids.length] : spec.idsBy ? spec.kinds.map((k) => spec.idsBy[k].length) : Promise.all(spec.kinds.map((k) => (k === "marker" ? countMarkers(spec.filter(k)) : countItems(k, spec.filter(k)))));
       const word = (k) => (k === "scene" ? "scenes" : k === "marker" ? "markers" : "images");
       if (stagesActive(S)) {
-        const per = await Promise.all(S.stages.map(async (_, i) => (await count(await clipSpec(stageSettings(S, i)))).reduce((a, b) => a + b, 0)));
+        const per = await Promise.all(stageList(S).list.map(async (_, i) => (await count(await clipSpec(stageSettings(S, i)))).reduce((a, b) => a + b, 0)));
         if (seq !== countSeq || !alive) return;
         const kind = S.source === "marker" ? "markers" : S.source === "image" ? "images" : "scenes";
         el.textContent = `Per stage: ${per.join(" · ")} ${kind} match` + (per.some((x) => x === 0) ? " – an empty stage borrows clips from the others" : "");
@@ -1473,6 +1504,8 @@ export function render(main) {
     $("[data-songname]").textContent = song.name;
     $("[data-bpm]").textContent = `${Math.round(song.bpm)} BPM · ${fmtDuration(song.duration)} · ${song.beats.length} Beats`;
     drawWave($("[data-wave]"), song);
+    const dr = dropsOf(song);
+    $("[data-drops]").textContent = dr.length ? `Drops (${dr.length}): ${dr.map((t) => fmtDuration(t)).join(" · ")}` : "No drops found in this song";
     // Several songs: tempo and cutting are per song – they're detected anew for each one
     $("[data-listinfo]").hidden = !playlist;
     if (playlist) $("[data-listn]").textContent = `${playlist.size} songs – the show goes from one to the next (N / P skip). This is the first one.`;
@@ -1648,7 +1681,7 @@ export function render(main) {
 
   // ---------- My settings (presets) ----------
   // Everything about clips, cutting, effects, look and sound – not the music source or the title
-  const NOT_IN_PRESET = ["autoStart", "mWheel", "mWheelRev", "mMid", "mSides", "mSidesMode", "mSidesRev", "mShuffle", "collapsed", "glass", "v", "mode", "title", "shuffle", "plexWhat", "plexList", "plexSync", "plexSyncs", "liveApp"];
+  const NOT_IN_PRESET = ["loadTimeout", "autoStart", "mWheel", "mWheelRev", "mMid", "mSides", "mSidesMode", "mSidesRev", "mShuffle", "collapsed", "glass", "v", "mode", "title", "shuffle", "plexWhat", "plexList", "plexSync", "plexSyncs", "liveApp"];
   // Kept in Stash (this plugin's settings), not in the browser: browser storage for localhost:9999 is
   // shared by Stash and every plugin and can be full – saving then failed without a word. This way
   // they're also there in every browser. Stored as one JSON text so Stash leaves the names alone.
@@ -2280,6 +2313,8 @@ const spriteCache = new Map();
 // "Skip the start / the end of each scene" (Clip selection) adds to that: skipS = [seconds at the start, seconds at the end],
 // never more than 40 % of a scene each
 const skipS = [0, 0];
+// How long a clip may take to load (ms) before it is given up – "Clip loading timeout" in Clip selection (big 4K files need longer)
+const loadMs = [8000];
 const introEnd = (dur) => (dur > 10 ? Math.max(Math.min(30, Math.max(dur * 0.04, Math.min(15, dur * 0.1))), Math.min(skipS[0], dur * 0.4)) : 0);
 const tailX = (dur) => (dur > 10 ? Math.min(skipS[1], dur * 0.4) : 0);
 
@@ -2287,7 +2322,7 @@ async function spriteSpots(s, dur, heat) {
   if (!s.sprite || !s.vtt) return null;
   if (spriteCache.has(s.key)) return spriteCache.get(s.key);
   const job = (async () => {
-    const text = await withTimeout(fetch(s.vtt).then((r) => r.text()), 8000); // (a load that hangs mustn't hold up the clip)
+    const text = await withTimeout(fetch(s.vtt).then((r) => r.text()), loadMs[0]); // (a load that hangs mustn't hold up the clip)
     const cues = [];
     const re = /(\d+):(\d+):(\d+(?:\.\d+)?)\s*-->\s*(\d+):(\d+):(\d+(?:\.\d+)?)[^\n]*\n[^\n#]*#xywh=(\d+),(\d+),(\d+),(\d+)/g;
     for (let m; (m = re.exec(text)); ) {
@@ -2298,7 +2333,7 @@ async function spriteSpots(s, dur, heat) {
     if (cues.length < 4) return null;
     const img = new Image();
     img.src = s.sprite;
-    await withTimeout(img.decode(), 8000);
+    await withTimeout(img.decode(), loadMs[0]);
     const out = [];
     const use = cues.filter((c) => c.t >= introEnd(dur) && c.t <= dur - 4 - tailX(dur)); // not the intro or the very end
     const sigs = analyzeTiles(img, use.map((c) => c.r));
@@ -2721,7 +2756,7 @@ async function scanPreview(url, dur, pool) {
   pool.appendChild(v);
   try {
     v.src = url;
-    await withTimeout(once(v, "loadedmetadata"), 8000);
+    await withTimeout(once(v, "loadedmetadata"), loadMs[0]);
     const pd = v.duration;
     if (!(pd > 1) || !(dur > 0)) return null;
     const fr = await captureFrames(v, pd - 0.05, 4);
@@ -2766,7 +2801,7 @@ function funscriptHeat(s) {
   if (!s.fs) return Promise.resolve(null);
   if (!heatCache.has(s.id)) {
     const job = (async () => {
-      const fs = await withTimeout(fetch(s.fs, { credentials: "same-origin" }).then((r) => r.json()), 8000);
+      const fs = await withTimeout(fetch(s.fs, { credentials: "same-origin" }).then((r) => r.json()), loadMs[0]);
       const acts = (fs.actions || []).filter((a) => isFinite(a.at) && isFinite(a.pos)).sort((a, b) => a.at - b.at);
       if (acts.length < 4) return null;
       const way = new Float32Array(Math.ceil(acts[acts.length - 1].at / 1000 / HEAT_STEP) + 1);
@@ -2866,8 +2901,28 @@ async function pickByTags(kind, S, favId) {
 
 // The settings of one tag stage: its own tags instead of the general ones
 export function stageSettings(S, i) {
-  const st = S.stages[i] || { tags: [], xtags: [] };
+  const st = stageList(S).list[i] || { tags: [], xtags: [] };
   return Object.assign({}, S, { tags: st.tags || [], xtags: st.xtags || [] });
+}
+// The stages that run: the first ones follow the song, then (the last entry of S.stages) the drops, and – with
+// "Separate stage for the finale" – the finale (S.stageFin). Without that, the last stage plays on drops and in the finale.
+// A stage can be left out; then the running stage goes on there. → { list, reg: how many follow the song, dropI, finI }
+export function stageList(S) {
+  const stages = S.stages || [];
+  const list = stages.slice(0, -1);
+  const reg = list.length;
+  const last = stages[stages.length - 1] || { tags: [], xtags: [] };
+  let dropI = null;
+  let finI = null;
+  if (S.stageFinSep) {
+    if (!S.stageDropsOff) (dropI = list.length), list.push(last);
+    if (!S.stageFinOff) (finI = list.length), list.push(S.stageFin || { tags: [], xtags: [] });
+  } else if (!S.stageDropsOff || !S.stageFinOff) {
+    if (!S.stageDropsOff) dropI = list.length;
+    if (!S.stageFinOff) finI = list.length;
+    list.push(last);
+  }
+  return { list, reg, dropI, finI };
 }
 // Tag stages only work with the filters on the page
 const stagesActive = (S) => !!S.stagesOn && S.clipFrom === "filter" && Array.isArray(S.stages) && S.stages.length >= 2;
@@ -2945,6 +3000,33 @@ function drawWave(canvas, song) {
   // Bar lines (every 4th beat)
   c.fillStyle = "rgba(251, 239, 244, .35)";
   song.beats.forEach((t, k) => k % 4 === 0 && c.fillRect((t / song.duration) * W, 0, 1, 8));
+  // Drops: a bright line over the whole height with a marker on top (where the drop effects and the last tag stage start)
+  c.fillStyle = "#fff";
+  dropsOf(song).forEach((t) => {
+    const x = Math.round((t / song.duration) * W);
+    c.globalAlpha = 0.9;
+    c.fillRect(x - 1, 0, 2, H);
+    c.beginPath();
+    c.moveTo(x - 6, 0);
+    c.lineTo(x + 6, 0);
+    c.lineTo(x, 9);
+    c.fill();
+  });
+  c.globalAlpha = 1;
+}
+// The drops of a song – the same rule the show uses while it plays: the energy rises a lot within 4 beats, at most one per 16 beats
+function dropsOf(song) {
+  const out = [];
+  let last = -99;
+  const en = song.energy || [];
+  for (let k = 0; k < song.beats.length; k++) {
+    const e = en[k] || 0;
+    if (e - (en[k - 4] || 0) > 0.35 && e > 0.6 && k - last >= 16) {
+      out.push(song.beats[k]);
+      last = k;
+    }
+  }
+  return out;
 }
 
 // ==========================================================================
@@ -2964,6 +3046,7 @@ class Generator {
     this.S = S;
     skipS[0] = Math.max(0, Number(S.skipHead) || 0);
     skipS[1] = Math.max(0, Number(S.skipTail) || 0);
+    loadMs[0] = Math.max(5, Math.min(60, Number(S.loadTimeout) || 8)) * 1000;
     this.setBars();
     this.onClose = onClose;
     this.tpl = tpl || null;
@@ -2976,11 +3059,17 @@ class Generator {
     this.dir = S.split;
     [this.W, this.H] = this.sizeFor();
     // Tag stages (A → B → C, the last on drops and in the finale): their own supply each; needs a song with an end
-    this.nStages = stagesActive(S) && !this.tpl && !this.outside ? S.stages.length : 1;
+    this.stg = stagesActive(S) && !this.tpl && !this.outside ? stageList(S) : null;
+    this.nStages = this.stg ? this.stg.list.length : 1;
+    this.dropsSeen = 0; // drops so far (the next stage starts after each one)
     // Tag stages that can't run (Plex, a live app, a template: no song of known length): the tags of all stages count
     // together – instead of no tags at all (the general tag box is hidden while stages are on)
-    if (S.stagesOn && this.nStages < 2 && S.clipFrom === "filter" && Array.isArray(S.stages)) {
-      const all = [...new Set(S.stages.flatMap((st) => st.tags || []))];
+    if (this.stg && this.nStages < 2) {
+      // only one stage is left after leaving some out: its tags count
+      const only = this.stg.list[0] || {};
+      this.S = Object.assign({}, S, { tags: only.tags || [], xtags: only.xtags || [] });
+    } else if (S.stagesOn && this.nStages < 2 && S.clipFrom === "filter" && Array.isArray(S.stages)) {
+      const all = [...new Set([...S.stages, S.stageFin || {}].flatMap((st) => st.tags || []))];
       if (all.length) {
         this.S = Object.assign({}, S, { tags: all, tagMode: "any" });
         toast("Tag stages need your own song – here the tags of all stages count together", "ok");
@@ -3212,7 +3301,7 @@ class Generator {
   openMoments() {
     if (this.done) return;
     if (this.momentsEl) return this.closeMoments();
-    const clips = this.videos().filter((m) => m.id != null && !m.rg && m.el && m.el.duration > 0);
+    const clips = this.videos().filter((m) => m.id != null && !m.rg && !m.own && m.el && m.el.duration > 0);
     if (!clips.length) return toast("No clip of a scene on screen yet", "warn");
     this.momentsPaused = !this.paused;
     if (!this.paused) this.togglePause();
@@ -3479,7 +3568,7 @@ class Generator {
     const lists = await Promise.all(
       kinds.map(async (k) => {
         const q = k === "marker"
-          ? `query($f: FindFilterType, $x: SceneMarkerFilterType) { r: findSceneMarkers(filter: $f, scene_marker_filter: $x) { count scene_markers { id title seconds${Generator.noEnd ? "" : " end_seconds"} primary_tag { id name } tags { id name } scene { id title paths { stream sprite vtt } files { duration width height basename } performers { id } } } } }`
+          ? `query($f: FindFilterType, $x: SceneMarkerFilterType) { r: findSceneMarkers(filter: $f, scene_marker_filter: $x) { count scene_markers { id title seconds${Generator.noEnd ? "" : " end_seconds"}${this.S.markerOwn ? " stream" : ""} primary_tag { id name } tags { id name } scene { id title paths { stream sprite vtt } files { duration width height basename } performers { id } } } } }`
           : k === "scene"
           ? `query($f: FindFilterType, $x: SceneFilterType, $ids: [ID!]) { r: findScenes(filter: $f, scene_filter: $x, ids: $ids) { count scenes { id title interactive paths { stream sprite vtt funscript preview } files { duration width height basename } scene_markers { id seconds } performers { id } } } }`
           : `query($f: FindFilterType, $x: ImageFilterType, $ids: [ID!]) { r: findImages(filter: $f, image_filter: $x, ids: $ids) { count images { id title paths { image } visual_files { __typename ... on ImageFile { width height basename } } performers { id } } } }`;
@@ -3506,7 +3595,14 @@ class Generator {
             .filter((mk) => mk.scene && mk.scene.paths.stream)
             .map((mk) => ({ kind: "video", id: mk.scene.id, key: "marker:" + mk.id, end: mk.end_seconds || 0, tagNames: [(mk.primary_tag || {}).name, ...(mk.tags || []).map((x) => x.name)].filter(Boolean), url: mk.scene.paths.stream, dur: (mk.scene.files[0] || {}).duration || 0, w: (mk.scene.files[0] || {}).width || 0, h: (mk.scene.files[0] || {}).height || 0, marks: [], markers: [], at: mk.seconds,
               sprite: mk.scene.paths.sprite, vtt: mk.scene.paths.vtt, name: mk.title || (mk.primary_tag || {}).name || mk.scene.title || (mk.scene.files[0] || {}).basename || "Marker " + mk.id,
-              file: (mk.scene.files[0] || {}).basename || "", perf: (mk.scene.performers || []).map((pf) => pf.id) }));
+              file: (mk.scene.files[0] || {}).basename || "", perf: (mk.scene.performers || []).map((pf) => pf.id),
+              // where the marker sits (Follow the timeline for markers)
+              msec: mk.seconds, sdur: (mk.scene.files[0] || {}).duration || 0, tagIds: [(mk.primary_tag || {}).id, ...(mk.tags || []).map((x) => x.id)].filter(Boolean),
+              // Stash's own clip of the marker (a few MB, 640 px wide, opens fast): its time 0 is the marker's start. No clip made for
+              // it (a 404) → prepareFrom falls back to the scene (alt)
+              ...(this.S.markerOwn && mk.stream
+                ? { alt: { url: mk.scene.paths.stream, at: mk.seconds, end: mk.end_seconds || 0, dur: (mk.scene.files[0] || {}).duration || 0, own: false }, url: mk.stream, at: 0, end: mk.end_seconds > mk.seconds + 0.5 ? mk.end_seconds - mk.seconds : 0, dur: mk.end_seconds > mk.seconds ? mk.end_seconds - mk.seconds : 20, own: true }
+                : {}) }));
         }
         return items
           .map((x) =>
@@ -3592,6 +3688,11 @@ class Generator {
         const again = this.bySpeed(P, goal); // (clip speed follows the music)
         if (again) return again;
       }
+      // Markers that follow the song's timeline
+      if (!want && !tries && this.S.source === "marker" && this.S.markerTl && this.S.markerTl !== "off") {
+        const pick = this.byTimeline(P);
+        if (pick) return pick;
+      }
       // A shape is short (per-layout clip shape): take a source of that shape that is already known
       if (want) {
         const fits = (x) => x.w && x.h && (want === "portrait" ? x.h > x.w : x.w >= x.h) && !(this.badKeys && this.badKeys.has(x.key));
@@ -3615,6 +3716,51 @@ class Generator {
       // Variety: skip what was just shown or is being prepared (with a small selection, take it eventually)
       if (!this.S.variety || tries >= P.sources.length || !this.isRecent(s)) return s;
     }
+  }
+
+  // Markers that follow the song's timeline (Marker source): the marker that fits how far the song is.
+  //  scene: its place in its scene · time: its own time, ranked among the markers loaded · tag: the tags split the song into
+  //  equal stretches, inside one the earliest marker first (same-name markers of a scene run in order)
+  // → a source (moved up to the front of the line) or null (then the next in line)
+  byTimeline(P) {
+    const dur = this.song && this.song.duration;
+    if (!(dur > 0)) return null;
+    const prog = Math.min(1, Math.max(0, this.now() / dur));
+    const all = P.sources.filter((x) => x.msec != null && !(this.badKeys && this.badKeys.has(x.key)));
+    if (all.length < 2) return null;
+    const fresh = all.filter((x) => !this.isRecent(x));
+    const pool = fresh.length ? fresh : all;
+    const mode = this.S.markerTl;
+    let best = null;
+    let low = Infinity;
+    const score = (x, d) => {
+      const v = d + Math.random() * 0.002;
+      if (v < low) [low, best] = [v, x];
+    };
+    if (mode === "scene") pool.forEach((x) => score(x, Math.abs((x.sdur > 0 ? Math.min(1, x.msec / x.sdur) : 0.5) - prog)));
+    else if (mode === "time") {
+      const secs = all.map((x) => x.msec).sort((a, b) => a - b);
+      const rank = (t) => secs.filter((v) => v < t).length / Math.max(1, secs.length - 1);
+      pool.forEach((x) => score(x, Math.abs(Math.min(1, rank(x.msec)) - prog)));
+    } else {
+      const picked = (this.S.tags || []).map(String);
+      const groups = picked.length
+        ? picked.map((id) => (x) => (x.tagIds || []).map(String).includes(id))
+        : [...new Set(all.map((x) => (x.tagNames || [])[0]).filter(Boolean))].sort().map((n) => (x) => (x.tagNames || [])[0] === n);
+      const has = groups.length ? groups[Math.min(groups.length - 1, Math.floor(prog * groups.length))] : () => true;
+      let cand = pool.filter(has);
+      if (!cand.length) cand = all.filter(has);
+      if (!cand.length) cand = pool;
+      cand.forEach((x) => score(x, x.msec));
+    }
+    if (!best) return null;
+    const i = P.sources.indexOf(best);
+    if (i >= P.srcIdx) {
+      P.sources.splice(i, 1);
+      P.sources.splice(P.srcIdx, 0, best);
+      P.srcIdx++;
+    }
+    return best;
   }
 
   // Variety: the same scene within the last 24 clips or – softer – the same performer within the last 4
@@ -3836,7 +3982,11 @@ class Generator {
     const n = this.nStages;
     if (n < 2) return this.ready.length + this.preparing < cap ? 0 : -1;
     const cur = this.stageNow;
-    const wants = [[cur, cap], [n - 1, 6], [Math.min(cur + 1, n - 2), 4]];
+    const g = this.stg;
+    const wants = [[cur, cap]];
+    if (g.dropI != null) wants.push([g.dropI, 6]);
+    if (g.finI != null && g.finI !== g.dropI) wants.push([g.finI, 3]);
+    wants.push([Math.min(cur + 1, Math.max(0, g.reg - 1)), 4]);
     for (const [st, target] of wants) {
       const have = this.ready.filter((m) => m.stage === st).length + (this.prepN[st] || 0);
       if (have < target) return st;
@@ -3844,15 +3994,23 @@ class Generator {
     return -1;
   }
 
-  // Beat k at time t: which stage is playing. Stages 1…n-1 share the song up to the finale (the last tenth),
-  // the last stage plays on drops (two bars) and in the finale.
+  // Beat k at time t: which stage is playing. The stages that follow the song share it up to the finale (the last tenth –
+  // all of it when the finale has no stage), or the next one starts after each drop; the drops stage plays on drops
+  // (two bars), the finale stage in the finale.
   updateStage(t, drop, len) {
     if (this.nStages < 2) return;
-    const n = this.nStages;
-    if (drop) this.dropUntil = t + len * 8;
+    const g = this.stg;
+    if (drop) {
+      this.dropUntil = t + len * 8;
+      this.dropsSeen++;
+    }
     const dur = this.song.duration || 0;
     const prog = dur ? t / dur : 0;
-    this.stageNow = t < this.dropUntil || prog >= 0.9 ? n - 1 : Math.min(n - 2, Math.floor((prog / 0.9) * (n - 1)));
+    const regs = Math.max(1, g.reg);
+    if (g.finI != null && prog >= 0.9) this.stageNow = g.finI;
+    else if (g.dropI != null && t < this.dropUntil) this.stageNow = g.dropI;
+    else if (this.S.stageAfterDrop) this.stageNow = Math.min(regs - 1, this.dropsSeen);
+    else this.stageNow = Math.min(regs - 1, Math.floor((prog / (g.finI != null ? 0.9 : 1)) * regs));
   }
 
   async prepareOne(st = 0, want = null) {
@@ -3878,12 +4036,13 @@ class Generator {
       img.decoding = "async";
       if (s.cors) img.crossOrigin = "anonymous";
       img.src = s.url;
-      await withTimeout(img.decode(), 8000);
+      await withTimeout(img.decode(), loadMs[0]);
       const m = { kind: "image", el: img, w: img.naturalWidth, h: img.naturalHeight, id: s.id, key: s.key, perf: s.perf, rg: s.rg, kb: Math.random() < 0.5 ? 1 : -1, name: s.name, file: s.file, url: s.url };
       m.sig = await analyzeAsync(img, m.w, m.h);
       if (this.S.smartCrop) m.focus = m.sig.focus;
       return m;
     }
+    const ownTry = !!s.own; // (a marker's own clip: if it can't be played, the scene is the way)
     const v = document.createElement("video");
     v.muted = true;
     v.playsInline = true;
@@ -3897,7 +4056,7 @@ class Generator {
       const twin = !s.cors && [...this.pool.children].some((x) => x !== v && x.dataset.key === s.key);
       v.dataset.key = s.key;
       v.src = twin ? copyUrl(s.url, (this.copyN = (this.copyN || 0) + 1)) : s.url;
-      await withTimeout(once(v, "loadedmetadata"), 8000);
+      await withTimeout(once(v, "loadedmetadata"), loadMs[0]);
       // Opens but no picture (e.g. a codec the browser can't decode): skip it – else it's a black field
       if (!v.videoWidth || !v.videoHeight) throw Object.assign(new Error("no picture"), { why: "no picture – the browser can't decode this video (codec?)" });
       const dur = isFinite(v.duration) && v.duration > 0 ? v.duration : s.dur;
@@ -3908,8 +4067,8 @@ class Generator {
       const rand = () => (seq ? Math.max(seq.lo, Math.min(head, seq.hi)) + Math.random() * Math.max(0, seq.hi - Math.max(seq.lo, head)) : dur > 10 ? head + Math.random() * Math.max(0, Math.min(dur * 0.92 - 4, dur - 4 - tailX(dur)) - head) : 0);
       const seek = async (t) => {
         v.currentTime = t;
-        await withTimeout(once(v, "seeked"), 8000);
-        if (v.readyState < 2) await withTimeout(once(v, "loadeddata"), 8000);
+        await withTimeout(once(v, "seeked"), loadMs[0]);
+        if (v.readyState < 2) await withTimeout(once(v, "loadeddata"), loadMs[0]);
       };
       // A spot this scene hasn't been shown from lately (a few tries, then whatever comes)
       const fresh = (t) => !this.usedNear(s, t, dur);
@@ -3924,7 +4083,7 @@ class Generator {
       // Best moments: where the funscript (if any) is fast counts too
       const heat = this.S.bestSpots && s.at == null ? await funscriptHeat(s) : null;
       // Your best moments (Versus): most of the time straight there – no need to look around
-      const best = this.S.bestSpots && s.markers && s.markers.length ? await withTimeout(bestMarkers(), 8000).catch(() => null) : null;
+      const best = this.S.bestSpots && s.markers && s.markers.length ? await withTimeout(bestMarkers(), loadMs[0]).catch(() => null) : null;
       const bestHere = best ? s.markers.filter((mk) => best.has(mk.id) && mk.seconds < dur - 2 && inSeq(mk.seconds) && fresh(mk.seconds)) : [];
       // Clip speed follows the music: the spot of the scene's speed map that fits how fast the music will feel
       // when this clip comes on (goal, see prepareOne)
@@ -4063,7 +4222,7 @@ class Generator {
         }
         await seek(start);
       }
-      const m = { kind: "video", el: v, w: v.videoWidth, h: v.videoHeight, id: s.id, key: s.key, perf: s.perf, rg: s.rg, start, name: s.name, file: s.file, url: s.url, tagNames: s.tagNames,
+      const m = { kind: "video", el: v, w: v.videoWidth, h: v.videoHeight, id: s.id, key: s.key, perf: s.perf, rg: s.rg, start, name: s.name, file: s.file, url: s.url, tagNames: s.tagNames, own: !!s.own,
         motion: mo, heat: heat ? heat(start) : null, tempo, pulse, turnAt, speed: spd, pinned };
       // Where the clip turns back to its start (see loop()): a marker with an end – the clip stays inside it (the
       // scene would play on into something else) – else just before the scene's end: the video would start over
@@ -4079,6 +4238,12 @@ class Generator {
     } catch (e) {
       if (!e.why) e.why = v.error ? mediaError(v.error) : e.message === "Timed out" ? "didn't load within 8 s" : e.message;
       this.release({ kind: "video", el: v });
+      // The marker has no clip of its own (or it doesn't open): from the scene, as before – and from then on
+      if (ownTry) {
+        // (another clip of the same marker being prepared at once may have switched to the scene already)
+        if (s.alt) Object.assign(s, s.alt, { alt: null });
+        return await this.prepareFrom(s, goal);
+      }
       throw e;
     }
   }
@@ -4586,6 +4751,8 @@ class Generator {
     this.setBars();
     if (this.fsHandy && this.fsBuild()) this.fsHandy.setVariant(this.fs); // playlist: the new song gets its own script
     this.lastDrop = -99;
+    this.dropsSeen = 0;
+    this.dropUntil = -1;
     this.h("name").textContent = song.name;
     this.h("bpm").textContent = `${Math.round(song.bpm)} BPM`;
     this.log.push({ t: this.now(), type: "song", name: song.name });

@@ -2937,4 +2937,6 @@ export default {
   "Right": "右",
   "Left": "左",
   "Pull to scroll fast": "引いて高速スクロール",
+  "Jump to keyframes": "キーフレームへジャンプ",
+  "The mouse wheel, the arrow keys and the ±10 buttons jump to the nearest keyframe, like KMP or VLC: much faster with big 4K files, but the steps get a little uneven (+3…+7 s instead of +5). Only for MP4 / MOV played directly; clicks on the timeline stay exact.": "マウスホイール・矢印キー・±10ボタンで、KMPやVLCのように最寄りのキーフレームへジャンプします。大きな4Kファイルではずっと速くなりますが、移動量は少し不揃いになります（+5秒ではなく+3〜+7秒）。直接再生するMP4 / MOVのみ。タイムラインのクリックは正確なままです。",
 };

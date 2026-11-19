@@ -2914,4 +2914,6 @@ export default {
   "Right": "Derecha",
   "Left": "Izquierda",
   "Pull to scroll fast": "Tira para desplazarte rápido",
+  "Jump to keyframes": "Saltar a fotogramas clave",
+  "The mouse wheel, the arrow keys and the ±10 buttons jump to the nearest keyframe, like KMP or VLC: much faster with big 4K files, but the steps get a little uneven (+3…+7 s instead of +5). Only for MP4 / MOV played directly; clicks on the timeline stay exact.": "La rueda del ratón, las flechas y los botones ±10 saltan al fotograma clave más cercano, como KMP o VLC: mucho más rápido con archivos 4K grandes, pero los pasos son algo desiguales (+3…+7 s en vez de +5). Solo para MP4 / MOV reproducidos directamente; los clics en la línea de tiempo siguen siendo exactos.",
 };
