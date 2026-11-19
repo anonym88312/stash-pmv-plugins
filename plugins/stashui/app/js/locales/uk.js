@@ -2969,4 +2969,6 @@ export default {
   "Right": "Праворуч",
   "Left": "Ліворуч",
   "Pull to scroll fast": "Потягніть для швидкого прокручування",
+  "Jump to keyframes": "Перемотування по ключових кадрах",
+  "The mouse wheel, the arrow keys and the ±10 buttons jump to the nearest keyframe, like KMP or VLC: much faster with big 4K files, but the steps get a little uneven (+3…+7 s instead of +5). Only for MP4 / MOV played directly; clicks on the timeline stay exact.": "Коліщатко миші, стрілки та кнопки ±10 стрибають на найближчий ключовий кадр, як KMP чи VLC: з великими 4K-файлами це набагато швидше, але крок стає трохи нерівним (+3…+7 с замість +5). Лише для MP4 / MOV, що відтворюються напряму; клік по смузі лишається точним.",
 };
