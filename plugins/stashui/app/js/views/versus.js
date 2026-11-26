@@ -691,13 +691,15 @@ export function render(main, params = {}) {
     }
   }
 
-  // Which card is heard (null = none); browsers only allow sound after the first click on the page
+  // Which card is heard (null = none); browsers only allow sound after the first click on the page.
+  // Silent when "Sound in previews" is off, like the hover previews on the other pages.
   function sound(card) {
     const arena = body.querySelector("[data-arena]");
     if (!arena) return;
     const p = store.get("player", {});
+    const allowed = store.get("previewSound", true) && !p.muted;
     arena.querySelectorAll("[data-side] video").forEach((v) => {
-      const on = !!card && card.contains(v) && !p.muted;
+      const on = !!card && card.contains(v) && allowed;
       v.volume = p.volume == null ? 0.8 : p.volume;
       if (v.muted === !on) return;
       v.muted = !on;
